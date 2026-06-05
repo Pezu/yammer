@@ -1,0 +1,10 @@
+# Reference UI kit (not part of the app)
+/duralux/
+
+# Build output (api/ and web/ also have their own .gitignore)
+/target/
+
+# OS / editor / tooling
+.DS_Store
+.idea/
+.claude/

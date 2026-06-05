@@ -1,0 +1,71 @@
+<header class="page-header">
+  <h1>Sales</h1>
+</header>
+
+<section class="page-body">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  @if (!loading() && rows().length === 0) {
+    <div class="card"><div class="card-body"><p class="empty">No sales data yet.</p></div></div>
+  } @else {
+    <!-- Amount ordered + paid as two grouped bars per interval -->
+    <div class="card chart-card">
+      <div class="card-header">
+        <h5 class="card-title">Cumulative amount</h5>
+        <div class="legend">
+          <span class="lg"><i class="dot" style="background:#3454d1"></i>Ordered
+            <b>{{ totalOrdered() | number: '1.2-2' }}</b></span>
+          <span class="lg"><i class="dot" style="background:#25b865"></i>Paid
+            <b>{{ totalPaid() | number: '1.2-2' }}</b></span>
+          <span class="lg"><i class="dot" style="background:#e49e3d"></i>Paid + Protocol
+            <b>{{ totalPaid() + totalProtocol() | number: '1.2-2' }}</b></span>
+        </div>
+      </div>
+      <div class="card-body">
+        <svg class="chart" [attr.viewBox]="'0 0 ' + vw + ' ' + vh" role="img">
+          @for (g of amountChart().grid; track g.y) {
+            <line class="grid" [attr.x1]="amountChart().plotLeft" [attr.x2]="amountChart().plotRight" [attr.y1]="g.y" [attr.y2]="g.y" />
+            <text class="y-lbl" [attr.x]="amountChart().plotLeft - 8" [attr.y]="g.y + 3">{{ g.label }}</text>
+          }
+          @for (s of amountChart().series; track s.name) {
+            <path [attr.d]="s.line" fill="none" [attr.stroke]="s.color" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+          }
+          @for (t of amountChart().xticks; track t.x) {
+            <text class="x-lbl" [attr.x]="t.x" [attr.y]="amountChart().plotBottom + 18">{{ t.label }}</text>
+          }
+        </svg>
+      </div>
+    </div>
+
+    <!-- Number of orders per interval -->
+    <div class="card chart-card">
+      <div class="card-header">
+        <h5 class="card-title">Orders <span class="per">/ 10 min</span></h5>
+        <div class="legend">
+          <span class="lg"><i class="dot" style="background:#e49e3d"></i>Orders
+            <b>{{ totalOrders() | number: '1.0-0' }}</b></span>
+        </div>
+      </div>
+      <div class="card-body">
+        <svg class="chart" [attr.viewBox]="'0 0 ' + vw + ' ' + vh" role="img">
+          @for (g of ordersChart().grid; track g.y) {
+            <line class="grid" [attr.x1]="ordersChart().plotLeft" [attr.x2]="ordersChart().plotRight" [attr.y1]="g.y" [attr.y2]="g.y" />
+            <text class="y-lbl" [attr.x]="ordersChart().plotLeft - 8" [attr.y]="g.y + 3">{{ g.label }}</text>
+          }
+          @for (s of ordersChart().series; track s.name) {
+            @for (b of s.bars; track $index) {
+              <path class="bar" [attr.d]="b.d" [attr.fill]="s.color">
+                <title>{{ b.title }}</title>
+              </path>
+            }
+          }
+          @for (t of ordersChart().xticks; track t.x) {
+            <text class="x-lbl" [attr.x]="t.x" [attr.y]="ordersChart().plotBottom + 18">{{ t.label }}</text>
+          }
+        </svg>
+      </div>
+    </div>
+  }
+</section>

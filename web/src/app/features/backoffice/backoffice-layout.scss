@@ -1,0 +1,266 @@
+:host {
+  display: block;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  flex: 0 0 250px;
+  width: 250px;
+  background: #fff;
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 64px;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 800;
+  font-size: 1.1rem;
+
+  img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+  }
+}
+
+.menu {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 0.5rem;
+}
+
+.caption {
+  padding: 0.75rem 0.75rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+
+  .icon {
+    display: inline-flex;
+    color: var(--muted);
+  }
+
+  .text {
+    flex: 1;
+    text-align: left;
+  }
+
+  .arrow {
+    display: inline-flex;
+    color: var(--muted);
+    transition: transform 0.2s ease-in-out;
+  }
+}
+
+.group.open .group-toggle .arrow {
+  transform: rotate(90deg);
+}
+
+.submenu {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0 0 0 1.65rem;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.2s ease-in-out;
+}
+
+.group.open .submenu {
+  max-height: 500px;
+}
+
+.submenu-link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+
+  &.active {
+    color: var(--primary);
+    background: rgba(52, 84, 209, 0.08);
+    font-weight: 600;
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+}
+
+/* top bar with the logged-in user */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 64px;
+  padding: 0 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+
+  .uname {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .caret {
+    display: inline-flex;
+    color: var(--muted);
+  }
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(52, 84, 209, 0.12);
+  border-radius: 50%;
+
+  &.lg {
+    width: 42px;
+    height: 42px;
+    font-size: 0.95rem;
+  }
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 21;
+  width: 240px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 0.5rem 1.5rem rgba(18, 27, 46, 0.15);
+  overflow: hidden;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem;
+
+  .meta {
+    min-width: 0;
+  }
+
+  .name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+
+  &.logout:hover {
+    color: var(--danger);
+  }
+}

@@ -1,0 +1,41 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+/* role chips (display mode) */
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(52, 84, 209, 0.08);
+  border-radius: 999px;
+}
+
+/* role checkboxes (edit/draft mode) */
+.role-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  input {
+    cursor: pointer;
+  }
+}

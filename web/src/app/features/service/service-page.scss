@@ -1,0 +1,256 @@
+:host {
+  display: block;
+  height: 100vh;
+  background: #fff;
+}
+
+.service {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 800;
+
+    img {
+      height: 22px;
+    }
+  }
+
+  .right {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .user {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    &.logout:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+  }
+}
+
+.error {
+  margin: 0.5rem 1rem 0;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--danger);
+  background: rgba(234, 77, 77, 0.1);
+  border: 1px solid rgba(234, 77, 77, 0.25);
+  border-radius: 6px;
+}
+
+.board {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  min-height: 0;
+  padding: 0.75rem;
+  gap: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 0.75rem;
+  transition: background 0.12s ease-in-out;
+
+  /* light-gray vertical line between the two columns */
+  &:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+
+  &.drop-target {
+    background: #f5f8ff;
+  }
+}
+
+.col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+
+  .col-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.7rem 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(18, 27, 46, 0.04);
+  touch-action: none; /* immediate pointer drag on touch, no long-press */
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &.dim {
+    opacity: 0.35;
+  }
+}
+
+/* floating clone that follows the pointer while dragging */
+.drag-ghost {
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(18, 27, 46, 0.22);
+  opacity: 0.97;
+  transform: rotate(-1deg);
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  .head-left {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .op {
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+
+  .time {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.waiter {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.items {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    line-height: 1.8;
+  }
+
+  .qty {
+    font-weight: 700;
+    color: var(--text);
+    min-width: 1.6rem;
+  }
+
+  .iname {
+    min-width: 0;
+  }
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+
+  &.fwd:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  &.fwd.ok:hover {
+    color: #10b981;
+    border-color: #10b981;
+  }
+  &.done {
+    color: #10b981;
+    border-color: #10b981;
+  }
+  &.done:hover {
+    color: #fff;
+    background: #10b981;
+  }
+  &.back:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+}

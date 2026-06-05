@@ -1,0 +1,147 @@
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand">
+      <app-logo [height]="48" />
+    </div>
+
+    <ul class="menu">
+      <li class="caption">Backoffice</li>
+
+      <li class="group" [class.open]="configOpen()">
+        <button type="button" class="group-toggle" (click)="toggleConfig()">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+          <span class="text">Configuration</span>
+          <span class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <ul class="submenu">
+          @if (isSuper()) {
+            <li>
+              <a routerLink="clients" routerLinkActive="active" class="submenu-link">Clients</a>
+            </li>
+          }
+          <li>
+            <a routerLink="users" routerLinkActive="active" class="submenu-link">Users</a>
+          </li>
+          <li>
+            <a routerLink="locations" routerLinkActive="active" class="submenu-link">Locations</a>
+          </li>
+          <li>
+            <a routerLink="menu" routerLinkActive="active" class="submenu-link">Menu</a>
+          </li>
+          <li>
+            <a routerLink="order-points" routerLinkActive="active" class="submenu-link">Order Points</a>
+          </li>
+          <li>
+            <a routerLink="assign" routerLinkActive="active" class="submenu-link">Assign</a>
+          </li>
+          <li>
+            <a routerLink="integrations" routerLinkActive="active" class="submenu-link">Integrations</a>
+          </li>
+        </ul>
+      </li>
+
+      @if (isSuper()) {
+        <li class="group" [class.open]="catalogOpen()">
+          <button type="button" class="group-toggle" (click)="toggleCatalog()">
+            <span class="icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+            </span>
+            <span class="text">Catalog</span>
+            <span class="arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </span>
+          </button>
+
+          <ul class="submenu">
+            <li>
+              <a routerLink="vat" routerLinkActive="active" class="submenu-link">VAT</a>
+            </li>
+            <li>
+              <a routerLink="roles" routerLinkActive="active" class="submenu-link">Roles</a>
+            </li>
+          </ul>
+        </li>
+      }
+
+      <li class="group" [class.open]="reportsOpen()">
+        <button type="button" class="group-toggle" (click)="toggleReports()">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"></path><rect x="7" y="11" width="3" height="6"></rect><rect x="12" y="7" width="3" height="10"></rect><rect x="17" y="13" width="3" height="4"></rect>
+            </svg>
+          </span>
+          <span class="text">Reports</span>
+          <span class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <ul class="submenu">
+          <li>
+            <a routerLink="reports/orders" routerLinkActive="active" class="submenu-link">Orders</a>
+          </li>
+          <li>
+            <a routerLink="reports/products" routerLinkActive="active" class="submenu-link">Products</a>
+          </li>
+          <li>
+            <a routerLink="reports/sales" routerLinkActive="active" class="submenu-link">Sales</a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="user-menu">
+        <button type="button" class="user-chip" (click)="toggleUserMenu()">
+          <span class="avatar">{{ initials() }}</span>
+          <span class="uname">{{ username() }}</span>
+          <span class="caret" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </span>
+        </button>
+
+        @if (userMenuOpen()) {
+          <div class="menu-backdrop" (click)="closeUserMenu()"></div>
+          <div class="user-dropdown">
+            <div class="dropdown-header">
+              <span class="avatar lg">{{ initials() }}</span>
+              <div class="meta">
+                <div class="name">{{ username() }}</div>
+                @if (roles().length) {
+                  <div class="sub">{{ roles().join(', ') }}</div>
+                }
+              </div>
+            </div>
+            <div class="divider"></div>
+            <button type="button" class="dropdown-item logout" (click)="logout()">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              <span>Logout</span>
+            </button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

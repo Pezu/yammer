@@ -1,0 +1,81 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+.parent-col {
+  width: 22%;
+  white-space: nowrap;
+}
+
+.parent {
+  font-weight: 700;
+}
+
+/* the combo fills the whole cell, edge to edge, no padding around it */
+.users-cell {
+  padding: 0;
+}
+
+.users-combo {
+  display: block;
+  width: 100%;
+
+  .combo-trigger {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    padding: 0.65rem 0.85rem;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    text-align: left;
+
+    span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  /* dropdown matches the cell width */
+  .combo-menu {
+    width: 100%;
+  }
+}
+
+/* checkbox-style multi-select option */
+.combo-option.check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+
+  .box {
+    display: inline-grid;
+    place-content: center;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    border: 1px solid #d0d5dd;
+    border-radius: 4px;
+    background: #fff;
+    color: #16a34a;
+  }
+
+  .box.on {
+    border-color: #16a34a;
+  }
+
+  .uname {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &.active {
+    background: rgba(22, 163, 74, 0.08);
+    color: var(--text);
+    font-weight: 600;
+  }
+}

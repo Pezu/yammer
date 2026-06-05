@@ -1,0 +1,76 @@
+<header class="order-head">
+  <button type="button" class="back" (click)="back()" aria-label="Back">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    <span class="title" [innerHTML]="titleHtml()"></span>
+  </button>
+</header>
+
+<section class="order-body">
+  @if (loading()) {
+    <p class="state">Loading…</p>
+  } @else if (error()) {
+    <p class="state err">{{ error() }}</p>
+  } @else if (!menu()?.menuId) {
+    <p class="state">No menu is set for this order point.</p>
+  } @else if (summaryOpen()) {
+    <!-- cart summary -->
+    @if (cart().length === 0) {
+      <p class="state">Your cart is empty.</p>
+    } @else {
+      @if (placeError()) {
+        <p class="state err">{{ placeError() }}</p>
+      }
+      <ul class="cart-list">
+        @for (line of cart(); track line.menuItemId) {
+          <li class="cart-line">
+            <span class="cl-name" [innerHTML]="html(line.name)"></span>
+            <div class="stepper">
+              <button type="button" class="dec" (click)="decrease(line.menuItemId)" aria-label="Less">−</button>
+              <span class="qty">{{ line.quantity }}</span>
+              <button type="button" class="inc" (click)="increase({ id: line.menuItemId, name: line.name, orderable: true, price: line.price, vatTypeId: null, children: [] })" aria-label="More">+</button>
+            </div>
+            <span class="cl-total">{{ line.price * line.quantity | number: '1.2-2' }} RON</span>
+          </li>
+        }
+      </ul>
+    }
+  } @else if (currentItems().length === 0) {
+    <p class="state">Nothing here.</p>
+  } @else {
+    <!-- menu grid -->
+    <div class="grid">
+      @for (n of currentItems(); track n.id) {
+        <button type="button" class="tile" [class.category]="isCategory(n)" (click)="tap(n)">
+          @if (!isCategory(n) && qty(n.id) > 0) {
+            <span class="qty-dec" role="button" aria-label="Remove one" (click)="decrease(n.id, $event)">−</span>
+            <span class="qty-badge">{{ qty(n.id) }}</span>
+          }
+          @if (isCategory(n)) {
+            <span class="folder" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
+            </span>
+          }
+          <span class="name" [innerHTML]="html(n.name)"></span>
+          @if (!isCategory(n) && n.price !== null) {
+            <span class="price">{{ n.price | number: '1.2-2' }} RON</span>
+          }
+        </button>
+      }
+    </div>
+  }
+</section>
+
+@if (!loading() && menu()?.menuId) {
+  <footer class="cart-bar">
+    <div class="info">
+      <span class="total">TOTAL: {{ total() | number: '1.2-2' }} RON</span>
+    </div>
+    @if (summaryOpen()) {
+      <button type="button" class="primary" [disabled]="!cart().length || placing()" (click)="placeOrder()">
+        {{ placing() ? 'Placing…' : 'Place order' }}
+      </button>
+    } @else {
+      <button type="button" class="primary" [disabled]="!cart().length" (click)="openSummary()">View cart</button>
+    }
+  </footer>
+}

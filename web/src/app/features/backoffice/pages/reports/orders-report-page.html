@@ -1,0 +1,56 @@
+<header class="page-header">
+  <h1>Orders</h1>
+</header>
+
+<section class="page-body">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  <div class="card">
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="when-col">Date</th>
+            <th class="op-col">Order point</th>
+            <th class="who-col">Waiter</th>
+            <th>Items</th>
+            <th class="num-col">Total</th>
+            <th class="status-col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (o of orders(); track o.id) {
+            <tr>
+              <td class="when-col">{{ o.createdAt | date: 'dd-MM-yyyy HH:mm' }}</td>
+              <td class="op-col"><span class="op">{{ o.orderPointName }}</span></td>
+              <td class="who-col">{{ o.createdBy || '—' }}</td>
+              <td>
+                <ul class="items">
+                  @for (it of o.items; track it.id) {
+                    <li>
+                      <span class="q">{{ it.quantity }}×</span>
+                      <span class="iname" [innerHTML]="html(it.name)"></span>
+                      @if (it.price !== null) {
+                        <span class="iprice">{{ it.price | number: '1.2-2' }}</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              </td>
+              <td class="num-col">{{ o.total | number: '1.2-2' }} RON</td>
+              <td class="status-col"><span class="badge">{{ o.status }}</span></td>
+            </tr>
+          }
+
+          @if (!loading() && orders().length === 0) {
+            <tr>
+              <td colspan="6" class="empty">No orders yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

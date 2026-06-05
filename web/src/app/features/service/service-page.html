@@ -1,0 +1,85 @@
+<div class="service">
+  <header class="topbar">
+    <span class="brand">
+      <app-logo [height]="38" />
+      <span>Orders</span>
+    </span>
+    <div class="right">
+      <span class="user">{{ username() }}</span>
+      <button type="button" class="icon-btn" (click)="toggleFullscreen()" [attr.aria-label]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+        @if (fullscreen()) {
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg>
+        } @else {
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+        }
+      </button>
+      <button type="button" class="icon-btn logout" (click)="logout()" aria-label="Logout">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  <div class="board">
+    @for (col of columns; track col.status) {
+      <section class="column" [class.drop-target]="dragOver() === col.status" [attr.data-col]="col.status">
+        <div class="col-head" [style.borderBottomColor]="col.color">
+          <span class="col-title">{{ col.label }}</span>
+        </div>
+
+        <div class="col-body">
+          @for (o of ordersFor(col.status); track o.id) {
+            <article
+              class="card"
+              [class.dim]="dragging() === o.id"
+              (pointerdown)="onPointerDown(o, $event)"
+              (pointermove)="onPointerMove($event)"
+              (pointerup)="onPointerUp($event)"
+              (pointercancel)="onPointerCancel($event)"
+            >
+              <div class="card-head">
+                <span class="head-left">
+                  <span class="op">{{ o.orderPointName }}</span>
+                  @if (o.createdBy) {
+                    <span class="waiter">{{ o.createdBy }}</span>
+                  }
+                </span>
+                <span class="time">{{ time(o.createdAt) }}</span>
+              </div>
+
+              <ul class="items">
+                @for (it of o.items; track it.id) {
+                  <li>
+                    <span class="qty">{{ it.quantity }}×</span>
+                    <span class="iname" [innerHTML]="html(it.name)"></span>
+                  </li>
+                }
+              </ul>
+
+              <div class="card-foot">
+                <div class="actions">
+                  @if (o.status === 'ORDERED') {
+                    <button type="button" class="act fwd ok" (click)="ready(o)" title="Mark ready">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                  } @else if (o.status === 'READY') {
+                    <button type="button" class="act back" (click)="back(o)" title="Move back">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button type="button" class="act done" (click)="deliver(o)" title="Delivered">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
+                  }
+                </div>
+              </div>
+            </article>
+          }
+
+        </div>
+      </section>
+    }
+  </div>
+</div>

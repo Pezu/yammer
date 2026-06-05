@@ -1,0 +1,37 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+.id-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ip-col {
+  width: 26%;
+}
+
+.type-col {
+  width: 22%;
+}
+
+/* per-row type picker fills its cell (overrides the header combo min-width) */
+.type-combo {
+  display: block;
+
+  .combo-trigger {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.id-col .mono {
+  font-size: 0.78rem;
+}

@@ -1,0 +1,507 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+.page-body {
+  padding: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* selectors live in the page header next to the title */
+.page-header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.header-actions {
+  flex-wrap: wrap;
+}
+
+.combo-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+  }
+}
+
+.btn-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+}
+
+.btn-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+
+  &.ghost {
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+  }
+}
+
+/* ---- menu card panel ---- */
+.menu-panel {
+  width: 100%;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+
+  .muted {
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 0.2rem;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+
+  &.sm {
+    width: 28px;
+    height: 28px;
+  }
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+
+  &.primary {
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
+
+    &:hover {
+      background: var(--primary-hover);
+    }
+  }
+
+  &.danger:hover {
+    color: #fff;
+    background: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
+.save-status {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-left: 0.2rem;
+}
+
+/* ---- tree ---- */
+.menu-tree {
+  padding: 0;
+}
+
+.tree-empty {
+  padding: 1.5rem 1.25rem;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-right: 1.25rem;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+}
+
+.row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease-in-out;
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.folder-icon {
+  display: inline-flex;
+  color: #f59e0b; /* amber folders, like event */
+}
+
+.leaf-dot {
+  display: inline-block;
+  width: 22px;
+  text-align: center;
+  color: var(--muted);
+
+  &::before {
+    content: '•';
+  }
+}
+
+.item-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.node-text {
+  font-size: 0.9rem;
+  color: var(--text);
+
+  &.category {
+    font-weight: 600;
+  }
+}
+
+.item-price {
+  font-size: 0.68rem; /* 20% smaller */
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.item-vat {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(52, 84, 209, 0.08);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---- item editor modal (event-style) ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 27, 46, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1rem 3rem rgba(18, 27, 46, 0.25);
+  /* no overflow:hidden — it clipped the VAT dropdown that opens past the modal's edge */
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+
+  h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+}
+
+.close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(52, 84, 209, 0.15);
+  }
+}
+
+/* VAT custom combo fills the modal field width */
+.vat-combo {
+  display: block;
+
+  .combo-trigger {
+    width: 100%;
+  }
+}
+
+/* compact inline VAT combo in a product row */
+.inline-vat {
+  display: inline-block;
+
+  .combo-trigger {
+    width: auto;
+    min-width: 64px;
+    gap: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .combo-menu {
+    min-width: 90px;
+  }
+}
+
+/* rich-text (HTML) name editor */
+.rich-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--page-bg);
+}
+
+.rt-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+  }
+}
+
+.rt-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 0.25rem;
+}
+
+.rt-select {
+  height: 28px;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rt-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.rich-editor {
+  min-height: 42px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: var(--muted);
+  }
+}
+
+.btn {
+  padding: 0.5rem 1.1rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &.btn-primary {
+    color: #fff;
+    background: var(--primary);
+
+    &:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &.btn-secondary {
+    color: var(--text);
+    background: #fff;
+    border-color: var(--border);
+  }
+}

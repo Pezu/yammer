@@ -1,0 +1,293 @@
+<header class="page-header">
+  <h1>Menu</h1>
+  <div class="header-actions">
+    @if (isSuper()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!clientId()" (click)="toggleClientCombo()">
+          <span>{{ clientName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (clientComboOpen()) {
+          <div class="combo-backdrop" (click)="closeClientCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #cq placeholder="Search clients…" [value]="clientSearch()" (input)="clientSearch.set(cq.value)" (keyup.escape)="closeClientCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (c of clientOptions(); track c.id) {
+                <li><button type="button" class="combo-option" [class.active]="c.id === clientId()" (click)="selectClient(c.id)">{{ c.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No clients found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+
+    @if (clientChosen()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!locationId()" (click)="toggleLocationCombo()">
+          <span>{{ locationName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (locationComboOpen()) {
+          <div class="combo-backdrop" (click)="closeLocationCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #lq placeholder="Search locations…" [value]="locationSearch()" (input)="locationSearch.set(lq.value)" (keyup.escape)="closeLocationCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (l of locationOptions(); track l.id) {
+                <li><button type="button" class="combo-option" [class.active]="l.id === locationId()" (click)="selectLocation(l.id)">{{ l.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No locations found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+
+    @if (locationId()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!menuId()" (click)="toggleMenuCombo()">
+          <span>{{ selectedMenuName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (menuComboOpen()) {
+          <div class="combo-backdrop" (click)="closeMenuCombo()"></div>
+          <div class="combo-menu">
+            <ul class="combo-list">
+              @for (m of menus(); track m.id) {
+                <li><button type="button" class="combo-option" [class.active]="m.id === menuId()" (click)="selectMenu(m.id)">{{ m.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No menus yet</li>
+              }
+            </ul>
+            <div class="combo-footer">
+              @if (addingMenu()) {
+                <input type="text" #nm placeholder="Menu name" (keyup.enter)="createMenu(nm.value)" (keyup.escape)="cancelAddMenu()" autofocus />
+                <button type="button" class="btn-sm" (click)="createMenu(nm.value)">Add</button>
+                <button type="button" class="btn-sm ghost" (click)="cancelAddMenu()">Cancel</button>
+              } @else {
+                <button type="button" class="btn-create" (click)="startAddMenu()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  New menu
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</header>
+
+<section class="page-body">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  @if (!clientChosen()) {
+    <div class="select-prompt">Select a client to begin.</div>
+  } @else if (!locationId()) {
+    <div class="select-prompt">Select a location to manage its menus.</div>
+  } @else if (!menuId()) {
+    <div class="select-prompt">Select or create a menu.</div>
+  } @else {
+    <!-- Menu editor card -->
+    <div class="card menu-panel">
+      <div class="card-header">
+        <h6 class="card-title">{{ selectedMenuName() }} <span class="muted">— {{ locationName() }}</span></h6>
+        <div class="header-actions">
+          <button type="button" class="action-btn" (click)="expandAll()" title="Expand all" aria-label="Expand all">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>
+          </button>
+          <button type="button" class="action-btn" (click)="collapseAll()" title="Collapse all" aria-label="Collapse all">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"></polyline><polyline points="17 18 12 13 7 18"></polyline></svg>
+          </button>
+          <button type="button" class="action-btn primary" (click)="openAddCategory()" title="Add category" aria-label="Add category">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <span class="header-sep"></span>
+          <button type="button" class="action-btn danger" (click)="removeMenu(selectedMenu()!)" title="Delete menu" aria-label="Delete menu">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+          @if (saving()) {
+            <span class="save-status">Saving…</span>
+          }
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="menu-tree">
+          @if (tree().length === 0) {
+            <p class="tree-empty muted">No items yet — add a category to start.</p>
+          }
+          <ng-container *ngTemplateOutlet="branch; context: { $implicit: tree(), depth: 0 }"></ng-container>
+        </div>
+      </div>
+    </div>
+  }
+</section>
+
+<ng-template #branch let-nodes let-depth="depth">
+  @for (node of nodes; track node.key) {
+    @if (!node.orderable) {
+      <!-- category row -->
+      <div class="menu-row category-row" [style.padding-left.px]="20 + depth * 24">
+        <div class="row-left">
+          <button type="button" class="expand-btn" [class.open]="node.expanded" (click)="toggleExpand(node)" aria-label="Toggle">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+          <span class="folder-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
+          </span>
+          @if (node.name) {
+            <span class="node-text category" [innerHTML]="sanitizeHtml(node.name)"></span>
+          } @else {
+            <span class="node-text category muted">Untitled category</span>
+          }
+          <span class="item-count">({{ node.children.length }})</span>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="action-btn sm" (click)="openAddChild(node, false)" title="Add subcategory" aria-label="Add subcategory">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path><line x1="12" y1="11" x2="12" y2="16"></line><line x1="9.5" y1="13.5" x2="14.5" y2="13.5"></line></svg>
+          </button>
+          <button type="button" class="action-btn sm" (click)="openAddChild(node, true)" title="Add product" aria-label="Add product">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button type="button" class="action-btn sm" (click)="openEdit(node)" title="Edit" aria-label="Edit">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button type="button" class="action-btn sm danger" (click)="removeNode(nodes, node)" title="Delete" aria-label="Delete">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+      @if (node.expanded && node.children.length) {
+        <ng-container *ngTemplateOutlet="branch; context: { $implicit: node.children, depth: depth + 1 }"></ng-container>
+      }
+    } @else {
+      <!-- product row -->
+      <div class="menu-row item-row" [style.padding-left.px]="20 + depth * 24">
+        <div class="row-left">
+          <span class="leaf-dot"></span>
+          @if (node.name) {
+            <span class="node-text" [innerHTML]="sanitizeHtml(node.name)"></span>
+          } @else {
+            <span class="node-text muted">Untitled product</span>
+          }
+        </div>
+        <div class="row-right">
+          <div class="client-combo vat-combo inline-vat">
+            <button type="button" class="combo-trigger" [class.placeholder]="!node.vatTypeId" (click)="toggleRowVat(node)">
+              <span>{{ vatLabel(node.vatTypeId) || 'VAT' }}</span>
+              <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            @if (vatRowKey() === node.key) {
+              <div class="combo-backdrop" (click)="closeRowVat()"></div>
+              <div class="combo-menu">
+                <ul class="combo-list">
+                  @for (v of vatTypes(); track v.id) {
+                    <li><button type="button" class="combo-option" [class.active]="v.id === node.vatTypeId" (click)="selectRowVat(node, v.id)">{{ v.value }}%</button></li>
+                  } @empty {
+                    <li class="combo-empty">No VAT types defined</li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+          @if (node.price !== null) {
+            <span class="item-price">{{ node.price | number: '1.2-2' }} RON</span>
+          }
+          <button type="button" class="action-btn sm" (click)="openEdit(node)" title="Edit" aria-label="Edit">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button type="button" class="action-btn sm danger" (click)="removeNode(nodes, node)" title="Delete" aria-label="Delete">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+    }
+  }
+</ng-template>
+
+@if (pendingDeleteMenu(); as menu) {
+  <app-confirm-dialog
+    title="Delete menu"
+    [message]="'Delete menu &quot;' + menu.name + '&quot; and all its items?'"
+    confirmLabel="Delete"
+    [danger]="true"
+    (confirmed)="confirmDeleteMenu()"
+    (cancelled)="cancelDeleteMenu()"
+  />
+}
+
+<!-- item editor modal (category / product) -->
+@if (showModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>
+          {{ editingNode() ? 'Edit' : 'Add' }} {{ modalOrderable() ? 'product' : 'category' }}
+        </h3>
+        <button type="button" class="close-btn" (click)="closeModal()" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Name</label>
+          <div class="rich-toolbar">
+            <button type="button" class="rt-btn" (click)="exec('bold')" title="Bold"><b>B</b></button>
+            <button type="button" class="rt-btn" (click)="exec('italic')" title="Italic"><i>I</i></button>
+            <button type="button" class="rt-btn" (click)="exec('underline')" title="Underline"><u>U</u></button>
+            <span class="rt-sep"></span>
+            <select class="rt-select" #fs (change)="execFontSize(fs.value); fs.value = ''" title="Font size">
+              <option value="">Size</option>
+              <option value="1">Small</option>
+              <option value="3">Normal</option>
+              <option value="5">Large</option>
+              <option value="7">X-Large</option>
+            </select>
+            <input #rc type="color" class="rt-color" value="#283c50" (input)="execColor(rc.value)" title="Text color" />
+          </div>
+          <div #nameEditor class="rich-editor" contenteditable="true" data-placeholder="Name" (input)="syncName()" (paste)="onPaste($event)"></div>
+        </div>
+        @if (modalOrderable()) {
+          <div class="form-group">
+            <label>Price (RON)</label>
+            <input #fp type="number" step="0.01" min="0" class="form-control" [value]="formPrice()" (input)="formPrice.set(fp.value === '' ? null : +fp.value)" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>VAT</label>
+            <div class="client-combo vat-combo">
+              <button type="button" class="combo-trigger" [class.placeholder]="!formVatTypeId()" (click)="toggleVatCombo()">
+                <span>{{ selectedVatName() }}</span>
+                <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              @if (vatComboOpen()) {
+                <div class="combo-backdrop" (click)="closeVatCombo()"></div>
+                <div class="combo-menu">
+                  <ul class="combo-list">
+                    @for (v of vatTypes(); track v.id) {
+                      <li><button type="button" class="combo-option" [class.active]="v.id === formVatTypeId()" (click)="selectVat(v.id)">{{ v.value }}%</button></li>
+                    } @empty {
+                      <li class="combo-empty">No VAT types defined</li>
+                    }
+                  </ul>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveItem()" [disabled]="!hasName() || (modalOrderable() && !formVatTypeId())">Save</button>
+      </div>
+    </div>
+  </div>
+}

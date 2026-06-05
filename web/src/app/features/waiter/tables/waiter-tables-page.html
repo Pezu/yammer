@@ -1,0 +1,27 @@
+<header class="page-head">
+  <h1>Tables</h1>
+</header>
+
+<section class="page-body">
+  @if (loading()) {
+    <p class="state">Loading…</p>
+  } @else if (error()) {
+    <p class="state error">{{ error() }}</p>
+  } @else if (items().length === 0) {
+    <p class="state">You have no tables assigned.</p>
+  } @else {
+    <div class="grid">
+      @for (op of items(); track op.id) {
+        <a
+          class="tile"
+          [class.paid]="op.status === 'PAID'"
+          [class.unpaid]="op.status === 'UNPAID'"
+          [routerLink]="['/waiter/tables', op.id]"
+          [state]="{ name: op.name }"
+        >
+          <span class="name">{{ op.name }}</span>
+        </a>
+      }
+    </div>
+  }
+</section>

@@ -1,0 +1,250 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+/* the generated id column — narrow, monospaced, muted */
+.id-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.menu-col {
+  width: 22%;
+}
+
+.service-col {
+  width: 18%;
+}
+
+/* custom pickers inside the table (menu + service point) fill their cell,
+   overriding the header combo's fixed min-width */
+.menu-combo,
+.service-combo {
+  display: block;
+
+  .combo-trigger {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.paylater-col,
+.protocol-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.table thead th.paylater-col,
+.table thead th.protocol-col {
+  text-align: center;
+}
+
+/* custom checkbox: light-gray bordered square, green check when ticked */
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 21px;
+  height: 21px;
+  margin: 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
+
+  &::after {
+    content: '';
+    width: 12px;
+    height: 7px;
+    border-left: 2px solid #16a34a;
+    border-bottom: 2px solid #16a34a;
+    transform: rotate(-45deg) translateY(-1px);
+    opacity: 0;
+  }
+
+  &:checked::after {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(22, 163, 74, 0.4);
+    outline-offset: 1px;
+  }
+}
+
+/* split action — distinct from edit (which hovers to the brand blue) */
+.icon-btn.split:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+/* right-align the actions column so the delete button lines up across all
+   rows (pay-later rows have an extra split button) */
+.actions {
+  justify-content: flex-end;
+}
+
+.table thead th.actions-col {
+  text-align: right;
+}
+
+/* green check for the pay-later flag in display mode (nothing when false) */
+.check {
+  color: #16a34a;
+  vertical-align: middle;
+}
+
+/* --- "add multiple" modal --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 27, 46, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1rem 3rem rgba(18, 27, 46, 0.25);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+}
+
+.close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(52, 84, 209, 0.15);
+  }
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: 0.45rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &.btn-secondary {
+    color: var(--text);
+    background: #fff;
+    border-color: var(--border);
+
+    &:hover {
+      background: var(--page-bg);
+    }
+  }
+
+  &.btn-primary {
+    color: #fff;
+    background: var(--primary);
+
+    &:hover:not(:disabled) {
+      filter: brightness(0.95);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}

@@ -1,0 +1,72 @@
+:host {
+  display: block;
+}
+
+.page-head {
+  padding: 1rem 1rem 0.5rem;
+}
+.page-head h1 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.page-body {
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.state {
+  margin: 2rem 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.state.error {
+  color: var(--danger);
+}
+
+/* 3 squares per row; light-gray outline per tile, square corners, no fill */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--text);
+  text-decoration: none;
+  background: #fff;
+  border: 2px solid var(--border); /* light gray = no orders */
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  /* something to pay */
+  &.unpaid {
+    border-color: #f0a9a9;
+  }
+
+  /* all paid */
+  &.paid {
+    border-color: #9ed7b0;
+  }
+
+  &:active {
+    background: var(--page-bg);
+  }
+
+  .name {
+    font-size: 1.1rem;
+    font-weight: 400;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+}

@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: yammer
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/yammer?currentSchema=yammer}
+    username: ${DATABASE_USERNAME:yammer}
+    password: ${DATABASE_PASSWORD:yammerpass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    # No lazy JPA associations (FKs are plain UUID columns), so holding a DB
+    # connection for the whole request buys nothing — free it after the service layer.
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        default_schema: yammer
+        # Batch multi-row saveAll / per-line writes into fewer round-trips.
+        jdbc:
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: yammer
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# JWT signing config. Secret must be >= 32 bytes for HS256.
+# Override JWT_SECRET in any real environment.
+jwt:
+  secret: ${JWT_SECRET:dev-secret-change-me-please-32-bytes-minimum!!}
+  # Token time-to-live in milliseconds (default 24h).
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,59 @@
+<main class="auth">
+  <div class="card">
+    <div class="logo">
+      <app-logo [height]="92" />
+    </div>
+
+    <h1 class="title">Login</h1>
+    <h2 class="subtitle">Login to your account</h2>
+    <p class="lead">Welcome back to Yammer. Sign in with your account to continue.</p>
+
+    @if (error()) {
+      <div class="error" role="alert">{{ error() }}</div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field">
+        <input
+          type="text"
+          placeholder="Username"
+          formControlName="username"
+          autocomplete="username"
+          [class.invalid]="submitted() && form.controls.username.invalid"
+        />
+        @if (submitted() && form.controls.username.invalid) {
+          <small class="field-error">Username is required.</small>
+        }
+      </div>
+
+      <div class="field">
+        <input
+          type="password"
+          placeholder="Password"
+          formControlName="password"
+          autocomplete="current-password"
+          [class.invalid]="submitted() && form.controls.password.invalid"
+        />
+        @if (submitted() && form.controls.password.invalid) {
+          <small class="field-error">Password is required.</small>
+        }
+      </div>
+
+      <div class="row">
+        <label class="check">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span>Remember Me</span>
+        </label>
+        <a href="javascript:void(0);" class="link">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="btn" [disabled]="loading()">
+        @if (loading()) {
+          <span class="spinner" aria-hidden="true"></span> Signing in…
+        } @else {
+          Login
+        }
+      </button>
+    </form>
+  </div>
+</main>

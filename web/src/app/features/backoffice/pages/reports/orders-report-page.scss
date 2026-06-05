@@ -1,0 +1,90 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+/* keep cell content top-aligned since the items list can be tall */
+.table tbody td {
+  vertical-align: top;
+}
+
+.when-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.op-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.op {
+  font-weight: 700;
+}
+
+.who-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.num-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table thead th.num-col {
+  text-align: right;
+}
+
+.status-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .q {
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 1.6rem;
+  }
+
+  .iname {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .iprice {
+    color: var(--muted);
+    white-space: nowrap;
+  }
+}
+
+.total-row td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--primary);
+  background: rgba(52, 84, 209, 0.12);
+  border-radius: 999px;
+}

@@ -1,0 +1,119 @@
+<header class="page-header">
+  <h1>Assign</h1>
+  <div class="header-actions">
+    @if (isSuper()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!clientId()" (click)="toggleClientCombo()" aria-label="Select client">
+          <span>{{ clientName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (clientComboOpen()) {
+          <div class="combo-backdrop" (click)="closeClientCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #cq placeholder="Search clients…" [value]="clientSearch()" (input)="clientSearch.set(cq.value)" (keyup.escape)="closeClientCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (c of clientOptions(); track c.id) {
+                <li><button type="button" class="combo-option" [class.active]="c.id === clientId()" (click)="selectClient(c.id)">{{ c.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No clients found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+
+    @if (clientChosen()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!locationId()" (click)="toggleLocationCombo()" aria-label="Select location">
+          <span>{{ locationName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (locationComboOpen()) {
+          <div class="combo-backdrop" (click)="closeLocationCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #lq placeholder="Search locations…" [value]="locationSearch()" (input)="locationSearch.set(lq.value)" (keyup.escape)="closeLocationCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (l of locationOptions(); track l.id) {
+                <li><button type="button" class="combo-option" [class.active]="l.id === locationId()" (click)="selectLocation(l.id)">{{ l.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No locations found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</header>
+
+<section class="page-body">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  @if (!clientChosen()) {
+    <div class="select-prompt">Select a client to begin.</div>
+  } @else if (!locationId()) {
+    <div class="select-prompt">Select a location to assign its order points.</div>
+  } @else {
+    <div class="card">
+      <div class="card-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="parent-col">Order point</th>
+              <th>Assigned users</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.parentName) {
+              <tr>
+                <td class="parent-col"><span class="parent">{{ row.parentName }}</span></td>
+                <td class="users-cell">
+                  <div class="client-combo users-combo">
+                    <button type="button" class="combo-trigger" [class.placeholder]="!row.userIds.length" (click)="toggleCombo(row.parentName)">
+                      <span>{{ assignedLabel(row) }}</span>
+                      <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    @if (openParent() === row.parentName) {
+                      <div class="combo-backdrop" (click)="closeCombo()"></div>
+                      <div class="combo-menu">
+                        <ul class="combo-list">
+                          @for (u of users(); track u.id) {
+                            <li>
+                              <button type="button" class="combo-option check" [class.active]="isAssigned(row, u.id)" (click)="toggleUser(row, u.id)">
+                                <span class="box" [class.on]="isAssigned(row, u.id)">
+                                  @if (isAssigned(row, u.id)) {
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                  }
+                                </span>
+                                <span class="uname">{{ u.username }}</span>
+                              </button>
+                            </li>
+                          } @empty {
+                            <li class="combo-empty">No users for this client</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+
+            @if (!loading() && rows().length === 0) {
+              <tr>
+                <td colspan="2" class="empty">No order points at this location yet.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>
