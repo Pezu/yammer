@@ -1,45 +1,74 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { PaymentSummary, WaiterOrderPointService } from '../tables/waiter-order-point.service';
+
+type StatusFilter = 'ALL' | 'SUCCESS' | 'PENDING' | 'FAILED';
+const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'All' },
+  { value: 'SUCCESS', label: 'Success' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'FAILED', label: 'Failed' },
+];
 
 @Component({
   selector: 'app-waiter-payments-page',
   imports: [DecimalPipe],
   template: `
-    <header class="page-head"><h1>Payments</h1></header>
+    <header class="page-head">
+      <div class="view-combo">
+        <button type="button" class="combo-trigger" (click)="toggleCombo()">
+          <span>{{ filterLabel() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (comboOpen()) {
+          <div class="combo-backdrop" (click)="closeCombo()"></div>
+          <div class="combo-menu">
+            @for (o of options; track o.value) {
+              <button type="button" class="combo-opt" [class.active]="filter() === o.value" (click)="select(o.value)">{{ o.label }}</button>
+            }
+          </div>
+        }
+      </div>
+    </header>
 
     <section class="page-body">
       @if (loading()) {
         <p class="state">Loading…</p>
       } @else if (error()) {
         <p class="state err">{{ error() }}</p>
-      } @else if (rows().length === 0) {
-        <p class="state">No payments yet.</p>
+      } @else if (visibleRows().length === 0) {
+        <p class="state">No payments.</p>
       } @else {
         <table>
           <thead>
             <tr>
               <th class="tcol">Table</th>
-              <th class="acol">Amount</th>
               <th class="ccol">Type</th>
-              <th>Tips</th>
-              <th>Receipt</th>
+              <th class="acol">Amount</th>
+              <th class="acol">Tips</th>
+              <th class="scol">Status</th>
             </tr>
           </thead>
           <tbody>
-            @for (p of rows(); track p.id) {
-              <tr [class]="rowClass(p)">
+            @for (p of visibleRows(); track p.id) {
+              <tr>
                 <td class="tcol">{{ p.tableName }}</td>
-                <td class="num acol">{{ p.amount | number: '1.2-2' }}</td>
                 <td class="ccol">
                   @if (p.method === 'CASH') {
-                    <svg class="mic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Cash"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle></svg>
+                    <svg class="mic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Cash"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="m16.71 13.88.7.71-2.82 2.82"></path></svg>
                   } @else {
                     <svg class="mic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Card"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
                   }
                 </td>
-                <td class="num">{{ p.tip | number: '1.2-2' }}</td>
-                <td>{{ p.receiptNumber || '—' }}</td>
+                <td class="num acol">{{ p.amount | number: '1.2-2' }}</td>
+                <td class="num acol">{{ p.tip | number: '1.2-2' }}</td>
+                <td class="scol">
+                  <span class="dot"
+                    [class.success]="p.fiscalStatus === 'SUCCESS'"
+                    [class.pending]="p.fiscalStatus === 'PENDING'"
+                    [class.failed]="p.fiscalStatus === 'FAILED'"
+                    [attr.title]="p.fiscalStatus"></span>
+                </td>
               </tr>
               @if (p.fiscalStatus === 'FAILED') {
                 <tr class="row-failed fail-note">
@@ -66,17 +95,74 @@ import { PaymentSummary, WaiterOrderPointService } from '../tables/waiter-order-
       :host {
         display: block;
         background: #fff;
-        min-height: 100%;
+        min-height: calc(100dvh - 56px); /* fill the content area below the 56px topbar */
       }
       .page-head {
-        padding: 1rem 1rem 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0.85rem 1rem 0.6rem;
       }
-      .page-head h1 {
-        margin: 0;
-        font-size: 0.8rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+      .view-combo {
+        position: relative;
+      }
+      .combo-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.85rem;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--primary);
+        background: transparent;
+        border: 1px solid #a9c1ee;
+        border-radius: 8px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .combo-trigger .caret {
+        color: currentColor;
+      }
+      .combo-trigger:active {
+        background: rgba(52, 84, 209, 0.08);
+      }
+      .combo-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+      }
+      .combo-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 31;
+        min-width: 8rem;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 0.5rem 1.5rem rgba(18, 27, 46, 0.15);
+        overflow: hidden;
+      }
+      .combo-opt {
+        display: block;
+        width: 100%;
+        padding: 0.65rem 0.9rem;
+        font: inherit;
+        font-size: 0.9rem;
+        text-align: left;
+        color: var(--text);
+        background: none;
+        border: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .combo-opt:active {
+        background: var(--page-bg);
+      }
+      .combo-opt.active {
+        color: var(--primary);
+        font-weight: 700;
       }
       .page-body {
         padding: 0 0.25rem 1.5rem;
@@ -111,41 +197,54 @@ import { PaymentSummary, WaiterOrderPointService } from '../tables/waiter-order-
         letter-spacing: 0.02em;
         color: var(--muted);
       }
-      td.num,
-      th:nth-child(2),
-      th:nth-child(4) {
-        text-align: right;
-      }
       td.num {
+        text-align: center;
         font-variant-numeric: tabular-nums;
       }
       .tcol {
+        width: 3.5rem;
         font-weight: 700;
       }
       .acol {
         width: 4.2rem;
+        text-align: center;
       }
       .ccol {
         width: 2.4rem;
         text-align: center;
       }
-      th.ccol {
+      th.acol,
+      th.ccol,
+      th.scol {
+        text-align: center;
+      }
+      .scol {
+        width: 4.5rem;
         text-align: center;
       }
       .mic {
         vertical-align: middle;
         color: var(--muted);
       }
-      .row-success td {
-        background: rgba(22, 163, 74, 0.1);
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--muted);
+        vertical-align: middle;
       }
-      .row-pending td {
-        background: rgba(184, 130, 7, 0.1);
+      .dot.success {
+        background: #16a34a;
       }
-      .row-failed td {
-        background: rgba(234, 77, 77, 0.1);
+      .dot.pending {
+        background: #b88207;
+      }
+      .dot.failed {
+        background: var(--danger);
       }
       .fail-note td {
+        background: rgba(234, 77, 77, 0.1);
         border-bottom: 1px solid var(--border);
       }
       .fail-row {
@@ -186,6 +285,29 @@ export class WaiterPaymentsPage {
   readonly error = signal<string | null>(null);
   readonly retrying = signal<Set<string>>(new Set());
 
+  readonly options = FILTER_OPTIONS;
+  readonly filter = signal<StatusFilter>('FAILED');
+  readonly comboOpen = signal(false);
+  readonly filterLabel = computed(
+    () => FILTER_OPTIONS.find((o) => o.value === this.filter())?.label ?? 'All',
+  );
+  readonly visibleRows = computed(() =>
+    this.filter() === 'ALL'
+      ? this.rows()
+      : this.rows().filter((p) => p.fiscalStatus === this.filter()),
+  );
+
+  toggleCombo(): void {
+    this.comboOpen.update((o) => !o);
+  }
+  closeCombo(): void {
+    this.comboOpen.set(false);
+  }
+  select(value: StatusFilter): void {
+    this.filter.set(value);
+    this.comboOpen.set(false);
+  }
+
   constructor() {
     this.service.paymentsSummary().subscribe({
       next: (rows) => {
@@ -197,13 +319,6 @@ export class WaiterPaymentsPage {
         this.loading.set(false);
       },
     });
-  }
-
-  rowClass(p: PaymentSummary): string {
-    if (p.fiscalStatus === 'SUCCESS') return 'row-success';
-    if (p.fiscalStatus === 'PENDING') return 'row-pending';
-    if (p.fiscalStatus === 'FAILED') return 'row-failed';
-    return '';
   }
 
   retry(p: PaymentSummary): void {

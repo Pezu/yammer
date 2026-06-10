@@ -48,6 +48,30 @@
         }
       </div>
     }
+
+    @if (locationId()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!eventId()" (click)="toggleEventCombo()" aria-label="Select event">
+          <span>{{ eventName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (eventComboOpen()) {
+          <div class="combo-backdrop" (click)="closeEventCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #eq placeholder="Search events…" [value]="eventSearch()" (input)="eventSearch.set(eq.value)" (keyup.escape)="closeEventCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (e of eventOptions(); track e.id) {
+                <li><button type="button" class="combo-option" [class.active]="e.id === eventId()" (click)="selectEvent(e.id)">{{ e.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No events found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
   </div>
 </header>
 
@@ -59,7 +83,9 @@
   @if (!clientChosen()) {
     <div class="select-prompt">Select a client to begin.</div>
   } @else if (!locationId()) {
-    <div class="select-prompt">Select a location to assign its order points.</div>
+    <div class="select-prompt">Select a location to begin.</div>
+  } @else if (!eventId()) {
+    <div class="select-prompt">Select an event to assign its order points.</div>
   } @else {
     <div class="card">
       <div class="card-body">

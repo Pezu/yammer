@@ -10,7 +10,12 @@ public interface OrderPointAssignmentRepository
 
     List<OrderPointAssignmentEntity> findByLocationId(UUID locationId);
 
+    List<OrderPointAssignmentEntity> findByLocationIdAndEventId(UUID locationId, UUID eventId);
+
     List<OrderPointAssignmentEntity> findByLocationIdAndParentName(UUID locationId, String parentName);
+
+    List<OrderPointAssignmentEntity> findByLocationIdAndEventIdAndParentName(
+            UUID locationId, UUID eventId, String parentName);
 
     List<OrderPointAssignmentEntity> findByUserId(UUID userId);
 }

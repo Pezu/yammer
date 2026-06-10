@@ -16,6 +16,7 @@ import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
+import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.repository.PaymentRepository;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +66,7 @@ public class PaymentSplitService {
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
     private final CurrentUserProvider currentUser;
+    private final ApplicationEventPublisher eventPublisher;
 
     public LinePaymentResult pay(LinePaymentRequest request) {
         UserPrincipal me = requireAccessible(request.orderPointId());
@@ -90,9 +93,15 @@ public class PaymentSplitService {
                 .max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        return request.mode() == PaymentMode.FULL
+        LinePaymentResult result = request.mode() == PaymentMode.FULL
                 ? payFull(request, me, unpaid, tip)
                 : payPartial(request, me, unpaid, tip);
+
+        // Fiscalize non-protocol payments after this transaction commits.
+        if (result.paymentId() != null && request.method() != PaymentMethod.PROTOCOL) {
+            eventPublisher.publishEvent(new PaymentCommittedEvent(result.paymentId()));
+        }
+        return result;
     }
 
     // --- full ---

@@ -10,6 +10,8 @@ public interface OrderPointRepository extends JpaRepository<OrderPointEntity, UU
 
     List<OrderPointEntity> findByLocationIdOrderByName(UUID locationId);
 
+    List<OrderPointEntity> findByLocationIdAndEventIdOrderByName(UUID locationId, UUID eventId);
+
     List<OrderPointEntity> findByLocationIdIn(List<UUID> locationIds);
 
     /** Order points whose service point is one of the given order points. */

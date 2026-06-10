@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -12,6 +12,7 @@ const ROLE_HOME: Record<string, string> = {
   SERVICE: '/service',
   BARMAN: '/service',
   WAITER: '/waiter',
+  WATCHER: '/watcher',
 };
 const DEFAULT_HOME = '/backoffice';
 
@@ -21,10 +22,25 @@ const DEFAULT_HOME = '/backoffice';
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
-export class Login {
+export class Login implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+
+  // Lock zoom (pinch / double-tap) while the login form is shown.
+  private readonly viewportMeta = document.querySelector('meta[name="viewport"]');
+  private readonly previousViewport = this.viewportMeta?.getAttribute('content') ?? '';
+
+  constructor() {
+    this.viewportMeta?.setAttribute(
+      'content',
+      'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no',
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.viewportMeta?.setAttribute('content', this.previousViewport);
+  }
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);

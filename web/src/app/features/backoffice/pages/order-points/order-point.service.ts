@@ -6,27 +6,37 @@ import { environment } from '../../../../../environments/environment';
 export interface OrderPoint {
   id: string;
   locationId: string;
+  eventId: string | null;
   name: string;
   payLater: boolean;
   protocol: boolean;
   menuId: string | null;
   serviceOrderPointId: string | null;
+  printerId: string | null;
+  cashRegisterId: string | null;
 }
 
 export interface OrderPointInput {
   locationId: string;
+  eventId: string | null;
   name: string;
   payLater: boolean;
   protocol: boolean;
   menuId: string | null;
   serviceOrderPointId: string | null;
+  printerId: string | null;
+  cashRegisterId: string | null;
 }
 
 export interface OrderPointBatchInput {
   locationId: string;
+  eventId: string | null;
   count: number;
   payLater: boolean;
   menuId: string | null;
+  serviceOrderPointId: string | null;
+  printerId: string | null;
+  cashRegisterId: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,8 +44,11 @@ export class OrderPointService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/order-points`;
 
-  list(locationId: string): Observable<OrderPoint[]> {
-    const params = new HttpParams().set('locationId', locationId);
+  list(locationId: string, eventId: string): Observable<OrderPoint[]> {
+    let params = new HttpParams().set('locationId', locationId);
+    if (eventId) {
+      params = params.set('eventId', eventId);
+    }
     return this.http.get<OrderPoint[]>(this.baseUrl, { params });
   }
 

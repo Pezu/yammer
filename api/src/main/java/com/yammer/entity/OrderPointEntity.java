@@ -24,6 +24,9 @@ public class OrderPointEntity {
     @Column(name = "location_id", nullable = false)
     private UUID locationId;
 
+    @Column(name = "event_id")
+    private UUID eventId;
+
     @Column(nullable = false)
     private String name;
 
@@ -39,4 +42,12 @@ public class OrderPointEntity {
     /** For a pay-later point: the non-pay-later point that serves it. */
     @Column(name = "service_order_point_id")
     private UUID serviceOrderPointId;
+
+    /** Printer integration assigned to this order point. */
+    @Column(name = "printer_id")
+    private UUID printerId;
+
+    /** Cash register integration assigned to this order point. */
+    @Column(name = "cash_register_id")
+    private UUID cashRegisterId;
 }

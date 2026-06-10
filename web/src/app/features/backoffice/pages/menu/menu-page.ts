@@ -5,6 +5,7 @@ import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { Menu, MenuNode, MenuService } from './menu.service';
+import { Event, EventService } from '../events/event.service';
 import { VatService, VatType } from '../vat/vat.service';
 import { ConfirmDialog } from '../../../../shared/confirm-dialog/confirm-dialog';
 
@@ -30,6 +31,7 @@ export class MenuPage {
   private readonly clientService = inject(ClientService);
   private readonly locationService = inject(LocationService);
   private readonly menuService = inject(MenuService);
+  private readonly eventService = inject(EventService);
   private readonly vatService = inject(VatService);
   private readonly sanitizer = inject(DomSanitizer);
 
@@ -69,6 +71,19 @@ export class MenuPage {
   });
   readonly locationName = computed(
     () => this.locations().find((l) => l.id === this.locationId())?.name ?? 'Select a location…',
+  );
+
+  // --- event combo ---
+  readonly events = signal<Event[]>([]);
+  readonly eventId = signal<string>('');
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    return (q ? this.events().filter((e) => e.name.toLowerCase().includes(q)) : this.events()).slice(0, 5);
+  });
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'Select an event…',
   );
 
   // --- menu selector ---
@@ -167,9 +182,20 @@ export class MenuPage {
   }
   private loadVatTypes(): void {
     this.vatService.list().subscribe({
-      next: (v) => this.vatTypes.set(v),
+      next: (v) => {
+        this.vatTypes.set(v);
+        // when adding a product, default to 21% once the list is available
+        if (this.showModal() && !this.editingNode() && this.modalOrderable() && !this.formVatTypeId()) {
+          this.formVatTypeId.set(this.defaultVatTypeId());
+        }
+      },
       error: () => this.error.set('Failed to load VAT types.'),
     });
+  }
+
+  /** The id of the 21% VAT type (the default for new products), or '' if none. */
+  private defaultVatTypeId(): string {
+    return this.vatTypes().find((v) => Number(v.value) === 21)?.id ?? '';
   }
 
   sanitizeHtml(html: string): SafeHtml {
@@ -226,7 +252,7 @@ export class MenuPage {
   private resetLocation(): void {
     this.locationId.set('');
     this.locations.set([]);
-    this.resetMenus();
+    this.resetEvent();
   }
 
   // --- location ---
@@ -240,11 +266,45 @@ export class MenuPage {
   selectLocation(id: string): void {
     this.locationId.set(id);
     this.locationComboOpen.set(false);
-    this.resetMenus();
-    this.loadMenus(id);
+    this.resetEvent();
+    this.loadEvents(id);
   }
-  private loadMenus(locationId: string): void {
-    this.menuService.listMenus(locationId).subscribe({
+  private loadEvents(locationId: string): void {
+    this.eventService.list(locationId).subscribe({
+      next: (events) => {
+        this.events.set(events);
+        if (events.length === 1) {
+          this.selectEvent(events[0].id);
+        }
+      },
+      error: () => this.error.set('Failed to load events.'),
+    });
+  }
+  private resetEvent(): void {
+    this.eventId.set('');
+    this.events.set([]);
+    this.resetMenus();
+  }
+
+  // --- event ---
+  toggleEventCombo(): void {
+    this.eventSearch.set('');
+    this.eventComboOpen.update((o) => !o);
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    this.eventId.set(id);
+    this.eventComboOpen.set(false);
+    this.resetMenus();
+    this.loadMenus();
+  }
+  private loadMenus(): void {
+    if (!this.locationId() || !this.eventId()) {
+      return;
+    }
+    this.menuService.listMenus(this.locationId(), this.eventId()).subscribe({
       next: (menus) => {
         this.menus.set(menus);
         if (menus.length) {
@@ -294,7 +354,7 @@ export class MenuPage {
     if (!trimmed) {
       return;
     }
-    this.menuService.createMenu(this.locationId(), trimmed).subscribe({
+    this.menuService.createMenu(this.locationId(), this.eventId(), trimmed).subscribe({
       next: (menu) => {
         this.menus.update((list) => [...list, menu].sort((a, b) => a.name.localeCompare(b.name)));
         this.addingMenu.set(false);
@@ -347,7 +407,7 @@ export class MenuPage {
     this.modalOrderable.set(orderable);
     this.formName.set('');
     this.formPrice.set(orderable ? 0 : null);
-    this.formVatTypeId.set('');
+    this.formVatTypeId.set(orderable ? this.defaultVatTypeId() : '');
     this.vatComboOpen.set(false);
     this.showModal.set(true);
   }

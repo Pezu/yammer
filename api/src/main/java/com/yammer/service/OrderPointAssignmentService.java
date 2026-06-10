@@ -69,17 +69,23 @@ public class OrderPointAssignmentService {
 
     /** Every distinct parent at the location, each with the users currently assigned to it. */
     @Transactional(readOnly = true)
-    public List<ParentAssignmentResponse> list(UUID locationId) {
+    public List<ParentAssignmentResponse> list(UUID locationId, UUID eventId) {
         requireAccessibleLocation(locationId);
 
-        // distinct parents (preserve order-point name order)
+        // distinct parents (preserve order-point name order), scoped to the event when given
+        List<OrderPointEntity> ops = eventId != null
+                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
+                : orderPointRepository.findByLocationIdOrderByName(locationId);
         Set<String> parents = new LinkedHashSet<>();
-        for (var op : orderPointRepository.findByLocationIdOrderByName(locationId)) {
+        for (var op : ops) {
             parents.add(parentOf(op.getName()));
         }
 
+        List<OrderPointAssignmentEntity> assignments = eventId != null
+                ? assignmentRepository.findByLocationIdAndEventId(locationId, eventId)
+                : assignmentRepository.findByLocationId(locationId);
         Map<String, List<UUID>> byParent = new LinkedHashMap<>();
-        for (var a : assignmentRepository.findByLocationId(locationId)) {
+        for (var a : assignments) {
             byParent.computeIfAbsent(a.getParentName(), k -> new ArrayList<>()).add(a.getUserId());
         }
 
@@ -323,17 +329,27 @@ public class OrderPointAssignmentService {
     private List<OrderPointEntity> assignedOrderPoints(UserPrincipal me) {
         UserEntity user = userRepository.findByUsername(me.username())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        Map<UUID, Set<String>> parentsByLocation = new LinkedHashMap<>();
+        // group the user's assigned parents by (location, event)
+        Map<UUID, Map<UUID, Set<String>>> parentsByLocEvent = new LinkedHashMap<>();
         for (var a : assignmentRepository.findByUserId(user.getId())) {
-            parentsByLocation.computeIfAbsent(a.getLocationId(), k -> new LinkedHashSet<>())
+            parentsByLocEvent
+                    .computeIfAbsent(a.getLocationId(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(a.getEventId(), k -> new LinkedHashSet<>())
                     .add(a.getParentName());
         }
         List<OrderPointEntity> ops = new ArrayList<>();
-        for (var entry : parentsByLocation.entrySet()) {
-            Set<String> parents = entry.getValue();
-            for (OrderPointEntity op : orderPointRepository.findByLocationIdOrderByName(entry.getKey())) {
-                if (parents.contains(parentOf(op.getName()))) {
-                    ops.add(op);
+        for (var locEntry : parentsByLocEvent.entrySet()) {
+            UUID locationId = locEntry.getKey();
+            for (var evtEntry : locEntry.getValue().entrySet()) {
+                UUID eventId = evtEntry.getKey();
+                Set<String> parents = evtEntry.getValue();
+                List<OrderPointEntity> candidates = eventId != null
+                        ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
+                        : orderPointRepository.findByLocationIdOrderByName(locationId);
+                for (OrderPointEntity op : candidates) {
+                    if (parents.contains(parentOf(op.getName()))) {
+                        ops.add(op);
+                    }
                 }
             }
         }
@@ -363,8 +379,10 @@ public class OrderPointAssignmentService {
         }
 
         // diff against existing (avoids delete+reinsert hitting the unique constraint)
-        List<OrderPointAssignmentEntity> existing =
-                assignmentRepository.findByLocationIdAndParentName(request.locationId(), parent);
+        UUID eventId = request.eventId();
+        List<OrderPointAssignmentEntity> existing = eventId != null
+                ? assignmentRepository.findByLocationIdAndEventIdAndParentName(request.locationId(), eventId, parent)
+                : assignmentRepository.findByLocationIdAndParentName(request.locationId(), parent);
         Set<UUID> target = new LinkedHashSet<>(userIds);
         Set<UUID> current = existing.stream()
                 .map(OrderPointAssignmentEntity::getUserId)
@@ -379,6 +397,7 @@ public class OrderPointAssignmentService {
             if (!current.contains(id)) {
                 OrderPointAssignmentEntity e = new OrderPointAssignmentEntity();
                 e.setLocationId(request.locationId());
+                e.setEventId(eventId);
                 e.setParentName(parent);
                 e.setUserId(id);
                 assignmentRepository.save(e);

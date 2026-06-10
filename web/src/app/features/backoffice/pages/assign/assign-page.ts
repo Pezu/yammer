@@ -4,6 +4,7 @@ import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { User, UserService } from '../users/user.service';
+import { Event, EventService } from '../events/event.service';
 import { OrderPointAssignmentService, ParentAssignment } from './order-point-assignment.service';
 
 @Component({
@@ -17,6 +18,7 @@ export class AssignPage {
   private readonly clientService = inject(ClientService);
   private readonly locationService = inject(LocationService);
   private readonly userService = inject(UserService);
+  private readonly eventService = inject(EventService);
   private readonly assignmentService = inject(OrderPointAssignmentService);
 
   readonly isSuper = this.auth.isSuper;
@@ -51,6 +53,20 @@ export class AssignPage {
   readonly locationName = computed(
     () => this.locations().find((l) => l.id === this.locationId())?.name ?? 'Select a location…',
   );
+
+  // --- event combo ---
+  readonly events = signal<Event[]>([]);
+  readonly eventId = signal<string>('');
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    return (q ? this.events().filter((e) => e.name.toLowerCase().includes(q)) : this.events()).slice(0, 5);
+  });
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'Select an event…',
+  );
+
   private currentClientId(): string {
     return this.locations().find((l) => l.id === this.locationId())?.clientId ?? this.ownClientId();
   }
@@ -96,7 +112,7 @@ export class AssignPage {
       rows.map((r) => (r.parentName === row.parentName ? { ...r, userIds: next } : r)),
     );
     this.error.set(null);
-    this.assignmentService.set(this.locationId(), row.parentName, next).subscribe({
+    this.assignmentService.set(this.locationId(), this.eventId(), row.parentName, next).subscribe({
       next: (saved) =>
         this.rows.update((rows) =>
           rows.map((r) => (r.parentName === saved.parentName ? saved : r)),
@@ -164,6 +180,11 @@ export class AssignPage {
   private resetLocation(): void {
     this.locationId.set('');
     this.locations.set([]);
+    this.resetEvent();
+  }
+  private resetEvent(): void {
+    this.eventId.set('');
+    this.events.set([]);
     this.rows.set([]);
     this.openParent.set(null);
   }
@@ -179,13 +200,42 @@ export class AssignPage {
   selectLocation(id: string): void {
     this.locationId.set(id);
     this.locationComboOpen.set(false);
-    this.openParent.set(null);
-    this.loadRows(id);
+    this.resetEvent();
+    this.loadEvents(id);
   }
-  private loadRows(locationId: string): void {
+  private loadEvents(locationId: string): void {
+    this.eventService.list(locationId).subscribe({
+      next: (events) => {
+        this.events.set(events);
+        if (events.length === 1) {
+          this.selectEvent(events[0].id);
+        }
+      },
+      error: () => this.error.set('Failed to load events.'),
+    });
+  }
+
+  // --- event combo ---
+  toggleEventCombo(): void {
+    this.eventSearch.set('');
+    this.eventComboOpen.update((o) => !o);
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    this.eventId.set(id);
+    this.eventComboOpen.set(false);
+    this.openParent.set(null);
+    this.loadRows();
+  }
+  private loadRows(): void {
+    if (!this.locationId() || !this.eventId()) {
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
-    this.assignmentService.list(locationId).subscribe({
+    this.assignmentService.list(this.locationId(), this.eventId()).subscribe({
       next: (rows) => {
         this.rows.set(this.sortParents(rows));
         this.loading.set(false);

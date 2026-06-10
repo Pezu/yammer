@@ -28,8 +28,9 @@ public class MenuController {
     private final MenuService menuService;
 
     @GetMapping("/menus")
-    public List<MenuResponse> listMenus(@RequestParam UUID locationId) {
-        return menuService.listByLocation(locationId);
+    public List<MenuResponse> listMenus(
+            @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
+        return menuService.listByLocation(locationId, eventId);
     }
 
     @PostMapping("/menus")

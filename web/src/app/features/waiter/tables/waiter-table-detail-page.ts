@@ -114,6 +114,34 @@ export class WaiterTableDetailPage {
   readonly paidTotal = computed(() => round2(this.orderedTotal() - this.remaining()));
   readonly fullyPaid = computed(() => this.orderedTotal() > 0 && this.remaining() <= 0);
 
+  // --- pay menu (groups Full / Partial) ---
+  readonly payMenuOpen = signal(false);
+  togglePayMenu(): void {
+    this.payMenuOpen.update((o) => !o);
+  }
+  closePayMenu(): void {
+    this.payMenuOpen.set(false);
+  }
+
+  // --- proforma (non-fiscal bill) ---
+  readonly printingProforma = signal(false);
+  printProforma(): void {
+    if (this.printingProforma() || this.remaining() <= 0) {
+      return;
+    }
+    this.printingProforma.set(true);
+    this.service.printProforma(this.id).subscribe({
+      next: () => {
+        this.printingProforma.set(false);
+        this.toast.show('Proforma sent to printer');
+      },
+      error: () => {
+        this.printingProforma.set(false);
+        this.toast.show('Failed to print proforma');
+      },
+    });
+  }
+
   // --- payment modal ---
   readonly payOpen = signal(false);
   readonly partial = signal(false);
@@ -211,6 +239,7 @@ export class WaiterTableDetailPage {
 
   // --- payment modal ---
   openPayment(partial: boolean): void {
+    this.payMenuOpen.set(false);
     if (this.remaining() <= 0) {
       return;
     }

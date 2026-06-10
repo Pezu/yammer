@@ -8,6 +8,7 @@ export interface Client {
   name: string;
   phone: string | null;
   email: string | null;
+  hasLogo: boolean;
 }
 
 export interface ClientInput {
@@ -35,5 +36,20 @@ export class ClientService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  uploadLogo(id: string, file: File): Observable<Client> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<Client>(`${this.baseUrl}/${id}/logo`, form);
+  }
+
+  deleteLogo(id: string): Observable<Client> {
+    return this.http.delete<Client>(`${this.baseUrl}/${id}/logo`);
+  }
+
+  /** Public URL of a client's logo image (cache-busted by `version`). */
+  logoUrl(id: string, version: number): string {
+    return `${this.baseUrl}/${id}/logo?v=${version}`;
   }
 }

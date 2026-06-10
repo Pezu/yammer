@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record AssignmentRequest(
         @NotNull UUID locationId,
+        UUID eventId,
         @NotBlank String parentName,
         List<UUID> userIds) {
 }

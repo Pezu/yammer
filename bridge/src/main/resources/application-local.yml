@@ -1,0 +1,30 @@
+# ============================================================
+# Local development profile.
+#
+# Activate it one of these ways:
+#   - IntelliJ run config → "Active profiles: local"
+#   - mvn spring-boot:run -Dspring-boot.run.profiles=local
+#   - java -jar target/bridge-1.0-SNAPSHOT.jar --spring.profiles.active=local
+#
+# Only overrides the defaults in application.yml that differ for local dev.
+# ============================================================
+
+bridge:
+  # Local backend; point at the dev API's bridge WebSocket endpoint.
+  server-url: ws://localhost:8080/ws/bridge
+  # Any non-blank value silences the "api-key not set" warning. For a real
+  # connection this must match the key the backend accepts for bridge sessions.
+  api-key: local-dev-key
+  reconnect-delay-seconds: 10
+
+printer:
+  tcp:
+    port: 3999
+  operator:
+    code: 1
+    pass: "0001"
+  till-number: 1
+
+logging:
+  level:
+    com.yammer.bridge: DEBUG

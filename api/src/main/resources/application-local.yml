@@ -1,0 +1,9 @@
+# Local development profile.
+# Activate with: --spring.profiles.active=local  (or set it in the IntelliJ run config).
+#
+# Points object storage at the fake-gcs-server emulator from docker-compose, so
+# logo/media uploads work locally without real GCP credentials.
+gcs:
+  bucket: ${GCS_BUCKET:yammer-media}
+  project-id: ${GCS_PROJECT_ID:yammer-local}
+  endpoint: ${GCS_ENDPOINT:http://localhost:4443}

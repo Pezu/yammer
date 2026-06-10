@@ -5,9 +5,12 @@ import com.yammer.dto.MenuItemNode;
 import com.yammer.dto.OrderPointMenuResponse;
 import com.yammer.dto.OrderPointRequest;
 import com.yammer.dto.OrderPointResponse;
+import com.yammer.entity.IntegrationEntity;
+import com.yammer.entity.IntegrationType;
 import com.yammer.entity.LocationEntity;
 import com.yammer.entity.MenuEntity;
 import com.yammer.entity.OrderPointEntity;
+import com.yammer.repository.IntegrationRepository;
 import com.yammer.repository.LocationRepository;
 import com.yammer.repository.MenuRepository;
 import com.yammer.repository.OrderPointRepository;
@@ -33,15 +36,17 @@ public class OrderPointService {
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
     private final MenuRepository menuRepository;
+    private final IntegrationRepository integrationRepository;
     private final MenuService menuService;
     private final CurrentUserProvider currentUser;
 
     @Transactional(readOnly = true)
-    public List<OrderPointResponse> listByLocation(UUID locationId) {
+    public List<OrderPointResponse> listByLocation(UUID locationId, UUID eventId) {
         requireAccessibleLocation(locationId);
-        return orderPointRepository.findByLocationIdOrderByName(locationId).stream()
-                .map(OrderPointResponse::from)
-                .toList();
+        List<OrderPointEntity> points = eventId != null
+                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
+                : orderPointRepository.findByLocationIdOrderByName(locationId);
+        return points.stream().map(OrderPointResponse::from).toList();
     }
 
     /** The order point plus its menu tree (for the waiter ordering screen). */
@@ -57,12 +62,16 @@ public class OrderPointService {
         requireAccessibleLocation(request.locationId());
         OrderPointEntity entity = new OrderPointEntity();
         entity.setLocationId(request.locationId());
+        entity.setEventId(request.eventId());
         entity.setName(request.name().trim());
         entity.setPayLater(request.payLater());
         entity.setProtocol(request.protocol());
         entity.setMenuId(resolveMenu(request.locationId(), request.menuId()));
         entity.setServiceOrderPointId(
                 resolveService(request.locationId(), request.payLater(), request.serviceOrderPointId()));
+        entity.setPrinterId(resolveDevice(request.locationId(), request.printerId(), IntegrationType.PRINTER));
+        entity.setCashRegisterId(
+                resolveDevice(request.locationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER));
         return OrderPointResponse.from(orderPointRepository.save(entity));
     }
 
@@ -73,17 +82,28 @@ public class OrderPointService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "count must be at least 1");
         }
         UUID menuId = resolveMenu(request.locationId(), request.menuId());
+        UUID serviceId =
+                resolveService(request.locationId(), request.payLater(), request.serviceOrderPointId());
+        UUID printerId = resolveDevice(request.locationId(), request.printerId(), IntegrationType.PRINTER);
+        UUID cashRegisterId =
+                resolveDevice(request.locationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER);
 
-        List<OrderPointEntity> existing = orderPointRepository.findByLocationIdOrderByName(request.locationId());
+        List<OrderPointEntity> existing = request.eventId() != null
+                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(request.locationId(), request.eventId())
+                : orderPointRepository.findByLocationIdOrderByName(request.locationId());
         List<String> names = generateNames(existing, request.count(), request.payLater());
 
         List<OrderPointEntity> toCreate = new ArrayList<>(names.size());
         for (String name : names) {
             OrderPointEntity entity = new OrderPointEntity();
             entity.setLocationId(request.locationId());
+            entity.setEventId(request.eventId());
             entity.setName(name);
             entity.setPayLater(request.payLater());
             entity.setMenuId(menuId);
+            entity.setServiceOrderPointId(serviceId);
+            entity.setPrinterId(printerId);
+            entity.setCashRegisterId(cashRegisterId);
             toCreate.add(entity);
         }
         return orderPointRepository.saveAll(toCreate).stream().map(OrderPointResponse::from).toList();
@@ -97,6 +117,9 @@ public class OrderPointService {
         entity.setMenuId(resolveMenu(entity.getLocationId(), request.menuId()));
         entity.setServiceOrderPointId(
                 resolveService(entity.getLocationId(), request.payLater(), request.serviceOrderPointId()));
+        entity.setPrinterId(resolveDevice(entity.getLocationId(), request.printerId(), IntegrationType.PRINTER));
+        entity.setCashRegisterId(
+                resolveDevice(entity.getLocationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER));
         return OrderPointResponse.from(orderPointRepository.save(entity));
     }
 
@@ -125,7 +148,10 @@ public class OrderPointService {
 
         Pattern siblingPattern = Pattern.compile("^" + Pattern.quote(prefix) + "(\\d+)$");
         int maxSuffix = 0;
-        for (OrderPointEntity op : orderPointRepository.findByLocationIdOrderByName(source.getLocationId())) {
+        List<OrderPointEntity> siblings = source.getEventId() != null
+                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(source.getLocationId(), source.getEventId())
+                : orderPointRepository.findByLocationIdOrderByName(source.getLocationId());
+        for (OrderPointEntity op : siblings) {
             Matcher sm = siblingPattern.matcher(op.getName());
             if (sm.matches()) {
                 maxSuffix = Math.max(maxSuffix, Integer.parseInt(sm.group(1)));
@@ -134,11 +160,14 @@ public class OrderPointService {
 
         OrderPointEntity newOp = new OrderPointEntity();
         newOp.setLocationId(source.getLocationId());
+        newOp.setEventId(source.getEventId());
         newOp.setName(prefix + (maxSuffix + 1));
         newOp.setPayLater(true);
         newOp.setProtocol(source.isProtocol());
         newOp.setMenuId(source.getMenuId());
         newOp.setServiceOrderPointId(source.getServiceOrderPointId());
+        newOp.setPrinterId(source.getPrinterId());
+        newOp.setCashRegisterId(source.getCashRegisterId());
         return OrderPointResponse.from(orderPointRepository.save(newOp));
     }
 
@@ -199,6 +228,25 @@ public class OrderPointService {
                     HttpStatus.BAD_REQUEST, "Service order point must not be pay-later");
         }
         return serviceId;
+    }
+
+    /** A printer / cash register (if any) must be an integration of that type at the same location. */
+    private UUID resolveDevice(UUID locationId, UUID integrationId, IntegrationType type) {
+        if (integrationId == null) {
+            return null;
+        }
+        IntegrationEntity device = integrationRepository.findById(integrationId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Unknown integration: " + integrationId));
+        if (!Objects.equals(device.getLocationId(), locationId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Integration does not belong to this location");
+        }
+        if (device.getType() != type) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Integration is not a " + type);
+        }
+        return integrationId;
     }
 
     private OrderPointEntity requireAccessibleOrderPoint(UUID id) {

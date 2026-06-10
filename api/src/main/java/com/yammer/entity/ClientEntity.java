@@ -27,4 +27,8 @@ public class ClientEntity {
     private String phone;
 
     private String email;
+
+    /** Object key of the logo in cloud storage, or null. */
+    @Column(name = "logo_object")
+    private String logoObject;
 }

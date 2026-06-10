@@ -105,6 +105,53 @@ export class ClientsPage {
     });
   }
 
+  // --- logo ---
+
+  /** Per-client cache-buster, bumped after each logo change. */
+  private readonly logoVersion = signal<Record<string, number>>({});
+  readonly uploadingLogo = signal<string | null>(null);
+
+  logoUrl(client: Client): string {
+    return this.clientService.logoUrl(client.id, this.logoVersion()[client.id] ?? 0);
+  }
+
+  onLogoSelected(client: Client, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file later
+    if (!file) {
+      return;
+    }
+    this.error.set(null);
+    this.uploadingLogo.set(client.id);
+    this.clientService.uploadLogo(client.id, file).subscribe({
+      next: (updated) => {
+        this.bumpLogo(updated.id);
+        this.clients.update((list) => list.map((c) => (c.id === updated.id ? updated : c)));
+        this.uploadingLogo.set(null);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.uploadingLogo.set(null);
+        this.error.set(err.status === 415 ? 'Please choose an image file.' : 'Failed to upload logo.');
+      },
+    });
+  }
+
+  removeLogo(client: Client): void {
+    this.error.set(null);
+    this.clientService.deleteLogo(client.id).subscribe({
+      next: (updated) => {
+        this.bumpLogo(updated.id);
+        this.clients.update((list) => list.map((c) => (c.id === updated.id ? updated : c)));
+      },
+      error: () => this.error.set('Failed to remove logo.'),
+    });
+  }
+
+  private bumpLogo(id: string): void {
+    this.logoVersion.update((m) => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
+  }
+
   // --- delete ---
 
   remove(client: Client): void {

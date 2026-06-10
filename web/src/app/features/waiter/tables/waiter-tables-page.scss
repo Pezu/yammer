@@ -1,5 +1,7 @@
 :host {
   display: block;
+  background: #fff;
+  min-height: calc(100dvh - 56px); /* fill the content area below the 56px topbar */
 }
 
 .page-head {
@@ -14,7 +16,7 @@
 }
 
 .page-body {
-  padding: 0.5rem 1rem 1.5rem;
+  padding: 1.5rem 1rem;
 }
 
 .state {

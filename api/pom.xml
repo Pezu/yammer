@@ -25,7 +25,21 @@
         <lombok.version>1.18.46</lombok.version>
         <flyway.version>10.20.1</flyway.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <gcp-libraries.version>26.43.0</gcp-libraries.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Google Cloud client BOM (manages google-cloud-storage + transitive versions) -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${gcp-libraries.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Spring Boot Web -->
@@ -95,6 +109,12 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Google Cloud Storage (client logos / future media); emulated locally by fake-gcs-server -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-storage</artifactId>
         </dependency>
 
         <!-- Flyway (10.x: per-database modules split from flyway-core; needs explicit Postgres dep) -->

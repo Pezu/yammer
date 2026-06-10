@@ -6,5 +6,6 @@ import java.util.UUID;
 
 public record MenuRequest(
         @NotNull UUID locationId,
+        UUID eventId,
         @NotBlank String name) {
 }

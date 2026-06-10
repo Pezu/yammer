@@ -1,5 +1,14 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 import { AppLogo } from '../../shared/logo.component';
@@ -13,7 +22,11 @@ import { AppLogo } from '../../shared/logo.component';
 export class WaiterLayout implements OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly toast = inject(ToastService);
+
+  /** Title of the current page, shown centered in the topbar (from each route's `title`). */
+  readonly pageTitle = signal('');
 
   // Disable browser zoom (pinch / double-tap) only while in the waiter app.
   private readonly viewportMeta = document.querySelector('meta[name="viewport"]');
@@ -24,6 +37,22 @@ export class WaiterLayout implements OnDestroy {
       'content',
       'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no',
     );
+    this.pageTitle.set(this.currentTitle());
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.pageTitle.set(this.currentTitle()));
+  }
+
+  /** The deepest activated child route's `title` (snapshot may be absent mid-activation). */
+  private currentTitle(): string {
+    let r: ActivatedRoute | null = this.route.firstChild;
+    while (r?.firstChild) {
+      r = r.firstChild;
+    }
+    return r?.snapshot?.title ?? '';
   }
 
   ngOnDestroy(): void {

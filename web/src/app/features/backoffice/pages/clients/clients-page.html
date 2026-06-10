@@ -18,6 +18,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th class="logo-col">Logo</th>
             <th>Name</th>
             <th>Phone</th>
             <th>Email</th>
@@ -27,6 +28,7 @@
         <tbody>
           @if (draft()) {
             <tr>
+              <td class="logo-col"><span class="logo-placeholder" title="Save the client first">—</span></td>
               <td><input type="text" class="input" placeholder="Name" [formControl]="draftForm.controls.name" (keyup.enter)="saveCreate()" (keyup.escape)="cancelCreate()" autofocus /></td>
               <td><input type="text" class="input" placeholder="Phone" [formControl]="draftForm.controls.phone" (keyup.enter)="saveCreate()" (keyup.escape)="cancelCreate()" /></td>
               <td><input type="email" class="input" placeholder="Email" [formControl]="draftForm.controls.email" (keyup.enter)="saveCreate()" (keyup.escape)="cancelCreate()" /></td>
@@ -45,6 +47,24 @@
 
           @for (client of clients(); track client.id) {
             <tr>
+              <td class="logo-col">
+                <div class="logo-cell">
+                  @if (client.hasLogo) {
+                    <img class="logo-thumb" [src]="logoUrl(client)" alt="logo" />
+                  } @else {
+                    <span class="logo-placeholder">—</span>
+                  }
+                  <label class="logo-btn" title="Upload logo" [class.busy]="uploadingLogo() === client.id">
+                    <input type="file" accept="image/*" hidden (change)="onLogoSelected(client, $event)" [disabled]="uploadingLogo() === client.id" />
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  </label>
+                  @if (client.hasLogo) {
+                    <button type="button" class="icon-btn danger sm" (click)="removeLogo(client)" title="Remove logo" aria-label="Remove logo">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  }
+                </div>
+              </td>
               @if (editingId() === client.id) {
                 <td><input type="text" class="input" [formControl]="editForm.controls.name" (keyup.enter)="saveEdit(client.id)" (keyup.escape)="cancelEdit()" /></td>
                 <td><input type="text" class="input" [formControl]="editForm.controls.phone" (keyup.enter)="saveEdit(client.id)" (keyup.escape)="cancelEdit()" /></td>
@@ -78,7 +98,7 @@
 
           @if (!draft() && !loading() && clients().length === 0) {
             <tr>
-              <td colspan="4" class="empty">No clients yet — use the + button to add one.</td>
+              <td colspan="5" class="empty">No clients yet — use the + button to add one.</td>
             </tr>
           }
         </tbody>

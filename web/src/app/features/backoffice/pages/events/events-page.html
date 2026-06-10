@@ -1,0 +1,155 @@
+<header class="page-header">
+  <h1>Events</h1>
+  <div class="header-actions">
+    @if (isSuper()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!clientId()" (click)="toggleClientCombo()" aria-label="Select client">
+          <span>{{ clientName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (clientComboOpen()) {
+          <div class="combo-backdrop" (click)="closeClientCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #cq placeholder="Search clients…" [value]="clientSearch()" (input)="clientSearch.set(cq.value)" (keyup.escape)="closeClientCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (c of clientOptions(); track c.id) {
+                <li><button type="button" class="combo-option" [class.active]="c.id === clientId()" (click)="selectClient(c.id)">{{ c.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No clients found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+
+    @if (clientChosen()) {
+      <div class="client-combo">
+        <button type="button" class="combo-trigger" [class.placeholder]="!locationId()" (click)="toggleLocationCombo()" aria-label="Select location">
+          <span>{{ locationName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (locationComboOpen()) {
+          <div class="combo-backdrop" (click)="closeLocationCombo()"></div>
+          <div class="combo-menu">
+            <div class="combo-search">
+              <input type="text" #lq placeholder="Search locations…" [value]="locationSearch()" (input)="locationSearch.set(lq.value)" (keyup.escape)="closeLocationCombo()" autofocus />
+            </div>
+            <ul class="combo-list">
+              @for (l of locationOptions(); track l.id) {
+                <li><button type="button" class="combo-option" [class.active]="l.id === locationId()" (click)="selectLocation(l.id)">{{ l.name }}</button></li>
+              } @empty {
+                <li class="combo-empty">No locations found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    }
+
+    <button type="button" class="add-btn" (click)="startCreate()" [disabled]="!locationId()" title="Add event" aria-label="Add event">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<section class="page-body">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  @if (!clientChosen()) {
+    <div class="select-prompt">Select a client to begin.</div>
+  } @else if (!locationId()) {
+    <div class="select-prompt">Select a location to manage its events.</div>
+  } @else {
+    <div class="card">
+      <div class="card-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="id-col">ID</th>
+              <th>Name</th>
+              <th class="date-col">Start date</th>
+              <th class="date-col">End date</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ev of events(); track ev.id) {
+              <tr>
+                <td class="id-col"><span class="muted mono">{{ ev.id }}</span></td>
+                <td>{{ ev.name }}</td>
+                <td class="date-col">{{ ev.startDate }}</td>
+                <td class="date-col">{{ ev.endDate }}</td>
+                <td class="actions-col">
+                  <button type="button" class="icon-btn" (click)="startEdit(ev)" title="Edit" aria-label="Edit event">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                  <button type="button" class="icon-btn danger" (click)="askDelete(ev)" title="Delete" aria-label="Delete event">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-row">
+                  {{ loading() ? 'Loading…' : 'No events yet.' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>
+
+@if (modalOpen()) {
+  <div class="modal-overlay" (mousedown)="closeModal()">
+    <div class="modal" (mousedown)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>{{ editingId() ? 'Edit event' : 'Add event' }}</h3>
+        <button type="button" class="close-btn" (click)="closeModal()" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="eventName">Name</label>
+          <input id="eventName" type="text" class="form-control" placeholder="Event name" [formControl]="formName" (keyup.enter)="save()" autofocus />
+        </div>
+        <div class="form-group">
+          <label>Start date</label>
+          <app-date-picker [value]="formStartDate()" (valueChange)="formStartDate.set($event)" />
+        </div>
+        <div class="form-group">
+          <label>End date</label>
+          <app-date-picker [value]="formEndDate()" (valueChange)="formEndDate.set($event)" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="save()" [disabled]="formName.invalid || !formStartDate() || !formEndDate() || saving()">
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (pendingDelete(); as ev) {
+  <app-confirm-dialog
+    title="Delete event"
+    [message]="'Are you sure you want to delete &quot;' + ev.name + '&quot;?'"
+    confirmLabel="Delete"
+    [danger]="true"
+    (confirmed)="confirmDelete()"
+    (cancelled)="cancelDelete()"
+  />
+}

@@ -1,0 +1,163 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+.date-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.id-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--muted);
+  padding: 1.5rem 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 27, 46, 0.45);
+}
+
+.modal {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1rem 3rem rgba(18, 27, 46, 0.25);
+  /* allow the date-picker calendar to overflow the modal bounds */
+  overflow: visible;
+}
+
+.modal-header {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+}
+
+.close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(52, 84, 209, 0.15);
+  }
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: 0.45rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &.btn-secondary {
+    color: var(--text);
+    background: #fff;
+    border-color: var(--border);
+
+    &:hover {
+      background: var(--page-bg);
+    }
+  }
+
+  &.btn-primary {
+    color: #fff;
+    background: var(--primary);
+
+    &:hover:not(:disabled) {
+      filter: brightness(0.95);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}

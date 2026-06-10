@@ -3,3 +3,62 @@
 :host {
   display: block;
 }
+
+.logo-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.logo-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.logo-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.logo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+
+  &.busy {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+.icon-btn.sm {
+  width: 28px;
+  height: 28px;
+}

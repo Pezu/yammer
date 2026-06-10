@@ -22,6 +22,9 @@ public class OrderEntity {
     @Column(nullable = false, updatable = false)
     private UUID id;
 
+    @Column(name = "order_no", nullable = false)
+    private Long orderNo;
+
     @Column(name = "order_point_id", nullable = false)
     private UUID orderPointId;
 

@@ -5,6 +5,7 @@ import com.yammer.dto.OrderPointMenuResponse;
 import com.yammer.dto.OrderPointRequest;
 import com.yammer.dto.OrderPointResponse;
 import com.yammer.service.OrderPointService;
+import com.yammer.service.OrderService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -27,15 +28,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderPointController {
 
     private final OrderPointService orderPointService;
+    private final OrderService orderService;
 
     @GetMapping
-    public List<OrderPointResponse> list(@RequestParam UUID locationId) {
-        return orderPointService.listByLocation(locationId);
+    public List<OrderPointResponse> list(
+            @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
+        return orderPointService.listByLocation(locationId, eventId);
     }
 
     @GetMapping("/{id}/menu")
     public OrderPointMenuResponse menu(@PathVariable UUID id) {
         return orderPointService.getMenu(id);
+    }
+
+    /** Print the non-fiscal proforma (current unpaid bill) on this order point's thermal printer. */
+    @PostMapping("/{id}/proforma")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void proforma(@PathVariable UUID id) {
+        orderService.printProforma(id);
     }
 
     @PostMapping

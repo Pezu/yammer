@@ -113,6 +113,11 @@ export class WaiterOrderPointService {
     });
   }
 
+  /** Print the non-fiscal proforma bill (current unpaid items) on the order point's thermal printer. */
+  printProforma(orderPointId: string): Observable<unknown> {
+    return this.http.post(`${environment.apiUrl}/order-points/${orderPointId}/proforma`, {});
+  }
+
   /** Line-level settle (full or partial, with order-line splitting). */
   payLines(
     orderPointId: string,

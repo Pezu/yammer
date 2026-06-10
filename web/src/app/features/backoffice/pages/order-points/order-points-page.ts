@@ -5,6 +5,8 @@ import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { Menu, MenuService } from '../menu/menu.service';
+import { Event, EventService } from '../events/event.service';
+import { Integration, IntegrationService } from '../integrations/integration.service';
 import { OrderPoint, OrderPointService } from './order-point.service';
 import { ConfirmDialog } from '../../../../shared/confirm-dialog/confirm-dialog';
 
@@ -19,6 +21,8 @@ export class OrderPointsPage {
   private readonly clientService = inject(ClientService);
   private readonly locationService = inject(LocationService);
   private readonly menuService = inject(MenuService);
+  private readonly eventService = inject(EventService);
+  private readonly integrationService = inject(IntegrationService);
   private readonly orderPointService = inject(OrderPointService);
 
   readonly isSuper = this.auth.isSuper;
@@ -52,6 +56,19 @@ export class OrderPointsPage {
   });
   readonly locationName = computed(
     () => this.locations().find((l) => l.id === this.locationId())?.name ?? 'Select a location…',
+  );
+
+  // --- event combo ---
+  readonly events = signal<Event[]>([]);
+  readonly eventId = signal<string>('');
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    return (q ? this.events().filter((e) => e.name.toLowerCase().includes(q)) : this.events()).slice(0, 5);
+  });
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'Select an event…',
   );
 
   // --- menus for the selected location (assignable to each order point) ---
@@ -102,6 +119,39 @@ export class OrderPointsPage {
     this.batchMenuComboOpen.set(false);
   }
 
+  toggleBatchServiceCombo(): void {
+    this.batchServiceComboOpen.update((o) => !o);
+  }
+  closeBatchServiceCombo(): void {
+    this.batchServiceComboOpen.set(false);
+  }
+  selectBatchService(id: string): void {
+    this.batchServiceOrderPointId.set(id);
+    this.batchServiceComboOpen.set(false);
+  }
+
+  toggleBatchPrinterCombo(): void {
+    this.batchPrinterComboOpen.update((o) => !o);
+  }
+  closeBatchPrinterCombo(): void {
+    this.batchPrinterComboOpen.set(false);
+  }
+  selectBatchPrinter(id: string): void {
+    this.batchPrinterId.set(id);
+    this.batchPrinterComboOpen.set(false);
+  }
+
+  toggleBatchCashRegisterCombo(): void {
+    this.batchCashRegisterComboOpen.update((o) => !o);
+  }
+  closeBatchCashRegisterCombo(): void {
+    this.batchCashRegisterComboOpen.set(false);
+  }
+  selectBatchCashRegister(id: string): void {
+    this.batchCashRegisterId.set(id);
+    this.batchCashRegisterComboOpen.set(false);
+  }
+
   // --- service point (a pay-later point links to a non-pay-later point) ---
   /** Candidate service points = the non-pay-later order points at this location. */
   readonly serviceOptions = computed(() => this.orderPoints().filter((p) => !p.payLater));
@@ -139,6 +189,66 @@ export class OrderPointsPage {
     this.editServiceComboOpen.set(false);
   }
 
+  // --- devices (printer + cash register) from the location's integrations ---
+  readonly printers = signal<Integration[]>([]);
+  readonly cashRegisters = signal<Integration[]>([]);
+  deviceName(list: Integration[], id: string | null): string {
+    return list.find((d) => d.id === id)?.name ?? '';
+  }
+  printerLabel(id: string): string {
+    return this.deviceName(this.printers(), id) || 'No printer';
+  }
+  cashRegisterLabel(id: string): string {
+    return this.deviceName(this.cashRegisters(), id) || 'No cash register';
+  }
+
+  readonly draftPrinterComboOpen = signal(false);
+  readonly editPrinterComboOpen = signal(false);
+  readonly draftCashRegisterComboOpen = signal(false);
+  readonly editCashRegisterComboOpen = signal(false);
+
+  toggleDraftPrinterCombo(): void {
+    this.draftPrinterComboOpen.update((o) => !o);
+  }
+  closeDraftPrinterCombo(): void {
+    this.draftPrinterComboOpen.set(false);
+  }
+  selectDraftPrinter(id: string): void {
+    this.draftPrinterId.set(id);
+    this.draftPrinterComboOpen.set(false);
+  }
+  toggleEditPrinterCombo(): void {
+    this.editPrinterComboOpen.update((o) => !o);
+  }
+  closeEditPrinterCombo(): void {
+    this.editPrinterComboOpen.set(false);
+  }
+  selectEditPrinter(id: string): void {
+    this.editPrinterId.set(id);
+    this.editPrinterComboOpen.set(false);
+  }
+
+  toggleDraftCashRegisterCombo(): void {
+    this.draftCashRegisterComboOpen.update((o) => !o);
+  }
+  closeDraftCashRegisterCombo(): void {
+    this.draftCashRegisterComboOpen.set(false);
+  }
+  selectDraftCashRegister(id: string): void {
+    this.draftCashRegisterId.set(id);
+    this.draftCashRegisterComboOpen.set(false);
+  }
+  toggleEditCashRegisterCombo(): void {
+    this.editCashRegisterComboOpen.update((o) => !o);
+  }
+  closeEditCashRegisterCombo(): void {
+    this.editCashRegisterComboOpen.set(false);
+  }
+  selectEditCashRegister(id: string): void {
+    this.editCashRegisterId.set(id);
+    this.editCashRegisterComboOpen.set(false);
+  }
+
   // --- order points table ---
   readonly orderPoints = signal<OrderPoint[]>([]);
 
@@ -151,17 +261,27 @@ export class OrderPointsPage {
   readonly draftProtocol = signal(false);
   readonly draftMenuId = signal<string>('');
   readonly draftServiceOrderPointId = signal<string>('');
+  readonly draftPrinterId = signal<string>('');
+  readonly draftCashRegisterId = signal<string>('');
   readonly editName = new FormControl('', { nonNullable: true, validators: [Validators.required] });
   readonly editPayLater = signal(false);
   readonly editProtocol = signal(false);
   readonly editMenuId = signal<string>('');
   readonly editServiceOrderPointId = signal<string>('');
+  readonly editPrinterId = signal<string>('');
+  readonly editCashRegisterId = signal<string>('');
 
   // --- "add multiple" modal ---
   readonly batchModalOpen = signal(false);
   readonly batchCount = signal<number>(1);
   readonly batchPayLater = signal(false);
   readonly batchMenuId = signal<string>('');
+  readonly batchServiceOrderPointId = signal<string>('');
+  readonly batchServiceComboOpen = signal(false);
+  readonly batchPrinterId = signal<string>('');
+  readonly batchPrinterComboOpen = signal(false);
+  readonly batchCashRegisterId = signal<string>('');
+  readonly batchCashRegisterComboOpen = signal(false);
   readonly savingBatch = signal(false);
 
   constructor() {
@@ -212,7 +332,9 @@ export class OrderPointsPage {
   private resetLocation(): void {
     this.locationId.set('');
     this.locations.set([]);
-    this.resetTable();
+    this.printers.set([]);
+    this.cashRegisters.set([]);
+    this.resetEvent();
   }
 
   // --- location combo ---
@@ -226,9 +348,51 @@ export class OrderPointsPage {
   selectLocation(id: string): void {
     this.locationId.set(id);
     this.locationComboOpen.set(false);
+    this.resetEvent();
+    this.loadDevices(id);
+    this.loadEvents(id);
+  }
+  private loadDevices(locationId: string): void {
+    this.integrationService.list(locationId, 'PRINTER').subscribe({
+      next: (list) => this.printers.set(list),
+      error: () => this.error.set('Failed to load printers.'),
+    });
+    this.integrationService.list(locationId, 'CASH_REGISTER').subscribe({
+      next: (list) => this.cashRegisters.set(list),
+      error: () => this.error.set('Failed to load cash registers.'),
+    });
+  }
+  private resetEvent(): void {
+    this.eventId.set('');
+    this.events.set([]);
     this.resetTable();
-    this.loadMenus(id);
-    this.loadOrderPoints(id);
+  }
+  private loadEvents(locationId: string): void {
+    this.eventService.list(locationId).subscribe({
+      next: (events) => {
+        this.events.set(events);
+        if (events.length === 1) {
+          this.selectEvent(events[0].id);
+        }
+      },
+      error: () => this.error.set('Failed to load events.'),
+    });
+  }
+
+  // --- event combo ---
+  toggleEventCombo(): void {
+    this.eventSearch.set('');
+    this.eventComboOpen.update((o) => !o);
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    this.eventId.set(id);
+    this.eventComboOpen.set(false);
+    this.resetTable();
+    this.loadMenus();
+    this.loadOrderPoints();
   }
   private resetTable(): void {
     this.orderPoints.set([]);
@@ -237,15 +401,21 @@ export class OrderPointsPage {
     this.editingId.set(null);
     this.error.set(null);
   }
-  private loadMenus(locationId: string): void {
-    this.menuService.listMenus(locationId).subscribe({
+  private loadMenus(): void {
+    if (!this.locationId() || !this.eventId()) {
+      return;
+    }
+    this.menuService.listMenus(this.locationId(), this.eventId()).subscribe({
       next: (menus) => this.menus.set(menus),
       error: () => this.error.set('Failed to load menus.'),
     });
   }
-  private loadOrderPoints(locationId: string): void {
+  private loadOrderPoints(): void {
+    if (!this.locationId() || !this.eventId()) {
+      return;
+    }
     this.loading.set(true);
-    this.orderPointService.list(locationId).subscribe({
+    this.orderPointService.list(this.locationId(), this.eventId()).subscribe({
       next: (points) => {
         this.orderPoints.set(points);
         this.loading.set(false);
@@ -267,26 +437,35 @@ export class OrderPointsPage {
     this.draftMenuComboOpen.set(false);
     this.draftServiceOrderPointId.set('');
     this.draftServiceComboOpen.set(false);
+    this.draftPrinterId.set('');
+    this.draftPrinterComboOpen.set(false);
+    this.draftCashRegisterId.set('');
+    this.draftCashRegisterComboOpen.set(false);
     this.error.set(null);
     this.draft.set(true);
   }
   cancelCreate(): void {
     this.draftMenuComboOpen.set(false);
     this.draftServiceComboOpen.set(false);
+    this.draftPrinterComboOpen.set(false);
+    this.draftCashRegisterComboOpen.set(false);
     this.draft.set(false);
   }
   saveCreate(): void {
-    if (this.draftName.invalid || !this.locationId()) {
+    if (this.draftName.invalid || !this.locationId() || !this.eventId()) {
       return;
     }
     this.orderPointService
       .create({
         locationId: this.locationId(),
+        eventId: this.eventId(),
         name: this.draftName.value.trim(),
         payLater: this.draftPayLater(),
         protocol: this.draftProtocol(),
         menuId: this.draftMenuId() || null,
         serviceOrderPointId: this.draftPayLater() ? this.draftServiceOrderPointId() || null : null,
+        printerId: this.draftPrinterId() || null,
+        cashRegisterId: this.draftCashRegisterId() || null,
       })
       .subscribe({
         next: (point) => {
@@ -299,33 +478,46 @@ export class OrderPointsPage {
 
   // --- batch create ---
   openBatchModal(): void {
-    if (!this.locationId()) {
+    if (!this.locationId() || !this.eventId()) {
       return;
     }
     this.batchCount.set(1);
     this.batchPayLater.set(false);
     this.batchMenuId.set('');
     this.batchMenuComboOpen.set(false);
+    this.batchServiceOrderPointId.set('');
+    this.batchServiceComboOpen.set(false);
+    this.batchPrinterId.set('');
+    this.batchPrinterComboOpen.set(false);
+    this.batchCashRegisterId.set('');
+    this.batchCashRegisterComboOpen.set(false);
     this.error.set(null);
     this.batchModalOpen.set(true);
   }
   closeBatchModal(): void {
     this.batchMenuComboOpen.set(false);
+    this.batchServiceComboOpen.set(false);
+    this.batchPrinterComboOpen.set(false);
+    this.batchCashRegisterComboOpen.set(false);
     this.batchModalOpen.set(false);
     this.savingBatch.set(false);
   }
   saveBatch(): void {
     const count = Number(this.batchCount());
-    if (!this.locationId() || !Number.isInteger(count) || count < 1) {
+    if (!this.locationId() || !this.eventId() || !Number.isInteger(count) || count < 1) {
       return;
     }
     this.savingBatch.set(true);
     this.orderPointService
       .createBatch({
         locationId: this.locationId(),
+        eventId: this.eventId(),
         count,
         payLater: this.batchPayLater(),
         menuId: this.batchMenuId() || null,
+        serviceOrderPointId: this.batchPayLater() ? this.batchServiceOrderPointId() || null : null,
+        printerId: this.batchPrinterId() || null,
+        cashRegisterId: this.batchCashRegisterId() || null,
       })
       .subscribe({
         next: (created) => {
@@ -350,11 +542,17 @@ export class OrderPointsPage {
     this.editMenuComboOpen.set(false);
     this.editServiceOrderPointId.set(point.serviceOrderPointId ?? '');
     this.editServiceComboOpen.set(false);
+    this.editPrinterId.set(point.printerId ?? '');
+    this.editPrinterComboOpen.set(false);
+    this.editCashRegisterId.set(point.cashRegisterId ?? '');
+    this.editCashRegisterComboOpen.set(false);
     this.error.set(null);
   }
   cancelEdit(): void {
     this.editMenuComboOpen.set(false);
     this.editServiceComboOpen.set(false);
+    this.editPrinterComboOpen.set(false);
+    this.editCashRegisterComboOpen.set(false);
     this.editingId.set(null);
   }
   saveEdit(point: OrderPoint): void {
@@ -364,11 +562,14 @@ export class OrderPointsPage {
     this.orderPointService
       .update(point.id, {
         locationId: point.locationId,
+        eventId: point.eventId,
         name: this.editName.value.trim(),
         payLater: this.editPayLater(),
         protocol: this.editProtocol(),
         menuId: this.editMenuId() || null,
         serviceOrderPointId: this.editPayLater() ? this.editServiceOrderPointId() || null : null,
+        printerId: this.editPrinterId() || null,
+        cashRegisterId: this.editCashRegisterId() || null,
       })
       .subscribe({
         next: (updated) => {

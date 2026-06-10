@@ -7,50 +7,157 @@
     <div class="error" role="alert">{{ error() }}</div>
   }
 
-  <div class="card">
-    <div class="card-body">
-      <table class="table">
-        <thead>
-          <tr>
-            <th class="when-col">Date</th>
-            <th class="op-col">Order point</th>
-            <th class="who-col">Waiter</th>
-            <th>Items</th>
-            <th class="num-col">Total</th>
-            <th class="status-col">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (o of orders(); track o.id) {
-            <tr>
-              <td class="when-col">{{ o.createdAt | date: 'dd-MM-yyyy HH:mm' }}</td>
-              <td class="op-col"><span class="op">{{ o.orderPointName }}</span></td>
-              <td class="who-col">{{ o.createdBy || '—' }}</td>
-              <td>
-                <ul class="items">
-                  @for (it of o.items; track it.id) {
+  <div class="layout">
+    <div class="left">
+      <div class="card">
+        <div class="card-body">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="no-col">Order #</th>
+                <th class="op-col">Order point</th>
+                <th class="who-col">Waiter</th>
+                <th class="num-col">Total</th>
+                <th class="status-col">Paid</th>
+                <th class="status-col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (o of pagedOrders(); track o.id) {
+                <tr [class.sel]="selected()?.id === o.id" (click)="selectOrder(o)">
+                  <td class="no-col">{{ o.orderNo }}</td>
+                  <td class="op-col">{{ o.orderPointName }}</td>
+                  <td class="who-col">{{ o.createdBy || '—' }}</td>
+                  <td class="num-col">{{ money(o.total) }}</td>
+                  <td class="status-col">
+                    <span class="badge"
+                      [class.paid]="o.paid === 'PAID'"
+                      [class.par]="o.paid === 'PAR'"
+                      [class.notpaid]="o.paid === 'NOT'">{{ o.paid }}</span>
+                  </td>
+                  <td class="status-col">
+                    <span class="badge"
+                      [class.ord]="o.status === 'ORDERED'"
+                      [class.rdy]="o.status === 'READY'"
+                      [class.del]="o.status === 'DELIVERED'"
+                      [class.can]="o.status === 'CANCELED'"
+                      [title]="o.status">{{ statusLabel(o.status) }}</span>
+                  </td>
+                </tr>
+              }
+
+              @if (!loading() && orders().length === 0) {
+                <tr>
+                  <td colspan="6" class="empty">No orders yet.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      @if (orders().length > 0) {
+        <div class="pager">
+          <div class="pager-left">
+            <div class="ps-combo">
+              <button type="button" class="combo-trigger" (click)="toggleCombo()">
+                <span>{{ pageSize() }} / page</span>
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              @if (comboOpen()) {
+                <div class="combo-backdrop" (click)="closeCombo()"></div>
+                <div class="combo-menu">
+                  @for (n of pageSizes; track n) {
+                    <button type="button" class="combo-opt" [class.active]="pageSize() === n" (click)="setPageSize(n)">{{ n }} / page</button>
+                  }
+                </div>
+              }
+            </div>
+            <span class="range">{{ range() }}</span>
+          </div>
+          <div class="pager-btns">
+            <button type="button" (click)="prev()" [disabled]="page() <= 1">‹</button>
+            <span class="page">{{ page() }} / {{ totalPages() }}</span>
+            <button type="button" (click)="next()" [disabled]="page() >= totalPages()">›</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="right">
+      @if (!selected(); as _none) {
+        <div class="detail-empty">Select an order to see its detail.</div>
+      } @else {
+        <div class="detail">
+          <div class="detail-head">
+            <span class="dt-no">Order #{{ selected()!.orderNo }}</span>
+            <span class="dt-op">{{ selected()!.orderPointName }}</span>
+          </div>
+
+          @if (pendingDelete()) {
+            <div class="del-banner">
+              <span>This order will be deleted on save.</span>
+              <button type="button" class="link" (click)="undoDelete()">Undo</button>
+            </div>
+          }
+
+          <ul class="tabs">
+            <li>
+              <button type="button" class="tab" [class.active]="detailTab() === 'paid'" (click)="detailTab.set('paid')">Paid</button>
+            </li>
+            <li>
+              <button type="button" class="tab" [class.active]="detailTab() === 'unpaid'" (click)="detailTab.set('unpaid')">Unpaid</button>
+            </li>
+          </ul>
+
+          <div class="detail-body">
+            @if (detailTab() === 'paid') {
+              @if (paidItems().length === 0) {
+                <p class="d-empty">No paid items.</p>
+              } @else {
+                <ul class="ditems">
+                  @for (it of paidItems(); track it.id) {
                     <li>
                       <span class="q">{{ it.quantity }}×</span>
-                      <span class="iname" [innerHTML]="html(it.name)"></span>
-                      @if (it.price !== null) {
-                        <span class="iprice">{{ it.price | number: '1.2-2' }}</span>
-                      }
+                      <span class="n" [innerHTML]="html(it.name)"></span>
+                      <span class="p">{{ itemPrice(it) }}</span>
                     </li>
                   }
                 </ul>
-              </td>
-              <td class="num-col">{{ o.total | number: '1.2-2' }} RON</td>
-              <td class="status-col"><span class="badge">{{ o.status }}</span></td>
-            </tr>
-          }
+              }
+            } @else {
+              @if (unpaidItems().length === 0) {
+                <p class="d-empty">No unpaid items.</p>
+              } @else {
+                <ul class="ditems">
+                  @for (it of unpaidItems(); track it.id) {
+                    <li [class.zero]="qtyOf(it) === 0">
+                      <span class="stepper">
+                        <button type="button" (click)="dec(it)" [disabled]="qtyOf(it) <= 0 || pendingDelete()">−</button>
+                        <span class="qv">{{ qtyOf(it) }}</span>
+                        <button type="button" (click)="inc(it)" [disabled]="pendingDelete()">+</button>
+                      </span>
+                      <span class="n" [innerHTML]="html(it.name)"></span>
+                      <span class="p">{{ itemPrice(it, qtyOf(it)) }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+          </div>
 
-          @if (!loading() && orders().length === 0) {
-            <tr>
-              <td colspan="6" class="empty">No orders yet.</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+          <div class="detail-foot">
+            @if (canDelete() && !pendingDelete()) {
+              <button type="button" class="del-btn" (click)="markDelete()">Delete order</button>
+            } @else {
+              <span></span>
+            }
+            <button type="button" class="save-btn" [disabled]="!hasChanges() || saving()" (click)="save()">
+              {{ saving() ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </div>
+      }
     </div>
   </div>
 </section>

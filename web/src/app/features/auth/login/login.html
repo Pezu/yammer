@@ -1,12 +1,8 @@
 <main class="auth">
   <div class="card">
     <div class="logo">
-      <app-logo [height]="92" />
+      <app-logo [height]="110" />
     </div>
-
-    <h1 class="title">Login</h1>
-    <h2 class="subtitle">Login to your account</h2>
-    <p class="lead">Welcome back to Yammer. Sign in with your account to continue.</p>
 
     @if (error()) {
       <div class="error" role="alert">{{ error() }}</div>
@@ -37,14 +33,6 @@
         @if (submitted() && form.controls.password.invalid) {
           <small class="field-error">Password is required.</small>
         }
-      </div>
-
-      <div class="row">
-        <label class="check">
-          <input type="checkbox" formControlName="rememberMe" />
-          <span>Remember Me</span>
-        </label>
-        <a href="javascript:void(0);" class="link">Forgot password?</a>
       </div>
 
       <button type="submit" class="btn" [disabled]="loading()">

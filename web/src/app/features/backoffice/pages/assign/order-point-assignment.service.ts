@@ -13,12 +13,25 @@ export class OrderPointAssignmentService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/order-point-assignments`;
 
-  list(locationId: string): Observable<ParentAssignment[]> {
-    const params = new HttpParams().set('locationId', locationId);
+  list(locationId: string, eventId: string): Observable<ParentAssignment[]> {
+    let params = new HttpParams().set('locationId', locationId);
+    if (eventId) {
+      params = params.set('eventId', eventId);
+    }
     return this.http.get<ParentAssignment[]>(this.baseUrl, { params });
   }
 
-  set(locationId: string, parentName: string, userIds: string[]): Observable<ParentAssignment> {
-    return this.http.put<ParentAssignment>(this.baseUrl, { locationId, parentName, userIds });
+  set(
+    locationId: string,
+    eventId: string,
+    parentName: string,
+    userIds: string[],
+  ): Observable<ParentAssignment> {
+    return this.http.put<ParentAssignment>(this.baseUrl, {
+      locationId,
+      eventId: eventId || null,
+      parentName,
+      userIds,
+    });
   }
 }

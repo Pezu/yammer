@@ -9,13 +9,16 @@ import java.util.UUID;
 
 public record OrderResponse(
         UUID id,
+        Long orderNo,
         UUID orderPointId,
         String orderPointName,
         String createdBy,
         LocalDateTime createdAt,
         String status,
         List<OrderItemResponse> items,
-        BigDecimal total) {
+        BigDecimal total,
+        /** Payment state of the order's lines: NOT / PAR / PAID. */
+        String paid) {
 
     public record OrderItemResponse(
             UUID id, UUID menuItemId, String name, BigDecimal price, int quantity, boolean paid) {
@@ -35,14 +38,20 @@ public record OrderResponse(
                 .map(i -> (i.getPrice() == null ? BigDecimal.ZERO : i.getPrice())
                         .multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long paidCount = items.stream().filter(i -> i.getPaymentId() != null).count();
+        String paid = items.isEmpty() || paidCount == 0
+                ? "NOT"
+                : paidCount == items.size() ? "PAID" : "PAR";
         return new OrderResponse(
                 order.getId(),
+                order.getOrderNo(),
                 order.getOrderPointId(),
                 orderPointName,
                 order.getCreatedBy(),
                 order.getCreatedAt(),
                 order.getStatus(),
                 items.stream().map(OrderItemResponse::from).toList(),
-                total);
+                total,
+                paid);
     }
 }

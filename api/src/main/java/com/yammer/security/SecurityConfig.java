@@ -31,6 +31,8 @@ public class SecurityConfig {
                         // WS handshake authenticates via ?token= in the handshake interceptor.
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/").permitAll()
+                        // Client logos are public images so <img> can load them without a token.
+                        .requestMatchers(HttpMethod.GET, "/clients/*/logo").permitAll()
                         // Everything else requires a valid token. Fine-grained rules
                         // (e.g. SUPER-only client writes) live on the methods via @PreAuthorize.
                         .anyRequest().authenticated())

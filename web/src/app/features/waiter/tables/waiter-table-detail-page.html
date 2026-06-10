@@ -19,9 +19,8 @@
       }
     </div>
 
-    <a class="order-btn" [routerLink]="['order']" [state]="{ name: name() }">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      <span>Order</span>
+    <a class="order-btn" [routerLink]="['order']" [state]="{ name: name() }" aria-label="Menu">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="1"></rect><line x1="9" y1="12" x2="15" y2="12"></line><line x1="9" y1="16" x2="13" y2="16"></line></svg>
     </a>
   </div>
 </header>
@@ -74,13 +73,27 @@
 
 @if (!loadingOrders() && orderedTotal() > 0) {
   <footer class="pay-bar">
+    <button type="button" class="pay-btn ghost" (click)="printProforma()" [disabled]="printingProforma() || remaining() <= 0">
+      {{ printingProforma() ? 'Printing…' : 'Proforma' }}
+    </button>
     @if (fullyPaid()) {
       <span class="paid-tag">Paid in full</span>
     } @else {
-      <button type="button" class="pay-btn" (click)="openPayment(false)">Payment</button>
-      @if (!protocol()) {
-        <button type="button" class="pay-btn ghost" (click)="openPayment(true)">Partially</button>
-      }
+      <div class="pay-group">
+        <button type="button" class="pay-btn ghost" (click)="togglePayMenu()">
+          <span>Pay</span>
+          <svg class="pay-caret" [class.open]="payMenuOpen()" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </button>
+        @if (payMenuOpen()) {
+          <div class="pay-backdrop" (click)="closePayMenu()"></div>
+          <div class="pay-menu">
+            <button type="button" class="pay-opt" (click)="openPayment(false)">Full payment</button>
+            @if (!protocol()) {
+              <button type="button" class="pay-opt" (click)="openPayment(true)">Partial payment</button>
+            }
+          </div>
+        }
+      </div>
     }
   </footer>
 }

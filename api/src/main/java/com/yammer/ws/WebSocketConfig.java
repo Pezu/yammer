@@ -13,11 +13,16 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final OrderWsHandler orderWsHandler;
     private final WsAuthHandshakeInterceptor authInterceptor;
+    private final BridgeWsHandler bridgeWsHandler;
+    private final BridgeAuthHandshakeInterceptor bridgeAuthInterceptor;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(orderWsHandler, "/ws/orders")
                 .addInterceptors(authInterceptor)
+                .setAllowedOriginPatterns("*");
+        registry.addHandler(bridgeWsHandler, "/ws/bridge")
+                .addInterceptors(bridgeAuthInterceptor)
                 .setAllowedOriginPatterns("*");
     }
 }

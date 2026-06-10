@@ -9,6 +9,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/service/service-page').then((m) => m.ServicePage),
   },
   {
+    path: 'watcher',
+    loadComponent: () => import('./features/watcher/watcher-page').then((m) => m.WatcherPage),
+  },
+  {
     path: 'client',
     loadComponent: () => import('./features/client/client-page').then((m) => m.ClientPage),
   },
@@ -46,6 +50,11 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/backoffice/pages/events/events-page').then((m) => m.EventsPage),
+      },
+      {
         path: 'assign',
         loadComponent: () =>
           import('./features/backoffice/pages/assign/assign-page').then((m) => m.AssignPage),
@@ -61,24 +70,17 @@ export const routes: Routes = [
         path: 'reports',
         children: [
           {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/backoffice/pages/reports/dashboard-page').then(
+                (m) => m.DashboardPage,
+              ),
+          },
+          {
             path: 'orders',
             loadComponent: () =>
               import('./features/backoffice/pages/reports/orders-report-page').then(
                 (m) => m.OrdersReportPage,
-              ),
-          },
-          {
-            path: 'products',
-            loadComponent: () =>
-              import('./features/backoffice/pages/reports/products-report-page').then(
-                (m) => m.ProductsReportPage,
-              ),
-          },
-          {
-            path: 'sales',
-            loadComponent: () =>
-              import('./features/backoffice/pages/reports/sales-report-page').then(
-                (m) => m.SalesReportPage,
               ),
           },
           { path: '', redirectTo: 'orders', pathMatch: 'full' },
@@ -105,6 +107,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'tables',
+        title: 'Tables',
         loadComponent: () =>
           import('./features/waiter/tables/waiter-tables-page').then((m) => m.WaiterTablesPage),
       },
@@ -122,11 +125,13 @@ export const routes: Routes = [
       },
       {
         path: 'orders',
+        title: 'Orders',
         loadComponent: () =>
           import('./features/waiter/orders/waiter-orders-page').then((m) => m.WaiterOrdersPage),
       },
       {
         path: 'statistics',
+        title: 'Statistics',
         loadComponent: () =>
           import('./features/waiter/statistics/waiter-statistics-page').then(
             (m) => m.WaiterStatisticsPage,
@@ -134,6 +139,7 @@ export const routes: Routes = [
       },
       {
         path: 'payments',
+        title: 'Payments',
         loadComponent: () =>
           import('./features/waiter/payments/waiter-payments-page').then(
             (m) => m.WaiterPaymentsPage,

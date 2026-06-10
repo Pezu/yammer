@@ -37,17 +37,19 @@ public class MenuService {
     private final CurrentUserProvider currentUser;
 
     @Transactional(readOnly = true)
-    public List<MenuResponse> listByLocation(UUID locationId) {
+    public List<MenuResponse> listByLocation(UUID locationId, UUID eventId) {
         requireAccessibleLocation(locationId);
-        return menuRepository.findByLocationIdOrderByName(locationId).stream()
-                .map(MenuResponse::from)
-                .toList();
+        List<MenuEntity> menus = eventId != null
+                ? menuRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
+                : menuRepository.findByLocationIdOrderByName(locationId);
+        return menus.stream().map(MenuResponse::from).toList();
     }
 
     public MenuResponse create(MenuRequest request) {
         requireAccessibleLocation(request.locationId());
         MenuEntity entity = new MenuEntity();
         entity.setLocationId(request.locationId());
+        entity.setEventId(request.eventId());
         entity.setName(request.name().trim());
         return MenuResponse.from(menuRepository.save(entity));
     }

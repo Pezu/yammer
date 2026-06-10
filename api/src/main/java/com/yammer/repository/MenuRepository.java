@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MenuRepository extends JpaRepository<MenuEntity, UUID> {
 
     List<MenuEntity> findByLocationIdOrderByName(UUID locationId);
+
+    List<MenuEntity> findByLocationIdAndEventIdOrderByName(UUID locationId, UUID eventId);
 }

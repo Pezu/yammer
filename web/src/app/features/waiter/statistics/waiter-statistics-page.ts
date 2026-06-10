@@ -7,7 +7,6 @@ import { TableStats, WaiterOrderPointService } from '../tables/waiter-order-poin
   imports: [DecimalPipe, NgTemplateOutlet],
   template: `
     <header class="page-head">
-      <h1>Statistics</h1>
       <div class="view-combo">
         <button type="button" class="combo-trigger" (click)="toggleCombo()">
           <span>{{ view() === 'protocol' ? 'Protocol' : 'Paid' }}</span>
@@ -90,20 +89,14 @@ import { TableStats, WaiterOrderPointService } from '../tables/waiter-order-poin
     `
       :host {
         display: block;
+        background: #fff;
+        min-height: calc(100dvh - 56px); /* fill the content area below the 56px topbar */
       }
       .page-head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
+        justify-content: flex-end;
         padding: 0.85rem 1rem 0.6rem;
-      }
-      .page-head h1 {
-        margin: 0;
-        font-size: 0.8rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
       }
       .view-combo {
         position: relative;

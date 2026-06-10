@@ -10,10 +10,18 @@ type Tab = 'ORDERED' | 'READY';
   imports: [DecimalPipe],
   template: `
     <header class="page-head">
-      <h1>Orders</h1>
-      <div class="switch">
-        <button type="button" class="sw-btn" [class.active]="tab() === 'ORDERED'" (click)="setTab('ORDERED')">Ordered</button>
-        <button type="button" class="sw-btn" [class.active]="tab() === 'READY'" (click)="setTab('READY')">Ready</button>
+      <div class="view-combo">
+        <button type="button" class="combo-trigger" (click)="toggleCombo()">
+          <span>{{ tab() === 'READY' ? 'Ready' : 'Ordered' }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (comboOpen()) {
+          <div class="combo-backdrop" (click)="closeCombo()"></div>
+          <div class="combo-menu">
+            <button type="button" class="combo-opt" [class.active]="tab() === 'READY'" (click)="setTab('READY')">Ready</button>
+            <button type="button" class="combo-opt" [class.active]="tab() === 'ORDERED'" (click)="setTab('ORDERED')">Ordered</button>
+          </div>
+        }
       </div>
     </header>
 
@@ -61,26 +69,22 @@ type Tab = 'ORDERED' | 'READY';
     `
       :host {
         display: block;
+        background: #fff;
+        min-height: calc(100dvh - 56px); /* fill the content area below the 56px topbar */
       }
       .page-head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
+        justify-content: flex-end;
         padding: 0.85rem 1rem 0.6rem;
       }
-      .page-head h1 {
-        margin: 0;
-        font-size: 0.8rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+      .view-combo {
+        position: relative;
       }
-      .switch {
+      .combo-trigger {
         display: inline-flex;
-        gap: 0.5rem;
-      }
-      .sw-btn {
+        align-items: center;
+        gap: 0.35rem;
         padding: 0.45rem 0.85rem;
         font: inherit;
         font-size: 0.85rem;
@@ -92,13 +96,48 @@ type Tab = 'ORDERED' | 'READY';
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
-      .sw-btn:active {
+      .combo-trigger .caret {
+        color: currentColor;
+      }
+      .combo-trigger:active {
         background: rgba(52, 84, 209, 0.08);
       }
-      .sw-btn.active {
-        color: #fff;
-        background: var(--primary);
-        border-color: var(--primary);
+      .combo-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+      }
+      .combo-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 31;
+        min-width: 8rem;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 0.5rem 1.5rem rgba(18, 27, 46, 0.15);
+        overflow: hidden;
+      }
+      .combo-opt {
+        display: block;
+        width: 100%;
+        padding: 0.65rem 0.9rem;
+        font: inherit;
+        font-size: 0.9rem;
+        text-align: left;
+        color: var(--text);
+        background: none;
+        border: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .combo-opt:active {
+        background: var(--page-bg);
+      }
+      .combo-opt.active {
+        color: var(--primary);
+        font-weight: 700;
       }
       .page-body {
         padding: 0.5rem 0.75rem 1.5rem;
@@ -197,14 +236,23 @@ export class WaiterOrdersPage {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly busy = signal<Set<string>>(new Set());
-  readonly tab = signal<Tab>('ORDERED');
+  readonly tab = signal<Tab>('READY');
+  readonly comboOpen = signal(false);
 
   constructor() {
     this.load();
   }
 
+  toggleCombo(): void {
+    this.comboOpen.update((o) => !o);
+  }
+  closeCombo(): void {
+    this.comboOpen.set(false);
+  }
+
   /** Switch tab → fetch that status from the backend. */
   setTab(tab: Tab): void {
+    this.comboOpen.set(false);
     if (this.tab() === tab) return;
     this.tab.set(tab);
     this.load();

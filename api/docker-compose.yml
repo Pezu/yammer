@@ -17,5 +17,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local Google Cloud Storage emulator (object storage for client logos / media).
+  # The API talks to it when GCS_ENDPOINT=http://localhost:4443 (the `local` profile).
+  fake-gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: yammer-gcs
+    command:
+      - "-scheme"
+      - "http"
+      - "-host"
+      - "0.0.0.0"
+      - "-port"
+      - "4443"
+      - "-external-url"
+      - "http://localhost:4443"
+      - "-public-host"
+      - "localhost:4443"
+    ports:
+      - "4443:4443"
+    volumes:
+      - yammer-gcs-data:/data
+
 volumes:
   yammer-postgres-data:
+  yammer-gcs-data:

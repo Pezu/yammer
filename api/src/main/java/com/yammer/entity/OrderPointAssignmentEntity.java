@@ -24,6 +24,9 @@ public class OrderPointAssignmentEntity {
     @Column(name = "location_id", nullable = false)
     private UUID locationId;
 
+    @Column(name = "event_id")
+    private UUID eventId;
+
     @Column(name = "parent_name", nullable = false)
     private String parentName;
 

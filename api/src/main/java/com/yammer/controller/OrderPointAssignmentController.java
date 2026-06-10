@@ -28,8 +28,9 @@ public class OrderPointAssignmentController {
     private final OrderPointAssignmentService assignmentService;
 
     @GetMapping
-    public List<ParentAssignmentResponse> list(@RequestParam UUID locationId) {
-        return assignmentService.list(locationId);
+    public List<ParentAssignmentResponse> list(
+            @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
+        return assignmentService.list(locationId, eventId);
     }
 
     /** Order points assigned to the currently authenticated user (for the waiter app). */

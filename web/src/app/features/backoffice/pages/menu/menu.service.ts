@@ -6,6 +6,7 @@ import { environment } from '../../../../../environments/environment';
 export interface Menu {
   id: string;
   locationId: string;
+  eventId: string | null;
   name: string;
 }
 
@@ -24,13 +25,16 @@ export class MenuService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/menu`;
 
-  listMenus(locationId: string): Observable<Menu[]> {
-    const params = new HttpParams().set('locationId', locationId);
+  listMenus(locationId: string, eventId: string): Observable<Menu[]> {
+    let params = new HttpParams().set('locationId', locationId);
+    if (eventId) {
+      params = params.set('eventId', eventId);
+    }
     return this.http.get<Menu[]>(`${this.baseUrl}/menus`, { params });
   }
 
-  createMenu(locationId: string, name: string): Observable<Menu> {
-    return this.http.post<Menu>(`${this.baseUrl}/menus`, { locationId, name });
+  createMenu(locationId: string, eventId: string, name: string): Observable<Menu> {
+    return this.http.post<Menu>(`${this.baseUrl}/menus`, { locationId, eventId: eventId || null, name });
   }
 
   deleteMenu(menuId: string): Observable<void> {

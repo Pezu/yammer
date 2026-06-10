@@ -8,3 +8,7 @@
 .DS_Store
 .idea/
 .claude/
+
+# Logs
+*.log
+*.log.*
