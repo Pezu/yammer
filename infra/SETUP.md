@@ -111,9 +111,10 @@ WIF_SERVICE_ACCOUNT = gh-deployer@$PROJECT.iam.gserviceaccount.com
 
 ## 8. Trigger the pipeline
 
-Push to `main` (or run **deploy** from the Actions tab). It builds api + web images,
-deploys both to Cloud Run (api pinned to 1 instance, wired to Cloud SQL + secrets), and
-attaches the bridge jar artifact.
+Push to `main` (or run **deploy** from the Actions tab). It deploys only the service whose
+folder changed: `api/**` → api on Cloud Run (pinned to 1 instance, wired to Cloud SQL +
+secrets), `web/**` → web on Cloud Run. A manual run deploys both. The **bridge** is not
+built in CI — it runs on-prem; build it locally with `cd bridge && mvn -DskipTests package`.
 
 ## 9. Custom domain + clients (optional but recommended)
 

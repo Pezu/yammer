@@ -3,7 +3,7 @@ name: deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:   # manual run deploys everything
 
 permissions:
   contents: read
@@ -16,10 +16,27 @@ env:
   SQL_INSTANCE: yammer-order-app:europe-west1:yammer-db
 
 jobs:
-  build:
+  # Detect which top-level folder changed so we only deploy the affected service.
+  changes:
     runs-on: ubuntu-latest
     outputs:
-      sha: ${{ steps.vars.outputs.sha }}
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            web:
+              - 'web/**'
+
+  api:
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - id: vars
@@ -30,32 +47,15 @@ jobs:
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
       - name: Build & push api image
         run: |
           docker build -t "$AR/api:${{ steps.vars.outputs.sha }}" -t "$AR/api:latest" ./api
           docker push "$AR/api:${{ steps.vars.outputs.sha }}"
           docker push "$AR/api:latest"
-
-      - name: Build & push web image
-        run: |
-          docker build -t "$AR/web:${{ steps.vars.outputs.sha }}" -t "$AR/web:latest" ./web
-          docker push "$AR/web:${{ steps.vars.outputs.sha }}"
-          docker push "$AR/web:latest"
-
-  deploy-api:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
       - name: Deploy api to Cloud Run (pinned to 1 instance for the in-memory bridge socket)
         run: |
           gcloud run deploy yammer-api \
-            --image "$AR/api:${{ needs.build.outputs.sha }}" \
+            --image "$AR/api:${{ steps.vars.outputs.sha }}" \
             --project "$PROJECT_ID" --region "$REGION" \
             --platform managed --allow-unauthenticated \
             --port 8080 --min-instances 1 --max-instances 1 --timeout 3600 \
@@ -63,34 +63,28 @@ jobs:
             --set-env-vars "^@^DATABASE_URL=jdbc:postgresql:///yammer?cloudSqlInstance=$SQL_INSTANCE&socketFactory=com.google.cloud.sql.postgres.SocketFactory&currentSchema=yammer@DATABASE_USERNAME=yammer_app@GCS_BUCKET=yammer-order-app-uploads@GCS_PROJECT_ID=yammer-order-app@GCS_ENDPOINT=" \
             --set-secrets "DATABASE_PASSWORD=yammer-db-password:latest,JWT_SECRET=jwt-secret:latest,BRIDGE_API_KEY=bridge-api-key:latest"
 
-  deploy-web:
-    needs: build
+  web:
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - id: vars
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Build & push web image
+        run: |
+          docker build -t "$AR/web:${{ steps.vars.outputs.sha }}" -t "$AR/web:latest" ./web
+          docker push "$AR/web:${{ steps.vars.outputs.sha }}"
+          docker push "$AR/web:latest"
       - name: Deploy web to Cloud Run
         run: |
           gcloud run deploy yammer-web \
-            --image "$AR/web:${{ needs.build.outputs.sha }}" \
+            --image "$AR/web:${{ steps.vars.outputs.sha }}" \
             --project "$PROJECT_ID" --region "$REGION" \
             --platform managed --allow-unauthenticated --port 8080
-
-  bridge-artifact:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Build the on-prem bridge jar
-        run: cd bridge && mvn -q -B -DskipTests package
-      - uses: actions/upload-artifact@v4
-        with:
-          name: yammer-bridge-jar
-          path: bridge/target/bridge-*.jar
