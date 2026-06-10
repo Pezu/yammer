@@ -10,6 +10,7 @@ import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
 import com.yammer.entity.VatTypeEntity;
+import com.yammer.event.BridgeReadyEvent;
 import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.repository.IntegrationRepository;
 import com.yammer.repository.MenuItemRepository;
@@ -19,6 +20,7 @@ import com.yammer.repository.PaymentRepository;
 import com.yammer.repository.VatTypeRepository;
 import com.yammer.ws.BridgeWsHandler;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,31 +30,41 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Backend side of the on-prem bridge: builds print jobs, pushes them over the bridge
- * WebSocket, and applies the fiscal result back to the payment.
+ * Backend side of the on-prem bridge, built as a durable, at-least-once outbox so the
+ * fiscal flow survives the bridge disconnecting/reconnecting (e.g. Cloud Run's request
+ * timeout, deploys, network blips).
  *
- * <ul>
- *   <li><b>Fiscal receipts</b> — on a committed non-protocol payment, an
- *       {@code RECEIPT} (fiscal) frame is sent to the order point's cash register;
- *       the {@code RECEIPT_RESULT} updates {@code payment.fiscal_status} / receipt no.</li>
- *   <li><b>Proforma</b> — {@link #sendInfo} pushes an {@code INFO_RECEIPT} to the
- *       order point's thermal printer (non-fiscal, no write-back).</li>
- * </ul>
+ * <p>The {@code payment} row <em>is</em> the outbox:
+ * {@code PENDING} (needs fiscalizing) → {@code SUCCESS}/{@code FAILED} (terminal, set
+ * from {@code RECEIPT_RESULT}). A {@code RECEIPT} frame is only ever pushed while a
+ * bridge session is live; anything still {@code PENDING} is re-sent when the bridge
+ * (re)connects and periodically thereafter. Delivery is idempotent — {@code requestId}
+ * is the stable payment id and the bridge de-dupes — so a re-send never double-prints.
+ *
+ * <p>Proforma ({@code INFO_RECEIPT}) is non-fiscal and best-effort: it is only sent when
+ * a bridge is connected and is not queued (the waiter can re-press it).
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BridgeService {
+
+    /** A PENDING payment sent more than this many seconds ago is presumed lost and re-sent. */
+    private static final long STALE_RESEND_SECONDS = 90;
 
     private final BridgeWsHandler handler;
     private final ObjectMapper mapper;
@@ -63,14 +75,21 @@ public class BridgeService {
     private final MenuItemRepository menuItemRepository;
     private final VatTypeRepository vatTypeRepository;
 
+    /** Serializes dispatch runs (scheduler / event / commit) on this single instance. */
+    private final ReentrantLock dispatchLock = new ReentrantLock();
+
     /** A proforma line (non-fiscal). */
     public record InfoLine(String name, int quantity, BigDecimal unitPrice, BigDecimal lineTotal) {
     }
 
-    // ─── proforma (non-fiscal) ───────────────────────────────────────────────
+    // ─── proforma (non-fiscal, best-effort) ──────────────────────────────────
 
-    /** Push the non-fiscal proforma to the order point's thermal printer. */
+    /** Push the non-fiscal proforma to the order point's thermal printer (only if a bridge is live). */
     public void sendInfo(OrderPointEntity op, List<Integer> orderNos, List<InfoLine> lines, BigDecimal total) {
+        if (!handler.isConnected()) {
+            log.warn("No bridge connected — proforma for '{}' not sent (re-press when online).", op.getName());
+            return;
+        }
         String printerIp = deviceIp(op.getPrinterId());
         if (printerIp == null) {
             log.warn("No thermal printer (with IP) configured for order point '{}' — proforma not sent.",
@@ -92,65 +111,116 @@ public class BridgeService {
             return m;
         }).toList());
         msg.put("total", total);
-        sendJson(msg);
-    }
-
-    // ─── fiscal receipt (on committed payment) ───────────────────────────────
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void onPaymentCommitted(PaymentCommittedEvent event) {
         try {
-            PaymentEntity payment = paymentRepository.findById(event.paymentId()).orElse(null);
-            if (payment == null
-                    || payment.getMethod() == PaymentMethod.PROTOCOL
-                    || payment.getFiscalStatus() == FiscalStatus.SUCCESS) {
-                return;
-            }
-            OrderPointEntity op = orderPointRepository.findById(payment.getOrderPointId()).orElse(null);
-            if (op == null) {
-                return;
-            }
-            String cashRegisterIp = deviceIp(op.getCashRegisterId());
-            if (cashRegisterIp == null) {
-                log.warn("No cash register (with IP) for order point '{}' — payment {} left PENDING.",
-                        op.getName(), payment.getId());
-                return;
-            }
-            List<OrderItemEntity> items = orderItemRepository.findByPaymentId(payment.getId());
-            if (items.isEmpty()) {
-                return;
-            }
-
-            Map<UUID, BigDecimal> vatByMenuItem = resolveVat(items);
-
-            List<Map<String, Object>> lines = new ArrayList<>(items.size());
-            for (OrderItemEntity it : items) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("name", it.getName());
-                m.put("quantity", it.getQuantity());
-                m.put("unitPrice", it.getPrice() == null ? BigDecimal.ZERO : it.getPrice());
-                m.put("vat", it.getMenuItemId() == null ? null : vatByMenuItem.get(it.getMenuItemId()));
-                lines.add(m);
-            }
-
-            Map<String, Object> msg = new LinkedHashMap<>();
-            msg.put("type", "RECEIPT");
-            msg.put("requestId", payment.getId().toString());
-            msg.put("fiscal", true);
-            msg.put("paymentMethod", payment.getMethod().name());
-            msg.put("cashRegister", cashRegisterIp);
-            msg.put("lines", lines);
-            sendJson(msg);
-            log.info("Sent fiscal RECEIPT for payment {} to {}", payment.getId(), cashRegisterIp);
+            handler.send(mapper.writeValueAsString(msg));
         } catch (Exception e) {
-            // fiscalization must never break the payment flow
-            log.error("Failed to dispatch fiscal receipt for payment {}: {}",
-                    event.paymentId(), e.getMessage(), e);
+            log.error("Failed to serialize proforma: {}", e.getMessage(), e);
         }
     }
 
-    // ─── result write-back ───────────────────────────────────────────────────
+    // ─── fiscal dispatch (durable outbox) ────────────────────────────────────
+
+    /** A committed (non-protocol) payment becomes PENDING; flush immediately if a bridge is live. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onPaymentCommitted(PaymentCommittedEvent event) {
+        dispatchPending();
+    }
+
+    /** Safety net: re-attempt PENDING/stale receipts on a fixed cadence. */
+    @Scheduled(fixedDelayString = "${bridge.dispatch-interval-ms:10000}")
+    @Transactional
+    public void dispatchScheduled() {
+        dispatchPending();
+    }
+
+    /** On bridge (re)connect / HELLO, flush everything that accumulated while it was offline. */
+    @Async
+    @Transactional
+    @EventListener
+    public void onBridgeReady(BridgeReadyEvent event) {
+        dispatchPending();
+    }
+
+    /**
+     * Sends every dispatchable PENDING payment — but only while a bridge session is live,
+     * so nothing goes out during a reconnect. Each send stamps {@code fiscalSentAt} so a
+     * lost ack is retried after {@link #STALE_RESEND_SECONDS} (the bridge de-dupes the
+     * replay). Must be invoked within a transaction (callers are transactional).
+     */
+    private void dispatchPending() {
+        if (!handler.isConnected()) {
+            return;
+        }
+        if (!dispatchLock.tryLock()) {
+            return; // another dispatch is already running
+        }
+        try {
+            LocalDateTime cutoff = LocalDateTime.now().minusSeconds(STALE_RESEND_SECONDS);
+            List<PaymentEntity> due = paymentRepository.findFiscalDispatchable(FiscalStatus.PENDING, cutoff);
+            for (PaymentEntity payment : due) {
+                try {
+                    String frame = buildReceiptFrame(payment);
+                    if (frame != null) {
+                        handler.send(frame);
+                        log.info("Dispatched fiscal RECEIPT for payment {}", payment.getId());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to dispatch RECEIPT for payment {}: {}", payment.getId(), e.getMessage(), e);
+                } finally {
+                    // back off either way so a payment with no device doesn't spin every tick
+                    payment.setFiscalSentAt(LocalDateTime.now());
+                    paymentRepository.save(payment);
+                }
+            }
+        } finally {
+            dispatchLock.unlock();
+        }
+    }
+
+    /** Build the {@code RECEIPT} JSON frame for a payment, or {@code null} if it can't be fiscalized. */
+    private String buildReceiptFrame(PaymentEntity payment) throws Exception {
+        if (payment.getMethod() == PaymentMethod.PROTOCOL || payment.getFiscalStatus() == FiscalStatus.SUCCESS) {
+            return null;
+        }
+        OrderPointEntity op = orderPointRepository.findById(payment.getOrderPointId()).orElse(null);
+        if (op == null) {
+            return null;
+        }
+        String cashRegisterIp = deviceIp(op.getCashRegisterId());
+        if (cashRegisterIp == null) {
+            log.warn("No cash register (with IP) for order point '{}' — payment {} left PENDING.",
+                    op.getName(), payment.getId());
+            return null;
+        }
+        List<OrderItemEntity> items = orderItemRepository.findByPaymentId(payment.getId());
+        if (items.isEmpty()) {
+            return null;
+        }
+
+        Map<UUID, BigDecimal> vatByMenuItem = resolveVat(items);
+
+        List<Map<String, Object>> lines = new ArrayList<>(items.size());
+        for (OrderItemEntity it : items) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("name", it.getName());
+            m.put("quantity", it.getQuantity());
+            m.put("unitPrice", it.getPrice() == null ? BigDecimal.ZERO : it.getPrice());
+            m.put("vat", it.getMenuItemId() == null ? null : vatByMenuItem.get(it.getMenuItemId()));
+            lines.add(m);
+        }
+
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "RECEIPT");
+        msg.put("requestId", payment.getId().toString());
+        msg.put("fiscal", true);
+        msg.put("paymentMethod", payment.getMethod().name());
+        msg.put("cashRegister", cashRegisterIp);
+        msg.put("lines", lines);
+        return mapper.writeValueAsString(msg);
+    }
+
+    // ─── result write-back (the ack) ─────────────────────────────────────────
 
     /** Apply a {@code RECEIPT_RESULT} (fiscal receipts only; proforma results are ignored). */
     @Transactional
@@ -224,13 +294,5 @@ public class BridgeService {
             }
         });
         return result;
-    }
-
-    private void sendJson(Map<String, Object> message) {
-        try {
-            handler.send(mapper.writeValueAsString(message));
-        } catch (Exception e) {
-            log.error("Failed to serialize bridge message: {}", e.getMessage(), e);
-        }
     }
 }

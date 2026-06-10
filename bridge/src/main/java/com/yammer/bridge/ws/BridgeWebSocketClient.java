@@ -11,6 +11,7 @@ import com.yammer.bridge.print.PrintQueueManager;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -45,14 +46,17 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     private final BridgeProperties props;
     private final PrintQueueManager queue;
     private final ObjectMapper mapper;
+    private final ProcessedReceiptStore processedStore;
     private final StandardWebSocketClient client = new StandardWebSocketClient();
 
     private volatile WebSocketSession session;
 
-    public BridgeWebSocketClient(BridgeProperties props, PrintQueueManager queue, ObjectMapper mapper) {
+    public BridgeWebSocketClient(BridgeProperties props, PrintQueueManager queue, ObjectMapper mapper,
+                                 ProcessedReceiptStore processedStore) {
         this.props = props;
         this.queue = queue;
         this.mapper = mapper;
+        this.processedStore = processedStore;
     }
 
     // ─── connection lifecycle ────────────────────────────────────────────────
@@ -85,6 +89,7 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
 
             this.session = client.execute(this, headers, uri).get(30, TimeUnit.SECONDS);
             log.info("Connected to backend WebSocket.");
+            sendHello();
         } catch (Exception ex) {
             this.session = null;
             log.error("WebSocket connect failed: {}. Retrying in {}s...",
@@ -125,6 +130,17 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
 
     private void handleReceipt(JsonNode node) throws Exception {
         ReceiptRequest request = mapper.treeToValue(node, ReceiptRequest.class);
+
+        // Idempotency: the backend re-sends PENDING receipts on reconnect. If we already
+        // printed this requestId, return the cached result instead of printing again.
+        Optional<ReceiptResult> cached = processedStore.get(request.requestId());
+        if (cached.isPresent()) {
+            log.info("Duplicate receipt requestId={} — returning cached result, not re-printing.",
+                    request.requestId());
+            sendResult(cached.get());
+            return;
+        }
+
         String kind = request.fiscal() ? "FISCAL" : "NON-FISCAL";
         String ip = request.fiscal() ? request.cashRegister() : request.printerIp();
         log.info("Received {} receipt: requestId={} device={} method={}",
@@ -136,8 +152,28 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
             }
         }
         queue.submitReceipt(request)
-                .thenAccept(this::sendResult)
+                .thenAccept(result -> {
+                    if (ReceiptResult.OK.equalsIgnoreCase(result.status())) {
+                        processedStore.put(request.requestId(), result);
+                    }
+                    sendResult(result);
+                })
                 .exceptionally(ex -> logAsyncFailure(request.requestId(), ex));
+    }
+
+    private void sendHello() {
+        WebSocketSession s = this.session;
+        if (s == null || !s.isOpen()) {
+            return;
+        }
+        try {
+            synchronized (s) {
+                s.sendMessage(new TextMessage("{\"type\":\"HELLO\"}"));
+            }
+            log.info("Sent HELLO to backend (flush pending receipts).");
+        } catch (Exception ex) {
+            log.warn("Failed to send HELLO: {}", ex.getMessage());
+        }
     }
 
     private void handleInfo(JsonNode node) throws Exception {

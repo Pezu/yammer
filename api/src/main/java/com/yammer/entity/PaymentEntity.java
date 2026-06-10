@@ -50,4 +50,8 @@ public class PaymentEntity {
 
     @Column(name = "receipt_number")
     private String receiptNumber;
+
+    /** When the fiscal RECEIPT was last pushed to the bridge (for stale re-send). */
+    @Column(name = "fiscal_sent_at")
+    private LocalDateTime fiscalSentAt;
 }
