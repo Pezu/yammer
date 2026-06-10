@@ -12,8 +12,8 @@ permissions:
 env:
   PROJECT_ID: yammer-order-app
   REGION: europe-west1
-  ZONE: europe-west1-b
   AR: europe-west1-docker.pkg.dev/yammer-order-app/yammer
+  SQL_INSTANCE: yammer-order-app:europe-west1:yammer-db
 
 jobs:
   build:
@@ -43,6 +43,26 @@ jobs:
           docker push "$AR/web:${{ steps.vars.outputs.sha }}"
           docker push "$AR/web:latest"
 
+  deploy-api:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy api to Cloud Run (pinned to 1 instance for the in-memory bridge socket)
+        run: |
+          gcloud run deploy yammer-api \
+            --image "$AR/api:${{ needs.build.outputs.sha }}" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --platform managed --allow-unauthenticated \
+            --port 8080 --min-instances 1 --max-instances 1 --timeout 3600 \
+            --add-cloudsql-instances "$SQL_INSTANCE" \
+            --set-env-vars "^@^DATABASE_URL=jdbc:postgresql:///yammer?cloudSqlInstance=$SQL_INSTANCE&socketFactory=com.google.cloud.sql.postgres.SocketFactory&currentSchema=yammer@DATABASE_USERNAME=yammer_app@GCS_BUCKET=yammer-order-app-uploads@GCS_PROJECT_ID=yammer-order-app@GCS_ENDPOINT=" \
+            --set-secrets "DATABASE_PASSWORD=yammer-db-password:latest,JWT_SECRET=jwt-secret:latest,BRIDGE_API_KEY=bridge-api-key:latest"
+
   deploy-web:
     needs: build
     runs-on: ubuntu-latest
@@ -58,21 +78,6 @@ jobs:
             --image "$AR/web:${{ needs.build.outputs.sha }}" \
             --project "$PROJECT_ID" --region "$REGION" \
             --platform managed --allow-unauthenticated --port 8080
-
-  deploy-api:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - name: Roll the api container on the VM
-        run: |
-          gcloud compute ssh yammer-api \
-            --project "$PROJECT_ID" --zone "$ZONE" --tunnel-through-iap \
-            --command "cd /opt/yammer && sudo docker compose pull api && sudo docker compose up -d api"
 
   bridge-artifact:
     needs: build

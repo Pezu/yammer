@@ -111,6 +111,15 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Cloud SQL connector (Cloud Run -> Cloud SQL over IAM, no public IP / proxy).
+             Activated only when the JDBC URL uses socketFactory=...postgres.SocketFactory. -->
+        <dependency>
+            <groupId>com.google.cloud.sql</groupId>
+            <artifactId>postgres-socket-factory</artifactId>
+            <version>1.21.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Google Cloud Storage (client logos / future media); emulated locally by fake-gcs-server -->
         <dependency>
             <groupId>com.google.cloud</groupId>

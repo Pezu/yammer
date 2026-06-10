@@ -1,6 +1,0 @@
-# Caddy terminates TLS (auto Let's Encrypt) and reverse-proxies to the api container.
-# It transparently upgrades and streams WebSockets with no request-duration cap, so the
-# on-prem bridge's wss://.../ws/bridge connection stays open indefinitely.
-{$API_DOMAIN} {
-    reverse_proxy api:8080
-}
