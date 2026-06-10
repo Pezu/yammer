@@ -10,6 +10,8 @@ permissions:
   id-token: write        # required for Workload Identity Federation
 
 env:
+  # run JS actions on Node 24 (Node 20 is deprecated on GitHub runners)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROJECT_ID: yammer-order-app
   REGION: europe-west1
   AR: europe-west1-docker.pkg.dev/yammer-order-app/yammer
