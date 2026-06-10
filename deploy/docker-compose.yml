@@ -1,0 +1,48 @@
+# Runs on the api VM (Compute Engine). Three containers:
+#   cloud-sql-proxy  - authenticates to Cloud SQL via the VM service account (ADC)
+#   api              - the Spring Boot backend (WebSocket server)
+#   caddy            - TLS termination + reverse proxy (handles wss, no timeout)
+#
+# Values come from /opt/yammer/.env, which the deploy step populates from Secret Manager.
+services:
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    command:
+      - "--address=0.0.0.0"
+      - "--port=5432"
+      - "${INSTANCE_CONNECTION_NAME}"
+    restart: always
+
+  api:
+    image: "${API_IMAGE}"
+    depends_on:
+      - cloud-sql-proxy
+    environment:
+      DATABASE_URL: "jdbc:postgresql://cloud-sql-proxy:5432/yammer?currentSchema=yammer"
+      DATABASE_USERNAME: "${DATABASE_USERNAME}"
+      DATABASE_PASSWORD: "${DATABASE_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
+      BRIDGE_API_KEY: "${BRIDGE_API_KEY}"
+      GCS_BUCKET: "${GCS_BUCKET}"
+      GCS_PROJECT_ID: "${GCS_PROJECT_ID}"
+      GCS_ENDPOINT: ""
+    restart: always
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: "${API_DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: always
+
+volumes:
+  caddy_data:
+  caddy_config:

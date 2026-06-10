@@ -1,0 +1,91 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write        # required for Workload Identity Federation
+
+env:
+  PROJECT_ID: yammer-order-app
+  REGION: europe-west1
+  ZONE: europe-west1-b
+  AR: europe-west1-docker.pkg.dev/yammer-order-app/yammer
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: vars
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push api image
+        run: |
+          docker build -t "$AR/api:${{ steps.vars.outputs.sha }}" -t "$AR/api:latest" ./api
+          docker push "$AR/api:${{ steps.vars.outputs.sha }}"
+          docker push "$AR/api:latest"
+
+      - name: Build & push web image
+        run: |
+          docker build -t "$AR/web:${{ steps.vars.outputs.sha }}" -t "$AR/web:latest" ./web
+          docker push "$AR/web:${{ steps.vars.outputs.sha }}"
+          docker push "$AR/web:latest"
+
+  deploy-web:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy web to Cloud Run
+        run: |
+          gcloud run deploy yammer-web \
+            --image "$AR/web:${{ needs.build.outputs.sha }}" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --platform managed --allow-unauthenticated --port 8080
+
+  deploy-api:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Roll the api container on the VM
+        run: |
+          gcloud compute ssh yammer-api \
+            --project "$PROJECT_ID" --zone "$ZONE" --tunnel-through-iap \
+            --command "cd /opt/yammer && sudo docker compose pull api && sudo docker compose up -d api"
+
+  bridge-artifact:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build the on-prem bridge jar
+        run: cd bridge && mvn -q -B -DskipTests package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yammer-bridge-jar
+          path: bridge/target/bridge-*.jar
