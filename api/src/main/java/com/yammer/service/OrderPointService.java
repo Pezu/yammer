@@ -14,7 +14,6 @@ import com.yammer.repository.IntegrationRepository;
 import com.yammer.repository.MenuRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.security.AccessGuard;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -40,10 +39,9 @@ public class OrderPointService {
     @Transactional(readOnly = true)
     public List<OrderPointResponse> listByLocation(UUID locationId, UUID eventId) {
         requireAccessibleLocation(locationId);
-        List<OrderPointEntity> points = eventId != null
-                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
-                : orderPointRepository.findByLocationIdOrderByName(locationId);
-        return points.stream().map(OrderPointResponse::from).toList();
+        return orderPointRepository.findByLocationAndOptionalEventOrderByName(locationId, eventId).stream()
+                .map(OrderPointResponse::from)
+                .toList();
     }
 
     /** The order point plus its menu tree (for the waiter ordering screen). */
@@ -56,20 +54,32 @@ public class OrderPointService {
     }
 
     public OrderPointResponse create(OrderPointRequest request) {
-        requireAccessibleLocation(request.locationId());
-        OrderPointEntity entity = new OrderPointEntity();
-        entity.setLocationId(request.locationId());
-        entity.setEventId(request.eventId());
-        entity.setName(request.name().trim());
-        entity.setPayLater(request.payLater());
-        entity.setProtocol(request.protocol());
-        entity.setMenuId(resolveMenu(request.locationId(), request.menuId()));
-        entity.setServiceOrderPointId(
-                resolveService(request.locationId(), request.payLater(), request.serviceOrderPointId()));
-        entity.setPrinterId(resolveDevice(request.locationId(), request.printerId(), IntegrationType.PRINTER));
-        entity.setCashRegisterId(
-                resolveDevice(request.locationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER));
+        UUID locationId = request.locationId();
+        requireAccessibleLocation(locationId);
+        OrderPointEntity entity = newOrderPoint(
+                locationId, request.eventId(), request.name().trim(), request.payLater(), request.protocol(),
+                resolveMenu(locationId, request.menuId()),
+                resolveService(locationId, request.payLater(), request.serviceOrderPointId()),
+                resolveDevice(locationId, request.printerId(), IntegrationType.PRINTER),
+                resolveDevice(locationId, request.cashRegisterId(), IntegrationType.CASH_REGISTER));
         return OrderPointResponse.from(orderPointRepository.save(entity));
+    }
+
+    /** Builds an OrderPointEntity from already-resolved values (single place that knows the columns). */
+    private OrderPointEntity newOrderPoint(
+            UUID locationId, UUID eventId, String name, boolean payLater, boolean protocol,
+            UUID menuId, UUID serviceId, UUID printerId, UUID cashRegisterId) {
+        OrderPointEntity entity = new OrderPointEntity();
+        entity.setLocationId(locationId);
+        entity.setEventId(eventId);
+        entity.setName(name);
+        entity.setPayLater(payLater);
+        entity.setProtocol(protocol);
+        entity.setMenuId(menuId);
+        entity.setServiceOrderPointId(serviceId);
+        entity.setPrinterId(printerId);
+        entity.setCashRegisterId(cashRegisterId);
+        return entity;
     }
 
     /** Creates {@code count} order points at once, auto-naming them (B{n}, or M{n}.1 for pay-later). */
@@ -85,30 +95,23 @@ public class OrderPointService {
         UUID cashRegisterId =
                 resolveDevice(request.locationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER);
 
-        List<OrderPointEntity> existing = request.eventId() != null
-                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(request.locationId(), request.eventId())
-                : orderPointRepository.findByLocationIdOrderByName(request.locationId());
+        List<OrderPointEntity> existing = orderPointRepository
+                .findByLocationAndOptionalEventOrderByName(request.locationId(), request.eventId());
         List<String> names = generateNames(existing, request.count(), request.payLater());
 
-        List<OrderPointEntity> toCreate = new ArrayList<>(names.size());
-        for (String name : names) {
-            OrderPointEntity entity = new OrderPointEntity();
-            entity.setLocationId(request.locationId());
-            entity.setEventId(request.eventId());
-            entity.setName(name);
-            entity.setPayLater(request.payLater());
-            entity.setMenuId(menuId);
-            entity.setServiceOrderPointId(serviceId);
-            entity.setPrinterId(printerId);
-            entity.setCashRegisterId(cashRegisterId);
-            toCreate.add(entity);
-        }
+        // Batch-created points are always non-protocol; protocol tables are configured individually.
+        List<OrderPointEntity> toCreate = names.stream()
+                .map(name -> newOrderPoint(
+                        request.locationId(), request.eventId(), name, request.payLater(), false,
+                        menuId, serviceId, printerId, cashRegisterId))
+                .toList();
         return orderPointRepository.saveAll(toCreate).stream().map(OrderPointResponse::from).toList();
     }
 
     public OrderPointResponse update(UUID id, OrderPointRequest request) {
         OrderPointEntity entity = requireAccessibleOrderPoint(id);
         entity.setName(request.name().trim());
+        entity.setEventId(request.eventId()); // honor the event the client sends (was silently ignored)
         entity.setPayLater(request.payLater());
         entity.setProtocol(request.protocol());
         entity.setMenuId(resolveMenu(entity.getLocationId(), request.menuId()));
@@ -144,28 +147,24 @@ public class OrderPointService {
         String prefix = m.group(1) + ".";
 
         Pattern siblingPattern = Pattern.compile("^" + Pattern.quote(prefix) + "(\\d+)$");
-        int maxSuffix = 0;
-        List<OrderPointEntity> siblings = source.getEventId() != null
-                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(source.getLocationId(), source.getEventId())
-                : orderPointRepository.findByLocationIdOrderByName(source.getLocationId());
-        for (OrderPointEntity op : siblings) {
-            Matcher sm = siblingPattern.matcher(op.getName());
-            if (sm.matches()) {
-                maxSuffix = Math.max(maxSuffix, Integer.parseInt(sm.group(1)));
-            }
-        }
+        List<OrderPointEntity> siblings = orderPointRepository
+                .findByLocationAndOptionalEventOrderByName(source.getLocationId(), source.getEventId());
+        int maxSuffix = maxFirstGroup(siblings, siblingPattern);
 
-        OrderPointEntity newOp = new OrderPointEntity();
-        newOp.setLocationId(source.getLocationId());
-        newOp.setEventId(source.getEventId());
-        newOp.setName(prefix + (maxSuffix + 1));
-        newOp.setPayLater(true);
-        newOp.setProtocol(source.isProtocol());
-        newOp.setMenuId(source.getMenuId());
-        newOp.setServiceOrderPointId(source.getServiceOrderPointId());
-        newOp.setPrinterId(source.getPrinterId());
-        newOp.setCashRegisterId(source.getCashRegisterId());
+        OrderPointEntity newOp = newOrderPoint(
+                source.getLocationId(), source.getEventId(), prefix + (maxSuffix + 1), true, source.isProtocol(),
+                source.getMenuId(), source.getServiceOrderPointId(), source.getPrinterId(), source.getCashRegisterId());
         return OrderPointResponse.from(orderPointRepository.save(newOp));
+    }
+
+    /** Highest integer captured by group(1) of {@code pattern} across the order points' names (0 if none). */
+    private static int maxFirstGroup(List<OrderPointEntity> ops, Pattern pattern) {
+        return ops.stream()
+                .map(op -> pattern.matcher(op.getName()))
+                .filter(Matcher::matches)
+                .mapToInt(matcher -> Integer.parseInt(matcher.group(1)))
+                .max()
+                .orElse(0);
     }
 
     // --- name generation (mirrors the servio scheme) ---
@@ -175,19 +174,10 @@ public class OrderPointService {
 
     /** Pay-later points are named M{n}.1; the rest B{n}. Numbering continues past the current max. */
     private List<String> generateNames(List<OrderPointEntity> existing, int count, boolean payLater) {
-        List<String> names = new ArrayList<>(count);
-        Pattern pattern = payLater ? PAY_LATER_NAME : NON_PAY_LATER_NAME;
-        int max = 0;
-        for (OrderPointEntity op : existing) {
-            Matcher m = pattern.matcher(op.getName());
-            if (m.matches()) {
-                max = Math.max(max, Integer.parseInt(m.group(1)));
-            }
-        }
-        for (int i = 1; i <= count; i++) {
-            names.add(payLater ? "M" + (max + i) + ".1" : "B" + (max + i));
-        }
-        return names;
+        int max = maxFirstGroup(existing, payLater ? PAY_LATER_NAME : NON_PAY_LATER_NAME);
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> payLater ? "M" + (max + i) + ".1" : "B" + (max + i))
+                .toList();
     }
 
     // --- helpers ---
@@ -252,9 +242,5 @@ public class OrderPointService {
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {
         return accessGuard.requireAccessibleLocation(locationId);
-    }
-
-    private ResponseStatusException notFound(UUID id) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Order point not found: " + id);
     }
 }

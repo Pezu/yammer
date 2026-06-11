@@ -7,6 +7,7 @@ import com.yammer.entity.IntegrationType;
 import com.yammer.entity.LocationEntity;
 import com.yammer.repository.IntegrationRepository;
 import com.yammer.security.AccessGuard;
+import com.yammer.util.Strings;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +56,7 @@ public class IntegrationService {
 
     private void apply(IntegrationEntity entity, IntegrationRequest request) {
         entity.setName(request.name().trim());
-        String ip = request.ip() == null || request.ip().isBlank() ? null : request.ip().trim();
-        entity.setIp(ip);
+        entity.setIp(Strings.trimToNull(request.ip()));
         entity.setType(request.type());
     }
 

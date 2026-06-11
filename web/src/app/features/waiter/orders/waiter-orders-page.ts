@@ -1,6 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActiveOrder, WaiterOrderPointService } from '../tables/waiter-order-point.service';
 
 type Tab = 'ORDERED' | 'READY';
@@ -48,7 +47,7 @@ type Tab = 'ORDERED' | 'READY';
               @for (it of o.items; track it.id) {
                 <li>
                   <span class="qty">{{ it.quantity }}×</span>
-                  <span class="iname" [innerHTML]="html(it.name)"></span>
+                  <span class="iname" [innerHTML]="it.name"></span>
                 </li>
               }
             </ul>
@@ -230,7 +229,6 @@ type Tab = 'ORDERED' | 'READY';
 })
 export class WaiterOrdersPage {
   private readonly service = inject(WaiterOrderPointService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   readonly orders = signal<ActiveOrder[]>([]);
   readonly loading = signal(true);
@@ -262,9 +260,6 @@ export class WaiterOrdersPage {
     return iso.length >= 16 ? iso.substring(11, 16) : iso;
   }
 
-  html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
-  }
 
   deliver(o: ActiveOrder): void {
     if (o.status !== 'READY' || this.busy().has(o.id)) return;

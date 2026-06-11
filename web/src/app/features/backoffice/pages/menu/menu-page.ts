@@ -1,6 +1,5 @@
 import { Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
@@ -33,7 +32,6 @@ export class MenuPage {
   private readonly menuService = inject(MenuService);
   private readonly eventService = inject(EventService);
   private readonly vatService = inject(VatService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   readonly vatTypes = signal<VatType[]>([]);
 
@@ -198,9 +196,6 @@ export class MenuPage {
     return this.vatTypes().find((v) => Number(v.value) === 21)?.id ?? '';
   }
 
-  sanitizeHtml(html: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(html);
-  }
   private plainText(html: string): string {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;

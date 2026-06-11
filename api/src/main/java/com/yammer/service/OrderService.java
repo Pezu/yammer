@@ -3,6 +3,7 @@ package com.yammer.service;
 import com.yammer.dto.OrderItemRequest;
 import com.yammer.dto.OrderItemsUpdateRequest;
 import com.yammer.dto.OrderResponse;
+import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
 import com.yammer.event.OrderChangedEvent;
@@ -17,15 +18,22 @@ import com.yammer.repository.OrderRepository;
 import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,7 +43,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 @Transactional
-@lombok.extern.slf4j.Slf4j
 public class OrderService {
 
     private final OrderRepository orderRepository;
@@ -44,7 +51,8 @@ public class OrderService {
     private final LocationRepository locationRepository;
     private final CurrentUserProvider currentUser;
     private final AccessGuard accessGuard;
-    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OrderResponseAssembler orderResponseAssembler;
     private final BridgeService bridgeService;
 
     /** Places an order at an order point with the given line items (name/price snapshotted). */
@@ -111,7 +119,7 @@ public class OrderService {
 
     /** Update quantities of an order's unpaid items; quantity ≤ 0 deletes the item. */
     public OrderResponse updateItems(UUID orderId, List<OrderItemsUpdateRequest.ItemQuantity> updates) {
-        OrderEntity order = requireAccessibleOrder(orderId);
+        OrderEntity order = accessGuard.requireAccessibleOrder(orderId);
         OrderPointEntity op = orderPointRepository.findById(order.getOrderPointId())
                 .orElseThrow(() -> notFound(order.getOrderPointId()));
 
@@ -139,7 +147,7 @@ public class OrderService {
 
     /** Completely deletes an order (and its items). Only allowed when nothing is paid. */
     public void deleteOrder(UUID orderId) {
-        requireAccessibleOrder(orderId);
+        accessGuard.requireAccessibleOrder(orderId);
         boolean anyPaid = orderItemRepository.findByOrderIdIn(List.of(orderId)).stream()
                 .anyMatch(i -> i.getPaymentId() != null);
         if (anyPaid) {
@@ -147,10 +155,6 @@ public class OrderService {
                     HttpStatus.BAD_REQUEST, "Cannot delete an order that has paid items");
         }
         orderRepository.deleteById(orderId); // FK cascade removes order_item rows
-    }
-
-    private OrderEntity requireAccessibleOrder(UUID orderId) {
-        return accessGuard.requireAccessibleOrder(orderId);
     }
 
     /** Every product the caller can see, with the total ordered quantity (highest first). */
@@ -164,6 +168,24 @@ public class OrderService {
         return orderItemRepository.aggregateProductQuantities(opIds).stream()
                 .map(q -> new ProductReportRow(q.getName(), q.getQuantity()))
                 .toList();
+    }
+
+    /** One page of the caller's visible orders, newest first — server-side paginated. */
+    @Transactional(readOnly = true)
+    public PagedResponse<OrderResponse> listPaged(int page, int size) {
+        UserPrincipal me = currentUser.require();
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<OrderEntity> result;
+        if (me.isSuper()) {
+            result = orderRepository.findAll(pageable);
+        } else {
+            List<UUID> opIds = accessGuard.visibleOrderPointIds();
+            if (opIds.isEmpty()) {
+                return new PagedResponse<>(List.of(), 0, page, size);
+            }
+            result = orderRepository.findByOrderPointIdIn(opIds, pageable);
+        }
+        return new PagedResponse<>(toResponses(result.getContent()), result.getTotalElements(), page, size);
     }
 
     /** Orders visible to the current user: SUPER → everything; otherwise their own client's. */
@@ -196,66 +218,55 @@ public class OrderService {
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(List.of(orderPointId));
         Map<UUID, Long> orderNoById = orders.stream()
                 .collect(Collectors.toMap(OrderEntity::getId, OrderEntity::getOrderNo));
+        List<OrderItemEntity> unpaid = orders.isEmpty()
+                ? List.of()
+                : orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
+                        .filter(it -> it.getPaymentId() == null)
+                        .toList();
 
-        // unpaid lines grouped by product name (preserving first-seen order)
-        Map<String, int[]> qtyByName = new java.util.LinkedHashMap<>();
-        Map<String, java.math.BigDecimal> priceByName = new java.util.HashMap<>();
-        java.util.Set<Long> orderNos = new java.util.TreeSet<>();
-        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
-        if (!orders.isEmpty()) {
-            List<OrderItemEntity> items =
-                    orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList());
-            for (OrderItemEntity it : items) {
-                if (it.getPaymentId() != null) {
-                    continue; // already settled
-                }
-                java.math.BigDecimal price = it.getPrice() == null ? java.math.BigDecimal.ZERO : it.getPrice();
-                qtyByName.computeIfAbsent(it.getName(), k -> new int[1])[0] += it.getQuantity();
-                priceByName.putIfAbsent(it.getName(), price);
-                total = total.add(price.multiply(java.math.BigDecimal.valueOf(it.getQuantity())));
-                Long no = orderNoById.get(it.getOrderId());
-                if (no != null) {
-                    orderNos.add(no);
-                }
-            }
-        }
-
-        if (qtyByName.isEmpty()) {
+        // One pass groups the unpaid lines into InfoLines by product name (first-seen order preserved).
+        Map<String, BridgeService.InfoLine> byName = unpaid.stream().collect(Collectors.toMap(
+                OrderItemEntity::getName,
+                OrderService::toInfoLine,
+                (a, b) -> new BridgeService.InfoLine(
+                        a.name(), a.quantity() + b.quantity(), a.unitPrice(), a.lineTotal().add(b.lineTotal())),
+                LinkedHashMap::new));
+        if (byName.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nothing to print — no unpaid items");
         }
 
-        List<BridgeService.InfoLine> lines = qtyByName.entrySet().stream()
-                .map(e -> {
-                    int qty = e.getValue()[0];
-                    java.math.BigDecimal unit = priceByName.get(e.getKey());
-                    return new BridgeService.InfoLine(
-                            e.getKey(), qty, unit, unit.multiply(java.math.BigDecimal.valueOf(qty)));
-                })
+        List<BridgeService.InfoLine> lines = List.copyOf(byName.values());
+        BigDecimal total = lines.stream()
+                .map(BridgeService.InfoLine::lineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<Integer> orderNoList = unpaid.stream()
+                .map(it -> orderNoById.get(it.getOrderId()))
+                .filter(Objects::nonNull)
+                .map(Long::intValue)
+                .distinct()
+                .sorted()
                 .toList();
-        List<Integer> orderNoList = orderNos.stream().map(Long::intValue).toList();
 
         bridgeService.sendInfo(op, orderNoList, lines, total);
+    }
+
+    private static BridgeService.InfoLine toInfoLine(OrderItemEntity it) {
+        BigDecimal price = it.getPrice() == null ? BigDecimal.ZERO : it.getPrice();
+        return new BridgeService.InfoLine(
+                it.getName(), it.getQuantity(), price, price.multiply(BigDecimal.valueOf(it.getQuantity())));
     }
 
     private List<OrderResponse> toResponses(List<OrderEntity> orders) {
         if (orders.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<OrderItemEntity>> itemsByOrder = orderItemRepository
-                .findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
-                .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
-
         Set<UUID> opIds = orders.stream().map(OrderEntity::getOrderPointId).collect(Collectors.toSet());
         Map<UUID, String> opNames = orderPointRepository.findAllById(opIds).stream()
                 .collect(Collectors.toMap(OrderPointEntity::getId, OrderPointEntity::getName));
-
-        return orders.stream()
-                .map(o -> OrderResponse.from(
-                        o, itemsByOrder.getOrDefault(o.getId(), List.of()), opNames.get(o.getOrderPointId())))
-                .toList();
+        return orderResponseAssembler.assemble(orders, opNames);
     }
 
-    private ResponseStatusException notFound(java.util.UUID id) {
+    private ResponseStatusException notFound(UUID id) {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "Order point not found: " + id);
     }
 }

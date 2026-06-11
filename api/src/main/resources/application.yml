@@ -56,13 +56,14 @@ gcs:
   project-id: ${GCS_PROJECT_ID:yammer}
   endpoint: ${GCS_ENDPOINT:}
 
-# Actuator endpoints
+# Actuator endpoints. Only health/info are exposed (metrics is internal-only); health detail
+# is shown only to authenticated callers so anonymous probes get a bare UP/DOWN.
 management:
   endpoints:
     web:
       base-path: /actuator
       exposure:
-        include: health,info,metrics
+        include: health,info
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized

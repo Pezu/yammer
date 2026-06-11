@@ -1,7 +1,6 @@
 import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
   Payment,
   PaymentMethod,
@@ -17,6 +16,26 @@ interface ProductLine {
   qty: number; // unpaid quantity for this product across the table order
 }
 
+/** Groups an order list's items by product, keeping only paid (or only unpaid) lines. */
+function groupByProduct(orders: PlacedOrder[], paid: boolean): ProductLine[] {
+  const map = new Map<string, ProductLine>();
+  for (const order of orders) {
+    for (const it of order.items) {
+      if (it.paid !== paid || !it.menuItemId) {
+        continue;
+      }
+      const existing = map.get(it.menuItemId);
+      map.set(
+        it.menuItemId,
+        existing
+          ? { ...existing, qty: existing.qty + it.quantity }
+          : { menuItemId: it.menuItemId, name: it.name, price: it.price, qty: it.quantity },
+      );
+    }
+  }
+  return [...map.values()];
+}
+
 type TipMode = 'none' | 'p10' | 'p12' | 'p15' | 'customPct' | 'customAmt';
 
 @Component({
@@ -28,7 +47,6 @@ type TipMode = 'none' | 'p10' | 'p12' | 'p15' | 'customPct' | 'customAmt';
 export class WaiterTableDetailPage {
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(WaiterOrderPointService);
-  private readonly sanitizer = inject(DomSanitizer);
   private readonly toast = inject(ToastService);
 
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -42,52 +60,10 @@ export class WaiterTableDetailPage {
   readonly ordersError = signal<string | null>(null);
 
   /** Unpaid lines grouped by product — the current bill. */
-  readonly unpaidByProduct = computed<ProductLine[]>(() => {
-    const map = new Map<string, ProductLine>();
-    for (const order of this.orders()) {
-      for (const it of order.items) {
-        if (it.paid || !it.menuItemId) {
-          continue;
-        }
-        const existing = map.get(it.menuItemId);
-        if (existing) {
-          existing.qty += it.quantity;
-        } else {
-          map.set(it.menuItemId, {
-            menuItemId: it.menuItemId,
-            name: it.name,
-            price: it.price,
-            qty: it.quantity,
-          });
-        }
-      }
-    }
-    return [...map.values()];
-  });
+  readonly unpaidByProduct = computed<ProductLine[]>(() => groupByProduct(this.orders(), false));
 
   /** Paid lines grouped by product. */
-  readonly paidByProduct = computed<ProductLine[]>(() => {
-    const map = new Map<string, ProductLine>();
-    for (const order of this.orders()) {
-      for (const it of order.items) {
-        if (!it.paid || !it.menuItemId) {
-          continue;
-        }
-        const existing = map.get(it.menuItemId);
-        if (existing) {
-          existing.qty += it.quantity;
-        } else {
-          map.set(it.menuItemId, {
-            menuItemId: it.menuItemId,
-            name: it.name,
-            price: it.price,
-            qty: it.quantity,
-          });
-        }
-      }
-    }
-    return [...map.values()];
-  });
+  readonly paidByProduct = computed<ProductLine[]>(() => groupByProduct(this.orders(), true));
   // which list to show: unpaid (default) or paid
   readonly view = signal<'unpaid' | 'paid'>('unpaid');
   readonly viewComboOpen = signal(false);
@@ -231,10 +207,6 @@ export class WaiterTableDetailPage {
       },
     });
     this.service.payments(this.id).subscribe({ next: (p) => this.payments.set(p), error: () => {} });
-  }
-
-  html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
   }
 
   // --- payment modal ---

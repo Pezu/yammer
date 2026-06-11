@@ -1,6 +1,5 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { AppLogo } from '../../shared/logo.component';
@@ -24,7 +23,6 @@ export class ServicePage implements OnDestroy {
   private readonly service = inject(ServiceOrderService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly sanitizer = inject(DomSanitizer);
 
   readonly orders = signal<ServiceOrder[]>([]);
   readonly loading = signal(true);
@@ -160,21 +158,6 @@ export class ServicePage implements OnDestroy {
 
   time(iso: string): string {
     return iso.length >= 16 ? iso.substring(11, 16) : iso;
-  }
-
-  /**
-   * Menu item / order point names may contain embedded HTML formatting. Cached by raw value so
-   * the same SafeHtml reference is returned every change-detection cycle — otherwise Angular
-   * rewrites the innerHTML of every list row on each pass.
-   */
-  private readonly htmlCache = new Map<string, SafeHtml>();
-  html(value: string): SafeHtml {
-    let safe = this.htmlCache.get(value);
-    if (!safe) {
-      safe = this.sanitizer.bypassSecurityTrustHtml(value);
-      this.htmlCache.set(value, safe);
-    }
-    return safe;
   }
 
   // --- status transitions -------------------------------------------------

@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
  * to keep ordering simple and predictable.
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 public class PrintQueueManager {
 
@@ -30,11 +32,6 @@ public class PrintQueueManager {
         t.setDaemon(false);
         return t;
     });
-
-    public PrintQueueManager(FiscalPrinterService fiscalPrinterService, EscPosThermalService thermalService) {
-        this.fiscalPrinterService = fiscalPrinterService;
-        this.thermalService = thermalService;
-    }
 
     /**
      * Print a receipt: fiscally on the cash register when {@code fiscal}, otherwise

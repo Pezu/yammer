@@ -11,6 +11,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -60,6 +62,12 @@ public class EscPosThermalService {
             writeLine(out, "PROFORMA");
             out.write(BOLD_OFF);
             writeLine(out, "NU ESTE BON FISCAL");
+            List<Integer> orderNos = payload.orderNos();
+            if (orderNos != null && !orderNos.isEmpty()) {
+                writeLine(out, "Comenzi: " + orderNos.stream()
+                        .map(String::valueOf)
+                        .collect(Collectors.joining(", ")));
+            }
 
             out.write(ALIGN_LEFT);
             writeLine(out, sep());
@@ -93,13 +101,7 @@ public class EscPosThermalService {
         } catch (Exception ex) {
             log.error("Info print failed requestId={} printer={}: {}",
                     payload.requestId(), host, ex.getMessage(), ex);
-            return ReceiptResult.builder()
-                    .status(ReceiptResult.ERROR)
-                    .requestId(payload.requestId())
-                    .issuedAt(LocalDateTime.now())
-                    .errorCode("PRINT_ERROR")
-                    .errorMessage(ex.getMessage())
-                    .build();
+            return ReceiptResult.error(payload.requestId(), null, "PRINT_ERROR", ex.getMessage());
         }
     }
 
@@ -135,7 +137,7 @@ public class EscPosThermalService {
                     BigDecimal unit = line.unitPrice() == null ? BigDecimal.ZERO : line.unitPrice();
                     BigDecimal lineTotal = unit.multiply(BigDecimal.valueOf(qty)).setScale(2, RoundingMode.HALF_UP);
                     total = total.add(lineTotal);
-                    writeLine(out, twoCols(qtyLabel(qty) + "x " + safe(line.name()), money(lineTotal)));
+                    writeLine(out, twoCols(Qty.label(qty) + "x " + safe(line.name()), money(lineTotal)));
                 }
             }
             writeLine(out, sep());
@@ -167,20 +169,9 @@ public class EscPosThermalService {
         } catch (Exception ex) {
             log.error("Non-fiscal receipt failed requestId={} printer={}: {}",
                     payload.requestId(), host, ex.getMessage(), ex);
-            return ReceiptResult.builder()
-                    .status(ReceiptResult.ERROR)
-                    .requestId(payload.requestId())
-                    .paymentMethod(payload.paymentMethod())
-                    .issuedAt(LocalDateTime.now())
-                    .errorCode("PRINT_ERROR")
-                    .errorMessage(ex.getMessage())
-                    .build();
+            return ReceiptResult.error(payload.requestId(), payload.paymentMethod(),
+                    "PRINT_ERROR", ex.getMessage());
         }
-    }
-
-    /** Drop the decimals for whole quantities (1x rather than 1.0x). */
-    private String qtyLabel(double qty) {
-        return qty == Math.floor(qty) ? String.valueOf((long) qty) : String.valueOf(qty);
     }
 
     /**

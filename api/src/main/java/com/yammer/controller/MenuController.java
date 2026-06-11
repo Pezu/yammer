@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,11 +24,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/menu")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN','SUPER')") // menu editing is admin-only; reads relaxed below
 public class MenuController {
 
     private final MenuService menuService;
 
     @GetMapping("/menus")
+    @PreAuthorize("isAuthenticated()")
     public List<MenuResponse> listMenus(
             @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
         return menuService.listByLocation(locationId, eventId);
@@ -46,6 +49,7 @@ public class MenuController {
     }
 
     @GetMapping("/menus/{menuId}/tree")
+    @PreAuthorize("isAuthenticated()")
     public List<MenuItemNode> getTree(@PathVariable UUID menuId) {
         return menuService.getTree(menuId);
     }

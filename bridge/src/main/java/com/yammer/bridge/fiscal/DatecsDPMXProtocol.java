@@ -63,18 +63,17 @@ public class DatecsDPMXProtocol {
     /**
      * Cmd 48 — deschide bon fiscal.
      *
+     * <p>Parametrul {@code uns} (Unique Number of Sale) este acceptat in semnatura dar
+     * NU este transmis dispozitivului — imprimanta returna eroare (-112001) la sintaxa
+     * cu UNS; se foloseste sintaxa fara UNS pana la clarificarea ordinii campurilor cu
+     * DATECS Romania.
+     *
      * @param opCode   codul operatorului
      * @param opPass   parola operatorului
      * @param till     numarul casei (till)
-     * @param uns      Unique Number of Sale (NSale) — 21 caractere, format CCCCCCCC-CCCC-DDDDDDD.
-     *                 Obligatoriu pentru ca imprimanta sa incrementeze corect contorul BF zilnic.
-     *                 Daca e null sau gol, se foloseste sintaxa fara UNS (nu se incrementeaza BF).
-     */
-    /**
-     * Cmd 48 — deschide bon fiscal.
-     *
+     * @param uns      rezervat pentru utilizare ulterioara (momentan ignorat in transmisie)
      * @return AllReceipt — numarul total de bonuri emise de la ultimul raport Z,
-     *         incluzand bonul tocmai deschis. Folosit pentru sincronizarea contorului UNS.
+     *         incluzand bonul tocmai deschis; folosit pentru sincronizarea contorului UNS.
      */
     public long openFiscalCheck(String opCode, String opPass, String till, String uns) throws IOException {
         // TODO: UNS (Unique Number of Sale) — testat, imprimanta returneaza -112001.
@@ -156,11 +155,6 @@ public class DatecsDPMXProtocol {
     /** Suprascriere pentru suma exacta (0 = auto) */
     public String total(int payMode) throws IOException {
         return total(payMode, 0);
-    }
-
-    /** Backward compat: plata numerar */
-    public String total() throws IOException {
-        return total(PAY_CASH, 0);
     }
 
     /**
@@ -288,7 +282,7 @@ public class DatecsDPMXProtocol {
         if (sep != 0x04) throw new IOException("Separator asteptat 0x04, primit 0x" + Integer.toHexString(sep));
 
         // Cei 8 bytes de status — codeaza starea reala a casei (hartie, memorie
-        // fiscala, bon deschis, capac etc.). Pana acum erau cititi si aruncati.
+        // fiscala, bon deschis, capac etc.).
         lastStatus = readFully(STATUS_BYTES);
 
         int post = readByte();
@@ -332,11 +326,6 @@ public class DatecsDPMXProtocol {
         }
     }
 
-    /** Starea decodata din ultimul raspuns primit de la casa de marcat. */
-    public DatecsStatusDecoder.Decoded getLastStatus() {
-        return DatecsStatusDecoder.decode(lastStatus);
-    }
-
     private void encNibbles(byte[] buf, int off, int val) {
         buf[off]   = (byte) (((val >> 12) & 0xF) + 0x30);
         buf[off+1] = (byte) (((val >>  8) & 0xF) + 0x30);
@@ -378,7 +367,4 @@ public class DatecsDPMXProtocol {
         return sb.toString();
     }
 
-    public void close() {
-        try { socket.close(); } catch (Exception ignored) {}
-    }
 }

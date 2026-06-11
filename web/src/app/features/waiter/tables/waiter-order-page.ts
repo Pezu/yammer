@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MenuNode, OrderPointMenu, WaiterOrderPointService } from './waiter-order-point.service';
 import { ToastService } from '../../../core/toast.service';
 
@@ -24,7 +23,6 @@ export class WaiterOrderPage {
   private readonly router = inject(Router);
   private readonly location = inject(Location);
   private readonly service = inject(WaiterOrderPointService);
-  private readonly sanitizer = inject(DomSanitizer);
   private readonly toast = inject(ToastService);
 
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -69,15 +67,15 @@ export class WaiterOrderPage {
     return [...items].sort((a, b) => Number(a.orderable) - Number(b.orderable));
   });
 
-  readonly titleHtml = computed<SafeHtml>(() => {
+  // Bound via [innerHTML], which auto-sanitizes the plain string (no bypass → no stored XSS).
+  readonly titleHtml = computed<string>(() => {
     if (this.summaryOpen()) {
-      return this.sanitizer.bypassSecurityTrustHtml('Cart');
+      return 'Cart';
     }
     const s = this.stack();
-    const name = s.length
+    return s.length
       ? s[s.length - 1].name
       : this.menu()?.orderPointName || this.stateName || 'Menu';
-    return this.sanitizer.bypassSecurityTrustHtml(name);
   });
 
   // --- cart ---
@@ -102,9 +100,6 @@ export class WaiterOrderPage {
 
   isCategory(n: MenuNode): boolean {
     return !n.orderable;
-  }
-  html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
   }
   qty(itemId: string): number {
     return this.cart().find((l) => l.menuItemId === itemId)?.quantity ?? 0;

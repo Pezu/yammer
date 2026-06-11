@@ -1,6 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
   OrderReportService,
   ProductReportRow,
@@ -49,7 +48,7 @@ const PAGE_SIZE = 8;
               <tbody>
                 @for (t of pagedTables(); track t.name) {
                   <tr>
-                    <td><span class="op" [innerHTML]="html(t.name)"></span></td>
+                    <td><span class="op" [innerHTML]="t.name"></span></td>
                     <td class="num">{{ t.ordered | number: '1.2-2' }}</td>
                     <td class="num">{{ t.orderedPaid | number: '1.2-2' }}</td>
                     <td class="num div">{{ t.orderedProtocol | number: '1.2-2' }}</td>
@@ -111,7 +110,7 @@ const PAGE_SIZE = 8;
               <tbody>
                 @for (p of pagedProducts(); track p.name) {
                   <tr>
-                    <td><span [innerHTML]="html(p.name)"></span></td>
+                    <td><span [innerHTML]="p.name"></span></td>
                     <td class="num">{{ p.quantity | number: '1.0-0' }}</td>
                   </tr>
                 }
@@ -440,7 +439,6 @@ const PAGE_SIZE = 8;
 })
 export class DashboardPage {
   private readonly service = inject(OrderReportService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   readonly error = signal<string | null>(null);
 
@@ -542,9 +540,6 @@ export class DashboardPage {
     });
   }
 
-  html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
-  }
 
   prevProduct(): void {
     this.productPage.update((p) => Math.max(1, p - 1));

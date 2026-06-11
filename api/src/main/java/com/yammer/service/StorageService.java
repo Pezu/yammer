@@ -87,8 +87,9 @@ public class StorageService {
         if (object == null || object.isBlank()) {
             return Optional.empty();
         }
+        // storage.get returning non-null already confirms existence — no extra exists() RPC needed.
         Blob blob = storage.get(BlobId.of(bucket, object));
-        if (blob == null || !blob.exists()) {
+        if (blob == null) {
             return Optional.empty();
         }
         String type = blob.getContentType() != null ? blob.getContentType() : "application/octet-stream";

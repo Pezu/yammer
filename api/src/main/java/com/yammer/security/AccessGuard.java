@@ -68,20 +68,12 @@ public class AccessGuard {
     public List<UUID> visibleOrderPointIds() {
         UserPrincipal me = currentUser.require();
         if (me.isSuper()) {
-            return orderPointRepository.findAll().stream().map(OrderPointEntity::getId).toList();
+            return orderPointRepository.findAllIds();
         }
         if (me.clientId() == null) {
             return List.of();
         }
-        List<UUID> locationIds = locationRepository.findByClientIdOrderByName(me.clientId()).stream()
-                .map(LocationEntity::getId)
-                .toList();
-        if (locationIds.isEmpty()) {
-            return List.of();
-        }
-        return orderPointRepository.findByLocationIdIn(locationIds).stream()
-                .map(OrderPointEntity::getId)
-                .toList();
+        return orderPointRepository.findIdsByClientId(me.clientId());
     }
 
     private void assertSameClient(UUID rowClientId, String entity, UUID id) {

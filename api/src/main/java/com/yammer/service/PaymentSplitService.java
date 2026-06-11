@@ -72,15 +72,16 @@ public class PaymentSplitService {
         for (OrderEntity o : orders) {
             createdAt.put(o.getId(), o.getCreatedAt());
         }
-        List<OrderItemEntity> allItems = orders.isEmpty()
+        // Only the unpaid lines are ever read or mutated — don't materialize paid history.
+        List<OrderItemEntity> unpaidLines = orders.isEmpty()
                 ? List.of()
-                : orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList());
+                : orderItemRepository.findByOrderIdInAndPaymentIdIsNull(
+                        orders.stream().map(OrderEntity::getId).toList());
 
         Comparator<OrderItemEntity> allocationOrder =
                 Comparator.<OrderItemEntity, LocalDateTime>comparing(i -> createdAt.get(i.getOrderId()))
                         .thenComparing(i -> i.getId().toString());
-        List<OrderItemEntity> unpaid = allItems.stream()
-                .filter(i -> i.getPaymentId() == null)
+        List<OrderItemEntity> unpaid = unpaidLines.stream()
                 .sorted(allocationOrder)
                 .toList();
 

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,11 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/events")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN','SUPER')") // event admin is admin-only; read relaxed below
 public class EventController {
 
     private final EventService eventService;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public List<EventResponse> list(@RequestParam UUID locationId) {
         return eventService.listByLocation(locationId);
     }

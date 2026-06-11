@@ -11,7 +11,6 @@ import com.yammer.dto.MyTableResponse;
 import com.yammer.dto.OrderResponse;
 import com.yammer.dto.PaymentSummaryResponse;
 import com.yammer.dto.TableStatsResponse;
-import java.util.Comparator;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import com.yammer.entity.PaymentEntity;
@@ -56,6 +55,7 @@ public class OrderPointAssignmentService {
     private final PaymentRepository paymentRepository;
     private final CurrentUserProvider currentUser;
     private final AccessGuard accessGuard;
+    private final OrderResponseAssembler orderResponseAssembler;
 
     /** Parent name = the part of an order-point name before the first dot ("M80.1" → "M80", "B1" → "B1"). */
     public static String parentOf(String name) {
@@ -72,9 +72,8 @@ public class OrderPointAssignmentService {
         requireAccessibleLocation(locationId);
 
         // distinct parents (preserve order-point name order), scoped to the event when given
-        List<OrderPointEntity> ops = eventId != null
-                ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
-                : orderPointRepository.findByLocationIdOrderByName(locationId);
+        List<OrderPointEntity> ops =
+                orderPointRepository.findByLocationAndOptionalEventOrderByName(locationId, eventId);
         Set<String> parents = new LinkedHashSet<>();
         for (var op : ops) {
             parents.add(parentOf(op.getName()));
@@ -101,36 +100,29 @@ public class OrderPointAssignmentService {
             return List.of();
         }
 
-        // bill state per order point: does it have items? any unpaid?
+        // bill state per order point: no items → EMPTY, any unpaid line → UNPAID, else PAID.
         List<UUID> opIds = ops.stream().map(OrderPointEntity::getId).toList();
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(opIds);
-        Map<UUID, UUID> orderToOp = new HashMap<>();
-        for (OrderEntity o : orders) {
-            orderToOp.put(o.getId(), o.getOrderPointId());
-        }
+        Map<UUID, UUID> orderToOp = orders.stream()
+                .collect(Collectors.toMap(OrderEntity::getId, OrderEntity::getOrderPointId));
         List<OrderItemEntity> items = orders.isEmpty()
                 ? List.of()
                 : orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList());
-        Map<UUID, boolean[]> flags = new HashMap<>(); // [hasItems, hasUnpaid]
-        for (OrderItemEntity it : items) {
-            UUID opId = orderToOp.get(it.getOrderId());
-            if (opId == null) {
-                continue;
-            }
-            boolean[] f = flags.computeIfAbsent(opId, k -> new boolean[2]);
-            f[0] = true;
-            if (it.getPaymentId() == null) {
-                f[1] = true;
-            }
-        }
+        Map<UUID, List<OrderItemEntity>> itemsByOp = items.stream()
+                .filter(it -> orderToOp.containsKey(it.getOrderId()))
+                .collect(Collectors.groupingBy(it -> orderToOp.get(it.getOrderId())));
 
         return ops.stream()
-                .map(op -> {
-                    boolean[] f = flags.get(op.getId());
-                    String status = (f == null || !f[0]) ? "EMPTY" : (f[1] ? "UNPAID" : "PAID");
-                    return MyTableResponse.from(op, status);
-                })
+                .map(op -> MyTableResponse.from(op, billStatus(itemsByOp.get(op.getId()))))
                 .toList();
+    }
+
+    /** EMPTY when there are no lines, UNPAID when any line is unsettled, else PAID. */
+    private static String billStatus(List<OrderItemEntity> opItems) {
+        if (opItems == null || opItems.isEmpty()) {
+            return "EMPTY";
+        }
+        return opItems.stream().anyMatch(i -> i.getPaymentId() == null) ? "UNPAID" : "PAID";
     }
 
     /** Per-table takings (card/cash paid + tips, and unpaid) for the current user's tables. */
@@ -144,10 +136,8 @@ public class OrderPointAssignmentService {
 
         // ordered total per order point
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(opIds);
-        Map<UUID, UUID> orderToOp = new HashMap<>();
-        for (OrderEntity o : orders) {
-            orderToOp.put(o.getId(), o.getOrderPointId());
-        }
+        Map<UUID, UUID> orderToOp = orders.stream()
+                .collect(Collectors.toMap(OrderEntity::getId, OrderEntity::getOrderPointId));
         // per order point: settled (paid lines) and unpaid line totals
         Map<UUID, BigDecimal> unpaidByOp = new HashMap<>();
         Map<UUID, BigDecimal> settledByOp = new HashMap<>();
@@ -207,14 +197,12 @@ public class OrderPointAssignmentService {
         if (ops.isEmpty()) {
             return List.of();
         }
-        Map<UUID, String> names = new HashMap<>();
-        for (OrderPointEntity op : ops) {
-            names.put(op.getId(), op.getName());
-        }
+        Map<UUID, String> names = ops.stream()
+                .collect(Collectors.toMap(OrderPointEntity::getId, OrderPointEntity::getName));
+        // Filtering (exclude PROTOCOL) and newest-first ordering happen in SQL, not the JVM.
         return paymentRepository
-                .findByOrderPointIdIn(ops.stream().map(OrderPointEntity::getId).toList()).stream()
-                .filter(p -> p.getMethod() != PaymentMethod.PROTOCOL)
-                .sorted(Comparator.comparing(PaymentEntity::getCreatedAt).reversed())
+                .findByOrderPointIdInAndMethodNotOrderByCreatedAtDesc(
+                        ops.stream().map(OrderPointEntity::getId).toList(), PaymentMethod.PROTOCOL).stream()
                 .map(p -> new PaymentSummaryResponse(
                         p.getId(),
                         p.getOrderPointId(),
@@ -248,25 +236,12 @@ public class OrderPointAssignmentService {
         if (sources.isEmpty()) {
             return List.of();
         }
-        Map<UUID, String> names = new HashMap<>();
-        for (OrderPointEntity op : sources) {
-            names.put(op.getId(), op.getName());
-        }
+        Map<UUID, String> names = sources.stream()
+                .collect(Collectors.toMap(OrderPointEntity::getId, OrderPointEntity::getName));
 
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInAndStatusInOrderByCreatedAtDesc(
                 names.keySet(), OrderService.BOARD_STATUSES);
-        if (orders.isEmpty()) {
-            return List.of();
-        }
-        Map<UUID, List<OrderItemEntity>> itemsByOrder = orderItemRepository
-                .findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
-                .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
-        return orders.stream()
-                .map(o -> OrderResponse.from(
-                        o,
-                        itemsByOrder.getOrDefault(o.getId(), List.of()),
-                        names.get(o.getOrderPointId())))
-                .toList();
+        return orderResponseAssembler.assemble(orders, names);
     }
 
     /**
@@ -284,24 +259,11 @@ public class OrderPointAssignmentService {
         if (ops.isEmpty()) {
             return List.of();
         }
-        Map<UUID, String> names = new HashMap<>();
-        for (OrderPointEntity op : ops) {
-            names.put(op.getId(), op.getName());
-        }
+        Map<UUID, String> names = ops.stream()
+                .collect(Collectors.toMap(OrderPointEntity::getId, OrderPointEntity::getName));
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInAndStatusInOrderByCreatedAtDesc(
                 names.keySet(), statuses);
-        if (orders.isEmpty()) {
-            return List.of();
-        }
-        Map<UUID, List<OrderItemEntity>> itemsByOrder = orderItemRepository
-                .findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
-                .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
-        return orders.stream()
-                .map(o -> OrderResponse.from(
-                        o,
-                        itemsByOrder.getOrDefault(o.getId(), List.of()),
-                        names.get(o.getOrderPointId())))
-                .toList();
+        return orderResponseAssembler.assemble(orders, names);
     }
 
     /** Retry fiscalization for a failed payment. For now this only logs the payment details. */
@@ -338,9 +300,8 @@ public class OrderPointAssignmentService {
             for (var evtEntry : locEntry.getValue().entrySet()) {
                 UUID eventId = evtEntry.getKey();
                 Set<String> parents = evtEntry.getValue();
-                List<OrderPointEntity> candidates = eventId != null
-                        ? orderPointRepository.findByLocationIdAndEventIdOrderByName(locationId, eventId)
-                        : orderPointRepository.findByLocationIdOrderByName(locationId);
+                List<OrderPointEntity> candidates =
+                        orderPointRepository.findByLocationAndOptionalEventOrderByName(locationId, eventId);
                 for (OrderPointEntity op : candidates) {
                     if (parents.contains(parentOf(op.getName()))) {
                         ops.add(op);
@@ -365,12 +326,10 @@ public class OrderPointAssignmentService {
             Set<UUID> valid = userRepository.findByClientIdOrderByUsername(location.getClientId()).stream()
                     .map(UserEntity::getId)
                     .collect(Collectors.toSet());
-            for (UUID id : userIds) {
-                if (!valid.contains(id)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST, "User does not belong to this location's client: " + id);
-                }
-            }
+            userIds.stream().filter(id -> !valid.contains(id)).findFirst().ifPresent(id -> {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "User does not belong to this location's client: " + id);
+            });
         }
 
         // diff against existing (avoids delete+reinsert hitting the unique constraint)
@@ -383,22 +342,24 @@ public class OrderPointAssignmentService {
                 .map(OrderPointAssignmentEntity::getUserId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        for (var e : existing) {
-            if (!target.contains(e.getUserId())) {
-                assignmentRepository.delete(e);
-            }
-        }
-        for (UUID id : target) {
-            if (!current.contains(id)) {
-                OrderPointAssignmentEntity e = new OrderPointAssignmentEntity();
-                e.setLocationId(request.locationId());
-                e.setEventId(eventId);
-                e.setParentName(parent);
-                e.setUserId(id);
-                assignmentRepository.save(e);
-            }
-        }
+        // remove existing − target, insert target − current — batched, not row-by-row.
+        assignmentRepository.deleteAll(existing.stream()
+                .filter(e -> !target.contains(e.getUserId()))
+                .toList());
+        assignmentRepository.saveAll(target.stream()
+                .filter(id -> !current.contains(id))
+                .map(id -> newAssignment(request.locationId(), eventId, parent, id))
+                .toList());
         return new ParentAssignmentResponse(parent, userIds);
+    }
+
+    private static OrderPointAssignmentEntity newAssignment(UUID locationId, UUID eventId, String parent, UUID userId) {
+        OrderPointAssignmentEntity e = new OrderPointAssignmentEntity();
+        e.setLocationId(locationId);
+        e.setEventId(eventId);
+        e.setParentName(parent);
+        e.setUserId(userId);
+        return e;
     }
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {

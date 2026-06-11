@@ -3,6 +3,7 @@ package com.yammer.controller;
 import com.yammer.dto.OrderItemsUpdateRequest;
 import com.yammer.dto.OrderResponse;
 import com.yammer.dto.OrderStatusRequest;
+import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
 import com.yammer.dto.SalesIntervalRow;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,46 +35,62 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class OrderController {
 
+    /** Financial reports are visible to admins, super-admins and read-only watchers. */
+    private static final String REPORTS = "hasAnyRole('ADMIN','SUPER','WATCHER')";
+
     private final OrderService orderService;
     private final SalesReportService salesReportService;
 
     @GetMapping
-    public List<OrderResponse> list(@RequestParam(required = false) java.util.UUID orderPointId) {
+    public List<OrderResponse> list(@RequestParam(required = false) UUID orderPointId) {
         return orderPointId != null ? orderService.listByOrderPoint(orderPointId) : orderService.list();
+    }
+
+    /** Server-side paginated order list (newest first) — backs the backoffice orders report. */
+    @GetMapping("/page")
+    public PagedResponse<OrderResponse> listPage(
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
+        return orderService.listPaged(page, size);
     }
 
     /** Aggregated products report: every ordered product with its total quantity. */
     @GetMapping("/products-report")
+    @PreAuthorize(REPORTS)
     public List<ProductReportRow> productsReport() {
         return orderService.productReport();
     }
 
     /** Sales report bucketed into 10-minute intervals (amount ordered, amount paid, order count). */
     @GetMapping("/sales-report")
+    @PreAuthorize(REPORTS)
     public List<SalesIntervalRow> salesReport() {
         return salesReportService.intervals();
     }
 
     /** Sales totals: sales, paid, protocol-settled, and what's still outstanding. */
     @GetMapping("/sales-summary")
+    @PreAuthorize(REPORTS)
     public SalesSummaryResponse salesSummary() {
         return salesReportService.summary();
     }
 
     /** Per order point: ordered, paid cash, paid card, remaining. */
     @GetMapping("/tables-report")
+    @PreAuthorize(REPORTS)
     public List<TableReportRow> tablesReport() {
         return salesReportService.tables();
     }
 
     /** Per waiter: number of orders and their sales value. */
     @GetMapping("/waiters-report")
+    @PreAuthorize(REPORTS)
     public List<WaiterReportRow> waitersReport() {
         return salesReportService.waiters();
     }
 
     /** Per waiter and order point: ordered, paid, tip, protocol. */
     @GetMapping("/waiter-tables-report")
+    @PreAuthorize(REPORTS)
     public List<WaiterTableRow> waiterTablesReport() {
         return salesReportService.waiterTables();
     }

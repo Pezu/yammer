@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,18 +26,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/order-points")
 @RequiredArgsConstructor
+// Order-point administration is admin-only; the waiter-facing reads + proforma are relaxed below.
+@PreAuthorize("hasAnyRole('ADMIN','SUPER')")
 public class OrderPointController {
 
     private final OrderPointService orderPointService;
     private final OrderService orderService;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public List<OrderPointResponse> list(
             @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
         return orderPointService.listByLocation(locationId, eventId);
     }
 
     @GetMapping("/{id}/menu")
+    @PreAuthorize("isAuthenticated()")
     public OrderPointMenuResponse menu(@PathVariable UUID id) {
         return orderPointService.getMenu(id);
     }
@@ -44,6 +49,7 @@ public class OrderPointController {
     /** Print the non-fiscal proforma (current unpaid bill) on this order point's thermal printer. */
     @PostMapping("/{id}/proforma")
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("isAuthenticated()")
     public void proforma(@PathVariable UUID id) {
         orderService.printProforma(id);
     }

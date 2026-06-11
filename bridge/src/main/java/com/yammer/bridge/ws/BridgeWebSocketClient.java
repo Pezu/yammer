@@ -8,11 +8,13 @@ import com.yammer.bridge.dto.InfoReceiptRequest;
 import com.yammer.bridge.dto.ReceiptRequest;
 import com.yammer.bridge.dto.ReceiptResult;
 import com.yammer.bridge.print.PrintQueueManager;
+import com.yammer.bridge.print.Qty;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
  * </ul>
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 public class BridgeWebSocketClient extends TextWebSocketHandler {
 
@@ -50,14 +53,6 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     private final StandardWebSocketClient client = new StandardWebSocketClient();
 
     private volatile WebSocketSession session;
-
-    public BridgeWebSocketClient(BridgeProperties props, PrintQueueManager queue, ObjectMapper mapper,
-                                 ProcessedReceiptStore processedStore) {
-        this.props = props;
-        this.queue = queue;
-        this.mapper = mapper;
-        this.processedStore = processedStore;
-    }
 
     // ─── connection lifecycle ────────────────────────────────────────────────
 
@@ -147,7 +142,7 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
                 kind, request.requestId(), ip, request.paymentMethod());
         if (request.lines() != null) {
             for (ReceiptRequest.Line l : request.lines()) {
-                log.info("    {} x {} @ {}{}", trimQty(l.quantity()), l.name(), l.unitPrice(),
+                log.info("    {} x {} @ {}{}", Qty.label(l.quantity()), l.name(), l.unitPrice(),
                         l.vat() == null ? "" : " (VAT " + l.vat() + "%)");
             }
         }
@@ -188,11 +183,6 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
         queue.submitInfo(request)
                 .thenAccept(this::sendResult)
                 .exceptionally(ex -> logAsyncFailure(request.requestId(), ex));
-    }
-
-    /** Whole quantities print without a trailing ".0" (1 instead of 1.0). */
-    private String trimQty(double qty) {
-        return qty == Math.floor(qty) ? String.valueOf((long) qty) : String.valueOf(qty);
     }
 
     private Void logAsyncFailure(String requestId, Throwable ex) {

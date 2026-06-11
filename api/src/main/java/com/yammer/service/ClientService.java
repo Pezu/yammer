@@ -7,6 +7,7 @@ import com.yammer.repository.ClientRepository;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import com.yammer.service.StorageService.StoredObject;
+import com.yammer.util.Strings;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -90,16 +91,8 @@ public class ClientService {
 
     private void apply(ClientEntity entity, ClientRequest request) {
         entity.setName(request.name().trim());
-        entity.setPhone(trimToNull(request.phone()));
-        entity.setEmail(trimToNull(request.email()));
-    }
-
-    private String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        entity.setPhone(Strings.trimToNull(request.phone()));
+        entity.setEmail(Strings.trimToNull(request.email()));
     }
 
     private ResponseStatusException notFound(UUID id) {

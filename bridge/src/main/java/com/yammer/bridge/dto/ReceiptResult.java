@@ -33,4 +33,21 @@ public record ReceiptResult(
 
     public static final String OK = "OK";
     public static final String ERROR = "ERROR";
+
+    /**
+     * Convenience factory for error results. Pass {@code null} for fields that are
+     * not known at the error site (e.g. {@code paymentMethod} when the request never
+     * reached that stage).
+     */
+    public static ReceiptResult error(
+            String requestId, String paymentMethod, String code, String message) {
+        return ReceiptResult.builder()
+                .status(ERROR)
+                .requestId(requestId)
+                .paymentMethod(paymentMethod)
+                .issuedAt(LocalDateTime.now())
+                .errorCode(code)
+                .errorMessage(message)
+                .build();
+    }
 }

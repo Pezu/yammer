@@ -1,5 +1,6 @@
 package com.yammer.dto;
 
+import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
 import java.math.BigDecimal;
@@ -12,6 +13,8 @@ public record PaymentResponse(
         BigDecimal amount,
         BigDecimal tip,
         PaymentMethod method,
+        FiscalStatus fiscalStatus,
+        String receiptNumber,
         String createdBy,
         LocalDateTime createdAt) {
 
@@ -22,6 +25,8 @@ public record PaymentResponse(
                 e.getAmount(),
                 e.getTip(),
                 e.getMethod(),
+                e.getFiscalStatus(),
+                e.getReceiptNumber(),
                 e.getCreatedBy(),
                 e.getCreatedAt());
     }

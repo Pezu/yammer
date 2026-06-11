@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { User, UserService } from './user.service';
 import { RoleService } from '../roles/role.service';
 import { Client, ClientService } from '../clients/client.service';
-import { AuthService } from '../../../../core/auth.service';
+import { AuthService, ROLE_SUPER } from '../../../../core/auth.service';
 import { ConfirmDialog } from '../../../../shared/confirm-dialog/confirm-dialog';
 
 @Component({
@@ -49,7 +49,7 @@ export class UsersPage {
     if (!filter) {
       return this.users();
     }
-    return this.users().filter((u) => u.clientId === filter || u.roles.includes('SUPER'));
+    return this.users().filter((u) => u.clientId === filter || u.roles.includes(ROLE_SUPER));
   });
 
   /** SUPER must pick a client before the table is shown; others always see it. */
@@ -88,8 +88,8 @@ export class UsersPage {
   readonly editClientId = signal<string>('');
 
   // SUPER users have no client; the client picker is hidden/cleared for them.
-  readonly draftIsSuper = computed(() => this.draftRoles().includes('SUPER'));
-  readonly editIsSuper = computed(() => this.editRoles().includes('SUPER'));
+  readonly draftIsSuper = computed(() => this.draftRoles().includes(ROLE_SUPER));
+  readonly editIsSuper = computed(() => this.editRoles().includes(ROLE_SUPER));
 
   // password is required when creating, optional (blank = keep) when editing.
   readonly draftForm = this.newForm(true);

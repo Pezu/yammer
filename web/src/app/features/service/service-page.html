@@ -51,7 +51,7 @@
                 @for (it of o.items; track it.id) {
                   <li>
                     <span class="qty">{{ it.quantity }}×</span>
-                    <span class="iname" [innerHTML]="html(it.name)"></span>
+                    <span class="iname" [innerHTML]="it.name"></span>
                   </li>
                 }
               </ul>

@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
  * the receipt, and return the document number.
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 public class FiscalPrinterService {
 
@@ -52,10 +54,6 @@ public class FiscalPrinterService {
             "CHECK", DatecsDPMXProtocol.PAY_CHECK,
             "CEC", DatecsDPMXProtocol.PAY_CHECK);
 
-    public FiscalPrinterService(PrinterProperties props) {
-        this.props = props;
-    }
-
     public ReceiptResult print(ReceiptRequest request) {
         log.info("Fiscal print: requestId={} cashRegister={} method={} lines={}",
                 request.requestId(), request.cashRegister(), request.paymentMethod(),
@@ -64,14 +62,8 @@ public class FiscalPrinterService {
         String host = request.cashRegister();
         if (host == null || host.isBlank()) {
             log.error("Fiscal print requestId={} has no cashRegister IP", request.requestId());
-            return ReceiptResult.builder()
-                    .status(ReceiptResult.ERROR)
-                    .requestId(request.requestId())
-                    .paymentMethod(request.paymentMethod())
-                    .issuedAt(LocalDateTime.now())
-                    .errorCode("NO_DEVICE")
-                    .errorMessage("Missing cash register IP")
-                    .build();
+            return ReceiptResult.error(request.requestId(), request.paymentMethod(),
+                    "NO_DEVICE", "Missing cash register IP");
         }
         int port = props.tcp().port();
 
@@ -82,14 +74,8 @@ public class FiscalPrinterService {
         } catch (Exception ex) {
             log.error("Fiscal print failed requestId={}: {}", request.requestId(), ex.getMessage(), ex);
             DatecsErrorMapper.MappedError err = DatecsErrorMapper.map(ex, host);
-            return ReceiptResult.builder()
-                    .status(ReceiptResult.ERROR)
-                    .requestId(request.requestId())
-                    .paymentMethod(request.paymentMethod())
-                    .issuedAt(LocalDateTime.now())
-                    .errorCode(err.code)
-                    .errorMessage(err.message)
-                    .build();
+            return ReceiptResult.error(request.requestId(), request.paymentMethod(),
+                    err.code, err.message);
         }
     }
 

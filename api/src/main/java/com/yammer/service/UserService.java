@@ -8,6 +8,7 @@ import com.yammer.repository.UserRepository;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.PasswordHasher;
 import com.yammer.security.UserPrincipal;
+import com.yammer.util.Strings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -22,7 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class UserService {
 
-    private static final String SUPER = "SUPER";
+    private static final String SUPER = UserPrincipal.SUPER;
 
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
@@ -60,11 +61,7 @@ public class UserService {
     public UserResponse update(UUID id, UserRequest request) {
         UserPrincipal me = currentUser.require();
         UserEntity entity = userRepository.findById(id).orElseThrow(() -> notFound(id));
-        // A non-SUPER operator may only touch users inside their own client, and never SUPER users.
-        if (!me.isSuper()
-                && (!Objects.equals(entity.getClientId(), me.clientId()) || entity.getRoles().contains(SUPER))) {
-            throw notFound(id);
-        }
+        requireEditableBy(me, entity);
         String username = request.username().trim();
         if (!username.equalsIgnoreCase(entity.getUsername())
                 && userRepository.existsByUsernameIgnoreCase(username)) {
@@ -82,16 +79,21 @@ public class UserService {
     public void delete(UUID id) {
         UserPrincipal me = currentUser.require();
         UserEntity entity = userRepository.findById(id).orElseThrow(() -> notFound(id));
-        if (!me.isSuper()
-                && (!Objects.equals(entity.getClientId(), me.clientId()) || entity.getRoles().contains(SUPER))) {
-            throw notFound(id);
-        }
+        requireEditableBy(me, entity);
         userRepository.delete(entity);
     }
 
+    /** A non-SUPER operator may only touch users inside their own client, and never SUPER users. */
+    private void requireEditableBy(UserPrincipal me, UserEntity entity) {
+        if (!me.isSuper()
+                && (!Objects.equals(entity.getClientId(), me.clientId()) || entity.getRoles().contains(SUPER))) {
+            throw notFound(entity.getId());
+        }
+    }
+
     private void applyProfile(UserEntity entity, UserPrincipal me, List<String> roles, UserRequest request) {
-        entity.setPhone(trimToNull(request.phone()));
-        entity.setEmail(trimToNull(request.email()));
+        entity.setPhone(Strings.trimToNull(request.phone()));
+        entity.setEmail(Strings.trimToNull(request.email()));
         entity.setRoles(roles);
         entity.setClientId(resolveClient(me, roles, request.clientId()));
     }
@@ -127,14 +129,6 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown client: " + requested);
         }
         return requested;
-    }
-
-    private String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private ResponseStatusException notFound(UUID id) {

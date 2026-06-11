@@ -23,7 +23,7 @@
       <ul class="cart-list">
         @for (line of cart(); track line.menuItemId) {
           <li class="cart-line">
-            <span class="cl-name" [innerHTML]="html(line.name)"></span>
+            <span class="cl-name" [innerHTML]="line.name"></span>
             <div class="stepper">
               <button type="button" class="dec" (click)="decrease(line.menuItemId)" aria-label="Less">−</button>
               <span class="qty">{{ line.quantity }}</span>
@@ -50,7 +50,7 @@
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
             </span>
           }
-          <span class="name" [innerHTML]="html(n.name)"></span>
+          <span class="name" [innerHTML]="n.name"></span>
           @if (!isCategory(n) && n.price !== null) {
             <span class="price">{{ n.price | number: '1.2-2' }} RON</span>
           }

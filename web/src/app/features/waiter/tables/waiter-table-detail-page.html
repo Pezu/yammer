@@ -38,7 +38,7 @@
         @for (it of unpaidByProduct(); track it.menuItemId) {
           <li>
             <span class="q">{{ it.qty }}×</span>
-            <span class="iname" [innerHTML]="html(it.name)"></span>
+            <span class="iname" [innerHTML]="it.name"></span>
             <span class="lt">{{ (it.price ?? 0) * it.qty | number: '1.2-2' }}</span>
           </li>
         }
@@ -56,7 +56,7 @@
         @for (it of paidByProduct(); track it.menuItemId) {
           <li>
             <span class="q">{{ it.qty }}×</span>
-            <span class="iname" [innerHTML]="html(it.name)"></span>
+            <span class="iname" [innerHTML]="it.name"></span>
             <span class="lt">{{ (it.price ?? 0) * it.qty | number: '1.2-2' }}</span>
           </li>
         }
@@ -123,7 +123,7 @@
               <div class="zone-title">Bill</div>
               @for (p of billList(); track p.menuItemId) {
                 <button type="button" class="chip" draggable="true" (dragstart)="onDragStart(p.menuItemId, 'bill')" (pointerdown)="onChipPointerDown($event, p.menuItemId, 'bill')" (click)="onChipClick(p.menuItemId, 'bill')">
-                  <span class="cname" [innerHTML]="html(p.name)"></span>
+                  <span class="cname" [innerHTML]="p.name"></span>
                   <span class="cqty">×{{ p.rem }}</span>
                 </button>
               } @empty {
@@ -134,7 +134,7 @@
               <div class="zone-title">Paying</div>
               @for (p of payingList(); track p.menuItemId) {
                 <button type="button" class="chip on" draggable="true" (dragstart)="onDragStart(p.menuItemId, 'paying')" (pointerdown)="onChipPointerDown($event, p.menuItemId, 'paying')" (click)="onChipClick(p.menuItemId, 'paying')">
-                  <span class="cname" [innerHTML]="html(p.name)"></span>
+                  <span class="cname" [innerHTML]="p.name"></span>
                   <span class="cqty">×{{ p.pay }}</span>
                 </button>
               } @empty {

@@ -2,7 +2,9 @@ package com.yammer.dto;
 
 import com.yammer.entity.PaymentMethod;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -16,9 +18,9 @@ public record LinePaymentRequest(
         @NotNull UUID orderPointId,
         @NotNull PaymentMode mode,
         @NotNull PaymentMethod method,
-        BigDecimal tip,
+        @PositiveOrZero BigDecimal tip,
         @Valid List<LinePaymentItem> items) {
 
-    public record LinePaymentItem(@NotNull UUID menuItemId, int quantity) {
+    public record LinePaymentItem(@NotNull UUID menuItemId, @Min(1) int quantity) {
     }
 }

@@ -99,19 +99,6 @@ export class WaiterOrderPointService {
     return this.http.get<Payment[]>(`${environment.apiUrl}/payments`, { params });
   }
 
-  pay(
-    orderPointId: string,
-    amount: number,
-    tip: number,
-    method: PaymentMethod,
-  ): Observable<Payment> {
-    return this.http.post<Payment>(`${environment.apiUrl}/payments`, {
-      orderPointId,
-      amount,
-      tip,
-      method,
-    });
-  }
 
   /** Print the non-fiscal proforma bill (current unpaid items) on the order point's thermal printer. */
   printProforma(orderPointId: string): Observable<unknown> {

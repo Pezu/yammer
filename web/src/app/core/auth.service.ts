@@ -3,6 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
+/** The super-admin role name (matches the backend UserPrincipal.SUPER). */
+export const ROLE_SUPER = 'SUPER';
+
 export interface LoginRequest {
   username: string;
   password: string;
@@ -31,7 +34,7 @@ export class AuthService {
   readonly session = signal<StoredSession | null>(this.restore());
 
   /** Whether the logged-in user has the SUPER role. */
-  readonly isSuper = computed(() => (this.session()?.roles ?? []).includes('SUPER'));
+  readonly isSuper = computed(() => (this.session()?.roles ?? []).includes(ROLE_SUPER));
 
   /** The client the user belongs to (null for SUPER / logged out). */
   readonly clientId = computed(() => this.session()?.clientId ?? null);

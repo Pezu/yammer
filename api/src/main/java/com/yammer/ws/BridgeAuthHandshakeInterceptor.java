@@ -1,8 +1,12 @@
 package com.yammer.ws;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
@@ -16,7 +20,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  * header. The bridge is a machine (not a user), so it uses an API key rather than
  * the JWT used by {@link WsAuthHandshakeInterceptor}.
  *
- * <p>If {@code bridge.api-key} is blank the handshake is accepted (dev convenience).
+ * <p>A blank {@code bridge.api-key} is accepted only under a {@code local}/{@code dev} profile;
+ * in any other profile a blank key is a hard configuration error and the handshake is rejected
+ * (fail-closed) so an unconfigured server can't accept anonymous bridge sessions.
  */
 @Component
 @Slf4j
@@ -27,6 +33,12 @@ public class BridgeAuthHandshakeInterceptor implements HandshakeInterceptor {
     @Value("${bridge.api-key:}")
     private String apiKey;
 
+    private final Environment environment;
+
+    public BridgeAuthHandshakeInterceptor(Environment environment) {
+        this.environment = environment;
+    }
+
     @Override
     public boolean beforeHandshake(
             ServerHttpRequest request,
@@ -34,19 +46,36 @@ public class BridgeAuthHandshakeInterceptor implements HandshakeInterceptor {
             WebSocketHandler wsHandler,
             Map<String, Object> attributes) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("bridge.api-key is blank — accepting bridge handshake without authentication (dev only).");
-            return true;
+            if (isDevProfile()) {
+                log.warn("bridge.api-key is blank — accepting bridge handshake without auth (dev profile only).");
+                return true;
+            }
+            log.error("bridge.api-key is blank in a non-dev profile — rejecting bridge handshake. Set BRIDGE_API_KEY.");
+            return false;
         }
         String provided = UriComponentsBuilder.fromUri(request.getURI()).build()
                 .getQueryParams().getFirst("key");
         if (provided == null) {
             provided = request.getHeaders().getFirst(HEADER_API_KEY);
         }
-        if (apiKey.equals(provided)) {
+        if (constantTimeEquals(apiKey, provided)) {
             return true;
         }
         log.warn("Rejected bridge handshake: invalid or missing API key.");
         return false;
+    }
+
+    private boolean isDevProfile() {
+        return Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(p -> p.equalsIgnoreCase("local") || p.equalsIgnoreCase("dev"));
+    }
+
+    private static boolean constantTimeEquals(String expected, String provided) {
+        if (provided == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override

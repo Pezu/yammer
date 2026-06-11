@@ -12,6 +12,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, UUID
 
     List<OrderItemEntity> findByOrderIdIn(List<UUID> orderIds);
 
+    /** Only the unsettled lines of the given orders — avoids loading paid history that's discarded. */
+    List<OrderItemEntity> findByOrderIdInAndPaymentIdIsNull(List<UUID> orderIds);
+
     List<OrderItemEntity> findByPaymentId(UUID paymentId);
 
     List<OrderItemEntity> findByPaymentIdIn(Collection<UUID> paymentIds);

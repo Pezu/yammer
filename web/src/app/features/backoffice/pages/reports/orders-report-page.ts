@@ -1,5 +1,4 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Order, OrderItem, OrderReportService } from './order.service';
 
 @Component({
@@ -10,9 +9,10 @@ import { Order, OrderItem, OrderReportService } from './order.service';
 })
 export class OrdersReportPage {
   private readonly service = inject(OrderReportService);
-  private readonly sanitizer = inject(DomSanitizer);
 
+  // `orders` holds the CURRENT page only; `total` is the server-side row count.
   readonly orders = signal<Order[]>([]);
+  readonly total = signal(0);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly page = signal(1);
@@ -21,13 +21,10 @@ export class OrdersReportPage {
   readonly pageSize = signal(10);
   readonly comboOpen = signal(false);
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.orders().length / this.pageSize())));
-  readonly pagedOrders = computed(() => {
-    const start = (this.page() - 1) * this.pageSize();
-    return this.orders().slice(start, start + this.pageSize());
-  });
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+  readonly pagedOrders = computed(() => this.orders());
   readonly range = computed(() => {
-    const total = this.orders().length;
+    const total = this.total();
     if (total === 0) return '0';
     const start = (this.page() - 1) * this.pageSize() + 1;
     return `${start}–${Math.min(total, this.page() * this.pageSize())} of ${total}`;
@@ -52,9 +49,15 @@ export class OrdersReportPage {
   });
 
   constructor() {
-    this.service.list().subscribe({
-      next: (orders) => {
-        this.orders.set(orders);
+    this.load();
+  }
+
+  private load(): void {
+    this.loading.set(true);
+    this.service.listPaged(this.page() - 1, this.pageSize()).subscribe({
+      next: (res) => {
+        this.orders.set(res.content);
+        this.total.set(res.total);
         this.loading.set(false);
       },
       error: () => {
@@ -121,9 +124,9 @@ export class OrdersReportPage {
   private commitDelete(sel: Order): void {
     this.service.deleteOrder(sel.id).subscribe({
       next: () => {
-        this.orders.update((list) => list.filter((o) => o.id !== sel.id));
         this.selected.set(null);
         this.saving.set(false);
+        this.load(); // refresh the current page (and total) after removal
       },
       error: () => {
         this.error.set('Could not delete the order.');
@@ -136,10 +139,6 @@ export class OrdersReportPage {
     const m = new Map<string, number>();
     for (const it of o.items) if (!it.paid) m.set(it.id, it.quantity);
     return m;
-  }
-
-  html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
   }
 
   money(v: number): string {
@@ -167,10 +166,14 @@ export class OrdersReportPage {
   }
 
   prev(): void {
+    if (this.page() <= 1) return;
     this.page.update((p) => Math.max(1, p - 1));
+    this.load();
   }
   next(): void {
+    if (this.page() >= this.totalPages()) return;
     this.page.update((p) => Math.min(this.totalPages(), p + 1));
+    this.load();
   }
 
   toggleCombo(): void {
@@ -183,5 +186,6 @@ export class OrdersReportPage {
     this.pageSize.set(n);
     this.page.set(1);
     this.comboOpen.set(false);
+    this.load();
   }
 }

@@ -1,7 +1,14 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
+
+export interface PagedResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+}
 
 export interface OrderItem {
   id: string;
@@ -78,8 +85,10 @@ export class OrderReportService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/orders`;
 
-  list(): Observable<Order[]> {
-    return this.http.get<Order[]>(this.baseUrl);
+  /** One page of orders (newest first), paginated on the server. */
+  listPaged(page: number, size: number): Observable<PagedResponse<Order>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<PagedResponse<Order>>(`${this.baseUrl}/page`, { params });
   }
 
   /** Update an order's unpaid item quantities (quantity ≤ 0 deletes the item). */

@@ -5,6 +5,7 @@ import com.yammer.dto.ClientResponse;
 import com.yammer.service.ClientService;
 import com.yammer.service.StorageService.StoredObject;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -73,9 +74,11 @@ public class ClientController {
     @GetMapping("/{id}/logo")
     public ResponseEntity<byte[]> logo(@PathVariable UUID id) {
         StoredObject logo = clientService.getLogo(id);
+        // The web client version-busts the URL on upload (logoVersion query param) and the stored
+        // object key changes per upload, so the bytes are safely cacheable for a day.
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(logo.contentType()))
-                .cacheControl(CacheControl.noCache())
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePublic())
                 .body(logo.data());
     }
 }

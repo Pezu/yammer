@@ -171,7 +171,7 @@
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
           </span>
           @if (node.name) {
-            <span class="node-text category" [innerHTML]="sanitizeHtml(node.name)"></span>
+            <span class="node-text category" [innerHTML]="node.name"></span>
           } @else {
             <span class="node-text category muted">Untitled category</span>
           }
@@ -203,7 +203,7 @@
         <div class="row-left" [style.padding-left.px]="depth * 24">
           <span class="leaf-dot"></span>
           @if (node.name) {
-            <span class="node-text" [innerHTML]="sanitizeHtml(node.name)"></span>
+            <span class="node-text" [innerHTML]="node.name"></span>
           } @else {
             <span class="node-text muted">Untitled product</span>
           }
