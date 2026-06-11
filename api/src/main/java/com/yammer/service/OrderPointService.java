@@ -11,11 +11,9 @@ import com.yammer.entity.LocationEntity;
 import com.yammer.entity.MenuEntity;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.repository.IntegrationRepository;
-import com.yammer.repository.LocationRepository;
 import com.yammer.repository.MenuRepository;
 import com.yammer.repository.OrderPointRepository;
-import com.yammer.security.CurrentUserProvider;
-import com.yammer.security.UserPrincipal;
+import com.yammer.security.AccessGuard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,11 +32,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrderPointService {
 
     private final OrderPointRepository orderPointRepository;
-    private final LocationRepository locationRepository;
     private final MenuRepository menuRepository;
     private final IntegrationRepository integrationRepository;
     private final MenuService menuService;
-    private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     @Transactional(readOnly = true)
     public List<OrderPointResponse> listByLocation(UUID locationId, UUID eventId) {
@@ -250,21 +247,11 @@ public class OrderPointService {
     }
 
     private OrderPointEntity requireAccessibleOrderPoint(UUID id) {
-        OrderPointEntity entity = orderPointRepository.findById(id)
-                .orElseThrow(() -> notFound(id));
-        requireAccessibleLocation(entity.getLocationId());
-        return entity;
+        return accessGuard.requireAccessibleOrderPoint(id);
     }
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {
-        UserPrincipal me = currentUser.require();
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Location not found: " + locationId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + locationId);
-        }
-        return location;
+        return accessGuard.requireAccessibleLocation(locationId);
     }
 
     private ResponseStatusException notFound(UUID id) {

@@ -6,18 +6,15 @@ import com.yammer.dto.MenuResponse;
 import com.yammer.entity.LocationEntity;
 import com.yammer.entity.MenuEntity;
 import com.yammer.entity.MenuItemEntity;
-import com.yammer.repository.LocationRepository;
 import com.yammer.repository.MenuItemRepository;
 import com.yammer.repository.MenuRepository;
-import com.yammer.security.CurrentUserProvider;
-import com.yammer.security.UserPrincipal;
+import com.yammer.security.AccessGuard;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +30,7 @@ public class MenuService {
 
     private final MenuRepository menuRepository;
     private final MenuItemRepository menuItemRepository;
-    private final LocationRepository locationRepository;
-    private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     @Transactional(readOnly = true)
     public List<MenuResponse> listByLocation(UUID locationId, UUID eventId) {
@@ -150,17 +146,11 @@ public class MenuService {
     private MenuEntity requireAccessibleMenu(UUID menuId) {
         MenuEntity menu = menuRepository.findById(menuId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu not found: " + menuId));
-        requireAccessibleLocation(menu.getLocationId());
+        accessGuard.requireAccessibleLocation(menu.getLocationId());
         return menu;
     }
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {
-        UserPrincipal me = currentUser.require();
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + locationId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + locationId);
-        }
-        return location;
+        return accessGuard.requireAccessibleLocation(locationId);
     }
 }

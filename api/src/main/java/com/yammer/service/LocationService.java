@@ -5,6 +5,7 @@ import com.yammer.dto.LocationResponse;
 import com.yammer.entity.LocationEntity;
 import com.yammer.repository.ClientRepository;
 import com.yammer.repository.LocationRepository;
+import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import java.util.List;
@@ -23,6 +24,7 @@ public class LocationService {
     private final LocationRepository locationRepository;
     private final ClientRepository clientRepository;
     private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     /**
      * SUPER sees all locations; everyone else only those in their own client.
@@ -57,21 +59,14 @@ public class LocationService {
 
     public LocationResponse update(UUID id, LocationRequest request) {
         UserPrincipal me = currentUser.require();
-        LocationEntity entity = locationRepository.findById(id).orElseThrow(() -> notFound(id));
-        if (!me.isSuper() && !Objects.equals(entity.getClientId(), me.clientId())) {
-            throw notFound(id);
-        }
+        LocationEntity entity = accessGuard.requireAccessibleLocation(id);
         entity.setName(request.name().trim());
         entity.setClientId(resolveClient(me, request.clientId()));
         return LocationResponse.from(locationRepository.save(entity));
     }
 
     public void delete(UUID id) {
-        UserPrincipal me = currentUser.require();
-        LocationEntity entity = locationRepository.findById(id).orElseThrow(() -> notFound(id));
-        if (!me.isSuper() && !Objects.equals(entity.getClientId(), me.clientId())) {
-            throw notFound(id);
-        }
+        LocationEntity entity = accessGuard.requireAccessibleLocation(id);
         locationRepository.delete(entity);
     }
 
@@ -90,9 +85,5 @@ public class LocationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown client: " + requested);
         }
         return requested;
-    }
-
-    private ResponseStatusException notFound(UUID id) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + id);
     }
 }

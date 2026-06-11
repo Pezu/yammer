@@ -6,8 +6,8 @@ import com.yammer.entity.UserEntity;
 import com.yammer.repository.ClientRepository;
 import com.yammer.repository.UserRepository;
 import com.yammer.security.CurrentUserProvider;
+import com.yammer.security.PasswordHasher;
 import com.yammer.security.UserPrincipal;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -28,6 +27,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
     private final CurrentUserProvider currentUser;
+    private final PasswordHasher passwordHasher;
 
     /** SUPER sees all users; everyone else sees only users in their own client. */
     public List<UserResponse> list() {
@@ -52,7 +52,7 @@ public class UserService {
         List<String> roles = sanitizeRoles(me, request.roles());
         UserEntity entity = new UserEntity();
         entity.setUsername(username);
-        entity.setPassword(md5(request.password()));
+        entity.setPassword(passwordHasher.hash(request.password()));
         applyProfile(entity, me, roles, request);
         return UserResponse.from(userRepository.save(entity));
     }
@@ -73,7 +73,7 @@ public class UserService {
         List<String> roles = sanitizeRoles(me, request.roles());
         entity.setUsername(username);
         if (request.password() != null && !request.password().isBlank()) {
-            entity.setPassword(md5(request.password()));
+            entity.setPassword(passwordHasher.hash(request.password()));
         }
         applyProfile(entity, me, roles, request);
         return UserResponse.from(userRepository.save(entity));
@@ -127,10 +127,6 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown client: " + requested);
         }
         return requested;
-    }
-
-    private String md5(String raw) {
-        return DigestUtils.md5DigestAsHex(raw.getBytes(StandardCharsets.UTF_8));
     }
 
     private String trimToNull(String value) {

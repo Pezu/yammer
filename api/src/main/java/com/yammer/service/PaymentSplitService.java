@@ -6,18 +6,15 @@ import com.yammer.dto.LinePaymentResult;
 import com.yammer.dto.LinePaymentResult.Split;
 import com.yammer.dto.PaymentMode;
 import com.yammer.entity.FiscalStatus;
-import com.yammer.entity.LocationEntity;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
-import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
-import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
-import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
 import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.repository.PaymentRepository;
+import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import java.math.BigDecimal;
@@ -28,7 +25,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -63,8 +59,7 @@ public class PaymentSplitService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final OrderPointRepository orderPointRepository;
-    private final LocationRepository locationRepository;
+    private final AccessGuard accessGuard;
     private final CurrentUserProvider currentUser;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -242,19 +237,8 @@ public class PaymentSplitService {
     }
 
     private UserPrincipal requireAccessible(UUID orderPointId) {
-        UserPrincipal me = currentUser.require();
-        OrderPointEntity op = orderPointRepository.findById(orderPointId)
-                .orElseThrow(() -> notFound(orderPointId));
-        LocationEntity location = locationRepository.findById(op.getLocationId())
-                .orElseThrow(() -> notFound(orderPointId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw notFound(orderPointId);
-        }
-        return me;
-    }
-
-    private ResponseStatusException notFound(UUID id) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Order point not found: " + id);
+        accessGuard.requireAccessibleOrderPoint(orderPointId);
+        return currentUser.require();
     }
 
     private ResponseStatusException badRequest(String message) {

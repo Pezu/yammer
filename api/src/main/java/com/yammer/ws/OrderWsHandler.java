@@ -64,7 +64,11 @@ public class OrderWsHandler extends TextWebSocketHandler {
             for (WebSocketSession session : sessions) {
                 try {
                     if (session.isOpen()) {
-                        session.sendMessage(message);
+                        // WebSocketSession is not safe for concurrent sends; serialize per session
+                        // (a scheduler tick and an order event can push at the same time).
+                        synchronized (session) {
+                            session.sendMessage(message);
+                        }
                     }
                 } catch (IOException e) {
                     log.debug("Failed to push WS message to {}: {}", username, e.getMessage());

@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -49,6 +51,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             } catch (Exception e) {
                 // Invalid/expired token — leave the request unauthenticated.
                 SecurityContextHolder.clearContext();
+                log.debug("Rejected bearer token: {}", e.getMessage());
             }
         }
         chain.doFilter(request, response);

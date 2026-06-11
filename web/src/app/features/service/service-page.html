@@ -24,21 +24,18 @@
   }
 
   <div class="board">
-    @for (col of columns; track col.status) {
+    @for (col of board(); track col.status) {
       <section class="column" [class.drop-target]="dragOver() === col.status" [attr.data-col]="col.status">
         <div class="col-head" [style.borderBottomColor]="col.color">
           <span class="col-title">{{ col.label }}</span>
         </div>
 
         <div class="col-body">
-          @for (o of ordersFor(col.status); track o.id) {
+          @for (o of col.orders; track o.id) {
             <article
               class="card"
               [class.dim]="dragging() === o.id"
               (pointerdown)="onPointerDown(o, $event)"
-              (pointermove)="onPointerMove($event)"
-              (pointerup)="onPointerUp($event)"
-              (pointercancel)="onPointerCancel($event)"
             >
               <div class="card-head">
                 <span class="head-left">

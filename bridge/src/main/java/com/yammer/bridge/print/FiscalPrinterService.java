@@ -6,6 +6,7 @@ import com.yammer.bridge.fiscal.DatecsErrorMapper;
 import com.yammer.bridge.dto.ReceiptResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +30,9 @@ import org.springframework.stereotype.Service;
 public class FiscalPrinterService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE; // yyyyMMdd
+
+    /** Cap the TCP connect so an unreachable register can't wedge the single print-queue worker. */
+    private static final int CONNECT_TIMEOUT_MS = 8_000;
 
     private final PrinterProperties props;
 
@@ -71,7 +75,8 @@ public class FiscalPrinterService {
         }
         int port = props.tcp().port();
 
-        try (Socket socket = new Socket(host, port)) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
             DatecsDPMXProtocol fp = new DatecsDPMXProtocol(socket);
             return doPrint(fp, request, host);
         } catch (Exception ex) {
@@ -106,7 +111,7 @@ public class FiscalPrinterService {
         if (request.lines() != null) {
             for (ReceiptRequest.Line line : request.lines()) {
                 int taxGroup = resolveVatGroup(line.vat());
-                double price = line.unitPrice().doubleValue();
+                double price = (line.unitPrice() == null ? BigDecimal.ZERO : line.unitPrice()).doubleValue();
                 fp.sell(line.name(), taxGroup, price, line.quantity());
             }
         }

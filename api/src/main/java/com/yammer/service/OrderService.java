@@ -5,6 +5,7 @@ import com.yammer.dto.OrderItemsUpdateRequest;
 import com.yammer.dto.OrderResponse;
 import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
+import com.yammer.event.OrderChangedEvent;
 import com.yammer.entity.LocationEntity;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
@@ -13,15 +14,14 @@ import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
+import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,20 +43,16 @@ public class OrderService {
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
     private final CurrentUserProvider currentUser;
-    private final OrderNotificationService notificationService;
+    private final AccessGuard accessGuard;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final BridgeService bridgeService;
 
     /** Places an order at an order point with the given line items (name/price snapshotted). */
     public OrderResponse place(PlaceOrderRequest request) {
         UserPrincipal me = currentUser.require();
-        OrderPointEntity op = orderPointRepository.findById(request.orderPointId())
-                .orElseThrow(() -> notFound(request.orderPointId()));
-
+        OrderPointEntity op = accessGuard.requireAccessibleOrderPoint(request.orderPointId());
         LocationEntity location = locationRepository.findById(op.getLocationId())
                 .orElseThrow(() -> notFound(request.orderPointId()));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw notFound(request.orderPointId());
-        }
 
         OrderEntity order = new OrderEntity();
         order.setOrderNo(orderRepository.maxOrderNoForClient(location.getClientId()) + 1);
@@ -77,7 +73,7 @@ public class OrderService {
             toSave.add(item);
         }
         List<OrderItemEntity> savedItems = orderItemRepository.saveAll(toSave);
-        notificationService.orderCreated(savedOrder);
+        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
         return OrderResponse.from(savedOrder, savedItems, op.getName());
     }
 
@@ -97,16 +93,9 @@ public class OrderService {
         if (!SETTABLE_STATUSES.contains(next)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + status);
         }
-        UserPrincipal me = currentUser.require();
-        OrderEntity order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + orderId));
+        OrderEntity order = accessGuard.requireAccessibleOrder(orderId);
         OrderPointEntity op = orderPointRepository.findById(order.getOrderPointId())
                 .orElseThrow(() -> notFound(order.getOrderPointId()));
-        LocationEntity location = locationRepository.findById(op.getLocationId())
-                .orElseThrow(() -> notFound(order.getOrderPointId()));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + orderId);
-        }
         if ("DELIVERED".equals(next) && !"READY".equals(order.getStatus())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Only READY orders can be delivered");
@@ -114,7 +103,7 @@ public class OrderService {
         order.setStatus(next);
         OrderEntity saved = orderRepository.save(order);
         if ("DELIVERED".equals(next)) {
-            notificationService.orderDelivered(saved);
+            eventPublisher.publishEvent(new OrderChangedEvent(saved, "ORDER_DELIVERED"));
         }
         List<OrderItemEntity> items = orderItemRepository.findByOrderIdIn(List.of(saved.getId()));
         return OrderResponse.from(saved, items, op.getName());
@@ -161,33 +150,19 @@ public class OrderService {
     }
 
     private OrderEntity requireAccessibleOrder(UUID orderId) {
-        UserPrincipal me = currentUser.require();
-        OrderEntity order = orderRepository.findById(orderId).orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + orderId));
-        OrderPointEntity op = orderPointRepository.findById(order.getOrderPointId())
-                .orElseThrow(() -> notFound(order.getOrderPointId()));
-        LocationEntity location = locationRepository.findById(op.getLocationId())
-                .orElseThrow(() -> notFound(order.getOrderPointId()));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + orderId);
-        }
-        return order;
+        return accessGuard.requireAccessibleOrder(orderId);
     }
 
     /** Every product the caller can see, with the total ordered quantity (highest first). */
     @Transactional(readOnly = true)
     public List<ProductReportRow> productReport() {
-        List<OrderEntity> orders = scopedOrders();
-        if (orders.isEmpty()) {
+        List<UUID> opIds = accessGuard.visibleOrderPointIds();
+        if (opIds.isEmpty()) {
             return List.of();
         }
-        Map<String, Long> qtyByName = new LinkedHashMap<>();
-        orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList())
-                .forEach(i -> qtyByName.merge(i.getName(), (long) i.getQuantity(), Long::sum));
-        return qtyByName.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()
-                        .thenComparing(Map.Entry.comparingByKey()))
-                .map(e -> new ProductReportRow(e.getKey(), e.getValue()))
+        // Aggregated in the database — no full order_item load into the JVM.
+        return orderItemRepository.aggregateProductQuantities(opIds).stream()
+                .map(q -> new ProductReportRow(q.getName(), q.getQuantity()))
                 .toList();
     }
 
@@ -197,18 +172,7 @@ public class OrderService {
         if (me.isSuper()) {
             return orderRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
         }
-        if (me.clientId() == null) {
-            return List.of();
-        }
-        List<UUID> locationIds = locationRepository.findByClientIdOrderByName(me.clientId()).stream()
-                .map(LocationEntity::getId)
-                .toList();
-        if (locationIds.isEmpty()) {
-            return List.of();
-        }
-        List<UUID> opIds = orderPointRepository.findByLocationIdIn(locationIds).stream()
-                .map(OrderPointEntity::getId)
-                .toList();
+        List<UUID> opIds = accessGuard.visibleOrderPointIds();
         if (opIds.isEmpty()) {
             return List.of();
         }
@@ -218,14 +182,7 @@ public class OrderService {
     /** Orders placed at one order point (newest first). */
     @Transactional(readOnly = true)
     public List<OrderResponse> listByOrderPoint(UUID orderPointId) {
-        UserPrincipal me = currentUser.require();
-        OrderPointEntity op = orderPointRepository.findById(orderPointId)
-                .orElseThrow(() -> notFound(orderPointId));
-        LocationEntity location = locationRepository.findById(op.getLocationId())
-                .orElseThrow(() -> notFound(orderPointId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw notFound(orderPointId);
-        }
+        accessGuard.requireAccessibleOrderPoint(orderPointId);
         return toResponses(orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(List.of(orderPointId)));
     }
 
@@ -234,14 +191,7 @@ public class OrderService {
      * thermal printer via the on-prem bridge.
      */
     public void printProforma(UUID orderPointId) {
-        UserPrincipal me = currentUser.require();
-        OrderPointEntity op = orderPointRepository.findById(orderPointId)
-                .orElseThrow(() -> notFound(orderPointId));
-        LocationEntity location = locationRepository.findById(op.getLocationId())
-                .orElseThrow(() -> notFound(orderPointId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw notFound(orderPointId);
-        }
+        OrderPointEntity op = accessGuard.requireAccessibleOrderPoint(orderPointId);
 
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(List.of(orderPointId));
         Map<UUID, Long> orderNoById = orders.stream()

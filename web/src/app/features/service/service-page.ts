@@ -56,6 +56,24 @@ export class ServicePage implements OnDestroy {
     { status: 'READY', label: 'Ready', color: '#10b981' },
   ];
 
+  /**
+   * Columns with their orders (oldest first, FIFO for the kitchen/bar). A computed so the
+   * filter+sort only re-runs when `orders` actually changes — not on every change-detection
+   * cycle (this is an always-on display, and drags fire change detection rapidly).
+   */
+  readonly board = computed(() => {
+    const byStatus = new Map<string, ServiceOrder[]>();
+    for (const o of this.orders()) {
+      const list = byStatus.get(o.status);
+      if (list) list.push(o);
+      else byStatus.set(o.status, [o]);
+    }
+    for (const list of byStatus.values()) {
+      list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    }
+    return this.columns.map((c) => ({ ...c, orders: byStatus.get(c.status) ?? [] }));
+  });
+
   private ws: WebSocket | null = null;
   private wsReconnect: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
@@ -73,6 +91,7 @@ export class ServicePage implements OnDestroy {
     this.ws?.close();
     document.removeEventListener('fullscreenchange', this.onFsChange);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    this.detachDragListeners();
     this.ghost?.remove();
     void this.releaseWakeLock();
   }
@@ -139,20 +158,23 @@ export class ServicePage implements OnDestroy {
     this.wakeLock = null;
   }
 
-  /** Orders in a column, oldest first (FIFO for the kitchen/bar). */
-  ordersFor(status: string): ServiceOrder[] {
-    return this.orders()
-      .filter((o) => o.status === status)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  }
-
   time(iso: string): string {
     return iso.length >= 16 ? iso.substring(11, 16) : iso;
   }
 
-  /** Menu item / order point names may contain embedded HTML formatting. */
+  /**
+   * Menu item / order point names may contain embedded HTML formatting. Cached by raw value so
+   * the same SafeHtml reference is returned every change-detection cycle — otherwise Angular
+   * rewrites the innerHTML of every list row on each pass.
+   */
+  private readonly htmlCache = new Map<string, SafeHtml>();
   html(value: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(value);
+    let safe = this.htmlCache.get(value);
+    if (!safe) {
+      safe = this.sanitizer.bypassSecurityTrustHtml(value);
+      this.htmlCache.set(value, safe);
+    }
+    return safe;
   }
 
   // --- status transitions -------------------------------------------------
@@ -210,9 +232,14 @@ export class ServicePage implements OnDestroy {
       offX: ev.clientX - rect.left,
       offY: ev.clientY - rect.top,
     };
+    // Listen for movement only while a drag is in flight — not on every card for the page's
+    // whole lifetime (each pointermove would otherwise schedule change detection).
+    window.addEventListener('pointermove', this.onPointerMove, { passive: false });
+    window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerCancel);
   }
 
-  onPointerMove(ev: PointerEvent): void {
+  private readonly onPointerMove = (ev: PointerEvent): void => {
     const c = this.candidate;
     if (!c) return;
     if (!this.dragging()) {
@@ -228,11 +255,12 @@ export class ServicePage implements OnDestroy {
     ev.preventDefault();
     this.moveGhost(c, ev);
     this.dragOver.set(this.columnAt(ev.clientX, ev.clientY));
-  }
+  };
 
-  onPointerUp(ev: PointerEvent): void {
+  private readonly onPointerUp = (ev: PointerEvent): void => {
     const c = this.candidate;
     this.candidate = null;
+    this.detachDragListeners();
     if (!c) return;
     if (this.dragging()) {
       const status = this.columnAt(ev.clientX, ev.clientY);
@@ -240,12 +268,19 @@ export class ServicePage implements OnDestroy {
       if (o && status && o.status !== status) this.move(o, status);
       this.endDrag(c, ev);
     }
-  }
+  };
 
-  onPointerCancel(ev: PointerEvent): void {
+  private readonly onPointerCancel = (ev: PointerEvent): void => {
     const c = this.candidate;
     this.candidate = null;
+    this.detachDragListeners();
     if (c && this.dragging()) this.endDrag(c, ev);
+  };
+
+  private detachDragListeners(): void {
+    window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerCancel);
   }
 
   private columnAt(x: number, y: number): Column['status'] | null {

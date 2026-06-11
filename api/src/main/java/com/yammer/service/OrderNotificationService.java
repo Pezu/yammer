@@ -4,6 +4,7 @@ import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderPointAssignmentEntity;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.UserEntity;
+import com.yammer.event.OrderChangedEvent;
 import com.yammer.repository.OrderPointAssignmentRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.UserRepository;
@@ -14,12 +15,18 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Pushes order events over WebSocket to the service users responsible for the order —
  * i.e. those assigned (Assign menu) to the service point its order point routes to.
  * This keeps each service receiving only its own orders.
+ *
+ * <p>Triggered by {@link OrderChangedEvent} AFTER_COMMIT (and asynchronously), so clients are
+ * never told about an order that later rolls back and the push never blocks the order request.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,12 +38,10 @@ public class OrderNotificationService {
     private final UserRepository userRepository;
     private final OrderWsHandler wsHandler;
 
-    public void orderCreated(OrderEntity order) {
-        notify(order, "ORDER_CREATED");
-    }
-
-    public void orderDelivered(OrderEntity order) {
-        notify(order, "ORDER_DELIVERED");
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onOrderChanged(OrderChangedEvent event) {
+        notify(event.order(), event.type());
     }
 
     private void notify(OrderEntity order, String type) {

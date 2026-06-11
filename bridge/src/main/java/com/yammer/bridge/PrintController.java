@@ -4,8 +4,12 @@ import com.yammer.bridge.dto.InfoReceiptRequest;
 import com.yammer.bridge.dto.ReceiptRequest;
 import com.yammer.bridge.dto.ReceiptResult;
 import com.yammer.bridge.print.PrintQueueManager;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,20 +31,34 @@ import org.springframework.web.bind.annotation.RestController;
 public class PrintController {
 
     private final PrintQueueManager queue;
+    private final BridgeProperties props;
 
-    public PrintController(PrintQueueManager queue) {
+    public PrintController(PrintQueueManager queue, BridgeProperties props) {
         this.queue = queue;
+        this.props = props;
     }
 
     @PostMapping
     public ResponseEntity<ReceiptResult> printReceipt(@RequestBody ReceiptRequest request)
             throws ExecutionException, InterruptedException {
-        return ResponseEntity.ok(queue.submitReceipt(request).get());
+        return await(queue.submitReceipt(request));
     }
 
     @PostMapping("/info")
     public ResponseEntity<ReceiptResult> printInfo(@RequestBody InfoReceiptRequest request)
             throws ExecutionException, InterruptedException {
-        return ResponseEntity.ok(queue.submitInfo(request).get());
+        return await(queue.submitInfo(request));
+    }
+
+    /** Wait for a queued print job, bounded by {@code bridge.print-timeout-seconds}. */
+    private ResponseEntity<ReceiptResult> await(CompletableFuture<ReceiptResult> job)
+            throws ExecutionException, InterruptedException {
+        try {
+            return ResponseEntity.ok(job.get(props.printTimeoutSeconds(), TimeUnit.SECONDS));
+        } catch (TimeoutException e) {
+            job.cancel(true);
+            log.warn("Print job timed out after {}s", props.printTimeoutSeconds());
+            return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+        }
     }
 }

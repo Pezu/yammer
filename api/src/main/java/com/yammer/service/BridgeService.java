@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -158,47 +159,75 @@ public class BridgeService {
         try {
             LocalDateTime cutoff = LocalDateTime.now().minusSeconds(STALE_RESEND_SECONDS);
             List<PaymentEntity> due = paymentRepository.findFiscalDispatchable(FiscalStatus.PENDING, cutoff);
+            if (due.isEmpty()) {
+                return;
+            }
+
+            // Batch-load everything the frames need (was ~5 queries + 1 save per payment).
+            Set<UUID> opIds = due.stream()
+                    .map(PaymentEntity::getOrderPointId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<UUID, OrderPointEntity> opsById = orderPointRepository.findAllById(opIds).stream()
+                    .collect(Collectors.toMap(OrderPointEntity::getId, Function.identity()));
+            Set<UUID> cashRegisterIds = opsById.values().stream()
+                    .map(OrderPointEntity::getCashRegisterId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<UUID, String> ipByIntegration = integrationRepository.findAllById(cashRegisterIds).stream()
+                    .filter(d -> d.getIp() != null && !d.getIp().isBlank())
+                    .collect(Collectors.toMap(IntegrationEntity::getId, IntegrationEntity::getIp));
+            Map<UUID, List<OrderItemEntity>> itemsByPayment = orderItemRepository
+                    .findByPaymentIdIn(due.stream().map(PaymentEntity::getId).toList()).stream()
+                    .collect(Collectors.groupingBy(OrderItemEntity::getPaymentId));
+            Map<UUID, BigDecimal> vatByMenuItem = resolveVat(
+                    itemsByPayment.values().stream().flatMap(List::stream).toList());
+
+            LocalDateTime sentAt = LocalDateTime.now();
             for (PaymentEntity payment : due) {
                 try {
-                    String frame = buildReceiptFrame(payment);
+                    String frame = buildReceiptFrame(payment, opsById, ipByIntegration, itemsByPayment, vatByMenuItem);
                     if (frame != null) {
                         handler.send(frame);
                         log.info("Dispatched fiscal RECEIPT for payment {}", payment.getId());
                     }
                 } catch (Exception e) {
                     log.error("Failed to dispatch RECEIPT for payment {}: {}", payment.getId(), e.getMessage(), e);
-                } finally {
-                    // back off either way so a payment with no device doesn't spin every tick
-                    payment.setFiscalSentAt(LocalDateTime.now());
-                    paymentRepository.save(payment);
                 }
+                // back off either way so a payment with no device doesn't spin every tick
+                payment.setFiscalSentAt(sentAt);
             }
+            paymentRepository.saveAll(due);
         } finally {
             dispatchLock.unlock();
         }
     }
 
     /** Build the {@code RECEIPT} JSON frame for a payment, or {@code null} if it can't be fiscalized. */
-    private String buildReceiptFrame(PaymentEntity payment) throws Exception {
+    private String buildReceiptFrame(
+            PaymentEntity payment,
+            Map<UUID, OrderPointEntity> opsById,
+            Map<UUID, String> ipByIntegration,
+            Map<UUID, List<OrderItemEntity>> itemsByPayment,
+            Map<UUID, BigDecimal> vatByMenuItem)
+            throws Exception {
         if (payment.getMethod() == PaymentMethod.PROTOCOL || payment.getFiscalStatus() == FiscalStatus.SUCCESS) {
             return null;
         }
-        OrderPointEntity op = orderPointRepository.findById(payment.getOrderPointId()).orElse(null);
+        OrderPointEntity op = opsById.get(payment.getOrderPointId());
         if (op == null) {
             return null;
         }
-        String cashRegisterIp = deviceIp(op.getCashRegisterId());
+        String cashRegisterIp = op.getCashRegisterId() == null ? null : ipByIntegration.get(op.getCashRegisterId());
         if (cashRegisterIp == null) {
             log.warn("No cash register (with IP) for order point '{}' — payment {} left PENDING.",
                     op.getName(), payment.getId());
             return null;
         }
-        List<OrderItemEntity> items = orderItemRepository.findByPaymentId(payment.getId());
+        List<OrderItemEntity> items = itemsByPayment.getOrDefault(payment.getId(), List.of());
         if (items.isEmpty()) {
             return null;
         }
-
-        Map<UUID, BigDecimal> vatByMenuItem = resolveVat(items);
 
         List<Map<String, Object>> lines = new ArrayList<>(items.size());
         for (OrderItemEntity it : items) {

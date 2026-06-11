@@ -6,11 +6,8 @@ import com.yammer.entity.IntegrationEntity;
 import com.yammer.entity.IntegrationType;
 import com.yammer.entity.LocationEntity;
 import com.yammer.repository.IntegrationRepository;
-import com.yammer.repository.LocationRepository;
-import com.yammer.security.CurrentUserProvider;
-import com.yammer.security.UserPrincipal;
+import com.yammer.security.AccessGuard;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,8 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class IntegrationService {
 
     private final IntegrationRepository integrationRepository;
-    private final LocationRepository locationRepository;
-    private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     @Transactional(readOnly = true)
     public List<IntegrationResponse> listByLocation(UUID locationId, IntegrationType type) {
@@ -73,13 +69,6 @@ public class IntegrationService {
     }
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {
-        UserPrincipal me = currentUser.require();
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Location not found: " + locationId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + locationId);
-        }
-        return location;
+        return accessGuard.requireAccessibleLocation(locationId);
     }
 }

@@ -16,7 +16,6 @@ import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
-import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointAssignmentRepository;
 import com.yammer.repository.OrderPointRepository;
@@ -25,6 +24,7 @@ import com.yammer.repository.PaymentRepository;
 import com.yammer.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.HashMap;
+import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import java.util.ArrayList;
@@ -32,7 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -51,12 +50,12 @@ public class OrderPointAssignmentService {
 
     private final OrderPointAssignmentRepository assignmentRepository;
     private final OrderPointRepository orderPointRepository;
-    private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
     private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     /** Parent name = the part of an order-point name before the first dot ("M80.1" → "M80", "B1" → "B1"). */
     public static String parentOf(String name) {
@@ -254,10 +253,8 @@ public class OrderPointAssignmentService {
             names.put(op.getId(), op.getName());
         }
 
-        List<OrderEntity> orders = orderRepository
-                .findByOrderPointIdInOrderByCreatedAtDesc(new ArrayList<>(names.keySet())).stream()
-                .filter(o -> OrderService.BOARD_STATUSES.contains(o.getStatus()))
-                .toList();
+        List<OrderEntity> orders = orderRepository.findByOrderPointIdInAndStatusInOrderByCreatedAtDesc(
+                names.keySet(), OrderService.BOARD_STATUSES);
         if (orders.isEmpty()) {
             return List.of();
         }
@@ -291,10 +288,8 @@ public class OrderPointAssignmentService {
         for (OrderPointEntity op : ops) {
             names.put(op.getId(), op.getName());
         }
-        List<OrderEntity> orders = orderRepository
-                .findByOrderPointIdInOrderByCreatedAtDesc(new ArrayList<>(names.keySet())).stream()
-                .filter(o -> statuses.contains(o.getStatus()))
-                .toList();
+        List<OrderEntity> orders = orderRepository.findByOrderPointIdInAndStatusInOrderByCreatedAtDesc(
+                names.keySet(), statuses);
         if (orders.isEmpty()) {
             return List.of();
         }
@@ -407,13 +402,6 @@ public class OrderPointAssignmentService {
     }
 
     private LocationEntity requireAccessibleLocation(UUID locationId) {
-        UserPrincipal me = currentUser.require();
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Location not found: " + locationId));
-        if (!me.isSuper() && !Objects.equals(location.getClientId(), me.clientId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found: " + locationId);
-        }
-        return location;
+        return accessGuard.requireAccessibleLocation(locationId);
     }
 }

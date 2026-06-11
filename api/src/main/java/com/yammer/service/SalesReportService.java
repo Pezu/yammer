@@ -5,19 +5,16 @@ import com.yammer.dto.SalesSummaryResponse;
 import com.yammer.dto.TableReportRow;
 import com.yammer.dto.WaiterReportRow;
 import com.yammer.dto.WaiterTableRow;
-import com.yammer.entity.LocationEntity;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
-import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
 import com.yammer.repository.PaymentRepository;
-import com.yammer.security.CurrentUserProvider;
-import com.yammer.security.UserPrincipal;
+import com.yammer.security.AccessGuard;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -45,9 +42,8 @@ public class SalesReportService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderPointRepository orderPointRepository;
-    private final LocationRepository locationRepository;
     private final PaymentRepository paymentRepository;
-    private final CurrentUserProvider currentUser;
+    private final AccessGuard accessGuard;
 
     public List<SalesIntervalRow> intervals() {
         // Reporting window: since yesterday afternoon (12:00) up to now.
@@ -405,21 +401,6 @@ public class SalesReportService {
 
     /** Order-point ids visible to the current user: SUPER → all; otherwise their client's. */
     private List<UUID> scopedOrderPointIds() {
-        UserPrincipal me = currentUser.require();
-        if (me.isSuper()) {
-            return orderPointRepository.findAll().stream().map(OrderPointEntity::getId).toList();
-        }
-        if (me.clientId() == null) {
-            return List.of();
-        }
-        List<UUID> locationIds = locationRepository.findByClientIdOrderByName(me.clientId()).stream()
-                .map(LocationEntity::getId)
-                .toList();
-        if (locationIds.isEmpty()) {
-            return List.of();
-        }
-        return orderPointRepository.findByLocationIdIn(locationIds).stream()
-                .map(OrderPointEntity::getId)
-                .toList();
+        return accessGuard.visibleOrderPointIds();
     }
 }
