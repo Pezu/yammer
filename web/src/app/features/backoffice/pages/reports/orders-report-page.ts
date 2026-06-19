@@ -1,9 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { EventOption, Order, OrderItem, OrderReportService } from './order.service';
+import {
+  EventOption,
+  Order,
+  OrderItem,
+  OrderPointOption,
+  OrderReportService,
+} from './order.service';
+import { ComboOption, FilterCombo } from './filter-combo';
 
 @Component({
   selector: 'app-orders-report-page',
-  imports: [],
+  imports: [FilterCombo],
   templateUrl: './orders-report-page.html',
   styleUrl: './orders-report-page.scss',
 })
@@ -35,6 +42,32 @@ export class OrdersReportPage {
     return q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
   });
 
+  // --- column filters ---
+  readonly fOrderNo = signal('');
+  readonly fOrderPointId = signal('');
+  readonly fWaiter = signal('');
+  readonly fPaid = signal('');
+  readonly fStatus = signal('');
+  readonly orderPointOptions = signal<OrderPointOption[]>([]);
+  readonly waiterOptions = signal<string[]>([]);
+  readonly orderPointComboOptions = computed<ComboOption[]>(() =>
+    this.orderPointOptions().map((o) => ({ value: o.id, label: o.name })),
+  );
+  readonly waiterComboOptions = computed<ComboOption[]>(() =>
+    this.waiterOptions().map((w) => ({ value: w, label: w })),
+  );
+  readonly statusOptions: ComboOption[] = [
+    { value: 'ORDERED', label: 'Ordered' },
+    { value: 'READY', label: 'Ready' },
+    { value: 'DELIVERED', label: 'Delivered' },
+    { value: 'CANCELED', label: 'Canceled' },
+  ];
+  readonly paidOptions: ComboOption[] = [
+    { value: 'NOT', label: 'Not paid' },
+    { value: 'PAR', label: 'Partial' },
+    { value: 'PAID', label: 'Paid' },
+  ];
+
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
   readonly pagedOrders = computed(() => this.orders());
   readonly range = computed(() => {
@@ -64,6 +97,7 @@ export class OrdersReportPage {
 
   constructor() {
     this.loadEvents();
+    this.loadFilterOptions();
     this.load();
   }
 
@@ -76,19 +110,75 @@ export class OrdersReportPage {
     });
   }
 
-  private load(): void {
-    this.loading.set(true);
-    this.service.listPaged(this.page() - 1, this.pageSize(), this.eventId() || null).subscribe({
-      next: (res) => {
-        this.orders.set(res.content);
-        this.total.set(res.total);
-        this.loading.set(false);
+  private loadFilterOptions(): void {
+    this.service.filterOptions(this.eventId() || null).subscribe({
+      next: (o) => {
+        this.orderPointOptions.set(o.orderPoints);
+        this.waiterOptions.set(o.waiters);
       },
       error: () => {
-        this.error.set('Failed to load orders.');
-        this.loading.set(false);
+        this.orderPointOptions.set([]);
+        this.waiterOptions.set([]);
       },
     });
+  }
+
+  private load(): void {
+    this.loading.set(true);
+    this.service
+      .listPaged(this.page() - 1, this.pageSize(), {
+        eventId: this.eventId() || null,
+        orderNo: this.fOrderNo() ? Number(this.fOrderNo()) : null,
+        orderPointId: this.fOrderPointId() || null,
+        waiter: this.fWaiter() || null,
+        status: this.fStatus() || null,
+        paid: this.fPaid() || null,
+      })
+      .subscribe({
+        next: (res) => {
+          this.orders.set(res.content);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set('Failed to load orders.');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  // --- filter setters: each resets to page 1 and reloads ---
+  setOrderNo(v: string): void {
+    this.fOrderNo.set(v.trim());
+    this.applyFilter();
+  }
+  setOrderPoint(v: string): void {
+    this.fOrderPointId.set(v);
+    this.applyFilter();
+  }
+  setWaiter(v: string): void {
+    this.fWaiter.set(v);
+    this.applyFilter();
+  }
+  setPaid(v: string): void {
+    this.fPaid.set(v);
+    this.applyFilter();
+  }
+  setStatus(v: string): void {
+    this.fStatus.set(v);
+    this.applyFilter();
+  }
+  private applyFilter(): void {
+    this.page.set(1);
+    this.selected.set(null);
+    this.load();
+  }
+  private resetFilters(): void {
+    this.fOrderNo.set('');
+    this.fOrderPointId.set('');
+    this.fWaiter.set('');
+    this.fPaid.set('');
+    this.fStatus.set('');
   }
 
   selectOrder(o: Order): void {
@@ -232,9 +322,11 @@ export class OrdersReportPage {
       return;
     }
     this.eventId.set(id);
+    this.resetFilters(); // order points / waiters differ per event
     this.page.set(1);
     this.selected.set(null);
     this.eventComboOpen.set(false);
+    this.loadFilterOptions();
     this.load();
   }
 }

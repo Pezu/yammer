@@ -42,6 +42,26 @@ export interface EventOption {
   endDate: string;
 }
 
+export interface OrderPointOption {
+  id: string;
+  name: string;
+}
+
+export interface OrderFilterOptions {
+  orderPoints: OrderPointOption[];
+  waiters: string[];
+}
+
+/** Optional server-side filters for the paginated orders list. */
+export interface OrderFilters {
+  eventId?: string | null;
+  orderNo?: number | null;
+  orderPointId?: string | null;
+  waiter?: string | null;
+  status?: string | null;
+  paid?: string | null;
+}
+
 export interface ProductReportRow {
   name: string;
   quantity: number;
@@ -79,6 +99,8 @@ export interface WaiterReportRow {
   name: string;
   orders: number;
   sales: number;
+  unsettledPaid: number;
+  unsettledProtocol: number;
 }
 
 export interface WaiterTableRow {
@@ -95,18 +117,28 @@ export class OrderReportService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/orders`;
 
-  /** One page of orders (newest first), paginated on the server; optionally scoped to one event. */
-  listPaged(page: number, size: number, eventId?: string | null): Observable<PagedResponse<Order>> {
+  /** One page of orders (newest first), paginated and filtered on the server. */
+  listPaged(page: number, size: number, filters: OrderFilters = {}): Observable<PagedResponse<Order>> {
     let params = new HttpParams().set('page', page).set('size', size);
-    if (eventId) {
-      params = params.set('eventId', eventId);
-    }
+    if (filters.eventId) params = params.set('eventId', filters.eventId);
+    if (filters.orderNo != null) params = params.set('orderNo', filters.orderNo);
+    if (filters.orderPointId) params = params.set('orderPointId', filters.orderPointId);
+    if (filters.waiter) params = params.set('waiter', filters.waiter);
+    if (filters.status) params = params.set('status', filters.status);
+    if (filters.paid) params = params.set('paid', filters.paid);
     return this.http.get<PagedResponse<Order>>(`${this.baseUrl}/page`, { params });
   }
 
   /** Every event the caller can see — backs the orders-report event filter. */
   listEvents(): Observable<EventOption[]> {
     return this.http.get<EventOption[]>(`${environment.apiUrl}/events`);
+  }
+
+  /** Order-point and waiter options for the orders-report filter combos. */
+  filterOptions(eventId?: string | null): Observable<OrderFilterOptions> {
+    let params = new HttpParams();
+    if (eventId) params = params.set('eventId', eventId);
+    return this.http.get<OrderFilterOptions>(`${this.baseUrl}/filter-options`, { params });
   }
 
   /** Update an order's unpaid item quantities (quantity ≤ 0 deletes the item). */

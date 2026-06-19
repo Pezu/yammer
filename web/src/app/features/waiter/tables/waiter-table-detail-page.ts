@@ -2,9 +2,8 @@ import { Component, computed, HostListener, inject, signal } from '@angular/core
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
-  Payment,
+  BillLine,
   PaymentMethod,
-  PlacedOrder,
   WaiterOrderPointService,
 } from './waiter-order-point.service';
 import { ToastService } from '../../../core/toast.service';
@@ -14,27 +13,7 @@ interface ProductLine {
   menuItemId: string;
   name: string;
   price: number | null;
-  qty: number; // unpaid quantity for this product across the table order
-}
-
-/** Groups an order list's items by product, keeping only paid (or only unpaid) lines. */
-function groupByProduct(orders: PlacedOrder[], paid: boolean): ProductLine[] {
-  const map = new Map<string, ProductLine>();
-  for (const order of orders) {
-    for (const it of order.items) {
-      if (it.paid !== paid || !it.menuItemId) {
-        continue;
-      }
-      const existing = map.get(it.menuItemId);
-      map.set(
-        it.menuItemId,
-        existing
-          ? { ...existing, qty: existing.qty + it.quantity }
-          : { menuItemId: it.menuItemId, name: it.name, price: it.price, qty: it.quantity },
-      );
-    }
-  }
-  return [...map.values()];
+  qty: number; // quantity for this product (paid or unpaid, depending on the view)
 }
 
 type TipMode = 'none' | 'p10' | 'p12' | 'p15' | 'customPct' | 'customAmt';
@@ -62,16 +41,23 @@ export class WaiterTableDetailPage {
     return m.length ? m : ['CASH', 'CARD'];
   });
 
-  readonly orders = signal<PlacedOrder[]>([]);
-  readonly payments = signal<Payment[]>([]);
+  readonly bill = signal<BillLine[]>([]);
   readonly loadingOrders = signal(true);
   readonly ordersError = signal<string | null>(null);
 
   /** Unpaid lines grouped by product — the current bill. */
-  readonly unpaidByProduct = computed<ProductLine[]>(() => groupByProduct(this.orders(), false));
+  readonly unpaidByProduct = computed<ProductLine[]>(() =>
+    this.bill()
+      .filter((b) => b.unpaidQty > 0)
+      .map((b) => ({ menuItemId: b.menuItemId, name: b.name, price: b.price, qty: b.unpaidQty })),
+  );
 
   /** Paid lines grouped by product. */
-  readonly paidByProduct = computed<ProductLine[]>(() => groupByProduct(this.orders(), true));
+  readonly paidByProduct = computed<ProductLine[]>(() =>
+    this.bill()
+      .filter((b) => b.paidQty > 0)
+      .map((b) => ({ menuItemId: b.menuItemId, name: b.name, price: b.price, qty: b.paidQty })),
+  );
   // which list to show: unpaid (default) or paid
   readonly view = signal<'unpaid' | 'paid'>('unpaid');
   readonly viewComboOpen = signal(false);
@@ -87,10 +73,7 @@ export class WaiterTableDetailPage {
   }
 
   readonly orderedTotal = computed(() =>
-    this.orders().reduce(
-      (s, o) => s + o.items.reduce((a, it) => a + (it.price ?? 0) * it.quantity, 0),
-      0,
-    ),
+    this.bill().reduce((s, b) => s + (b.price ?? 0) * (b.paidQty + b.unpaidQty), 0),
   );
   readonly remaining = computed(() =>
     round2(this.unpaidByProduct().reduce((s, p) => s + (p.price ?? 0) * p.qty, 0)),
@@ -205,9 +188,9 @@ export class WaiterTableDetailPage {
 
   private reload(): void {
     this.loadingOrders.set(true);
-    this.service.orders(this.id).subscribe({
-      next: (orders) => {
-        this.orders.set(orders);
+    this.service.bill(this.id).subscribe({
+      next: (bill) => {
+        this.bill.set(bill);
         this.loadingOrders.set(false);
       },
       error: () => {
@@ -215,7 +198,6 @@ export class WaiterTableDetailPage {
         this.loadingOrders.set(false);
       },
     });
-    this.service.payments(this.id).subscribe({ next: (p) => this.payments.set(p), error: () => {} });
   }
 
   // --- payment modal ---
@@ -265,6 +247,18 @@ export class WaiterTableDetailPage {
       }
       return next;
     });
+  }
+  /** Select the whole bill for payment (move every unpaid item to "Paying"). */
+  moveAllToPaying(): void {
+    const all: Record<string, number> = {};
+    for (const p of this.unpaidByProduct()) {
+      all[p.menuItemId] = p.qty;
+    }
+    this.paying.set(all);
+  }
+  /** Move everything back to the bill. */
+  clearPaying(): void {
+    this.paying.set({});
   }
   // mouse: native HTML5 drag-and-drop
   onDragStart(id: string, source: 'bill' | 'paying'): void {

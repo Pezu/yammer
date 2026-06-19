@@ -25,6 +25,7 @@ export class EventsPage {
 
   readonly error = signal<string | null>(null);
   readonly loading = signal(false);
+  readonly exportingId = signal<string | null>(null);
 
   // --- client combo (SUPER only) ---
   readonly clients = signal<Client[]>([]);
@@ -195,6 +196,29 @@ export class EventsPage {
   }
 
   // --- delete ---
+  exportQr(ev: Event): void {
+    if (this.exportingId()) {
+      return;
+    }
+    this.exportingId.set(ev.id);
+    this.error.set(null);
+    this.eventService.exportQrPdf(ev.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `qr-${ev.name}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.exportingId.set(null);
+      },
+      error: () => {
+        this.error.set('Failed to export QR codes.');
+        this.exportingId.set(null);
+      },
+    });
+  }
+
   askDelete(ev: Event): void {
     this.pendingDelete.set(ev);
   }

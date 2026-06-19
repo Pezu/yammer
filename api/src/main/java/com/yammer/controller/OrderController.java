@@ -1,6 +1,8 @@
 package com.yammer.controller;
 
+import com.yammer.dto.OrderFilterOptions;
 import com.yammer.dto.OrderItemsUpdateRequest;
+import com.yammer.dto.OrderPointBillLine;
 import com.yammer.dto.OrderResponse;
 import com.yammer.dto.OrderStatusRequest;
 import com.yammer.dto.PagedResponse;
@@ -46,16 +48,34 @@ public class OrderController {
         return orderPointId != null ? orderService.listByOrderPoint(orderPointId) : orderService.list();
     }
 
+    /** An order point's bill aggregated per product (paid + unpaid qty) — backs the waiter table screen. */
+    @GetMapping("/bill")
+    public List<OrderPointBillLine> bill(@RequestParam UUID orderPointId) {
+        return orderService.billByOrderPoint(orderPointId);
+    }
+
     /**
      * Server-side paginated order list (newest first) — backs the backoffice orders report.
-     * Pass {@code eventId} to restrict the page to one event.
+     * All filters are optional: {@code eventId}, {@code orderNo}, {@code orderPointId},
+     * {@code waiter}, {@code status}, {@code paid} (NOT / PAR / PAID).
      */
     @GetMapping("/page")
     public PagedResponse<OrderResponse> listPage(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
-            @RequestParam(required = false) UUID eventId) {
-        return orderService.listPaged(page, size, eventId);
+            @RequestParam(required = false) UUID eventId,
+            @RequestParam(required = false) Long orderNo,
+            @RequestParam(required = false) UUID orderPointId,
+            @RequestParam(required = false) String waiter,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String paid) {
+        return orderService.listPaged(page, size, eventId, orderNo, orderPointId, waiter, status, paid);
+    }
+
+    /** Order-point and waiter option lists for the orders-report filter combos. */
+    @GetMapping("/filter-options")
+    public OrderFilterOptions filterOptions(@RequestParam(required = false) UUID eventId) {
+        return orderService.filterOptions(eventId);
     }
 
     /** Aggregated products report: every ordered product with its total quantity. */

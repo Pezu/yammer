@@ -131,6 +131,12 @@ export class WaiterOrderPointService {
     return this.http.get<PlacedOrder[]>(`${environment.apiUrl}/orders`, { params });
   }
 
+  /** The order point's bill aggregated per product (paid + unpaid qty) — backs the table screen. */
+  bill(orderPointId: string): Observable<BillLine[]> {
+    const params = new HttpParams().set('orderPointId', orderPointId);
+    return this.http.get<BillLine[]>(`${environment.apiUrl}/orders/bill`, { params });
+  }
+
   /** Payments taken at an order point. */
   payments(orderPointId: string): Observable<Payment[]> {
     const params = new HttpParams().set('orderPointId', orderPointId);
@@ -185,6 +191,15 @@ export interface PlacedOrderItem {
 export interface LinePaymentItem {
   menuItemId: string;
   quantity: number;
+}
+
+/** One product on an order point's bill: paid vs unpaid quantity. */
+export interface BillLine {
+  menuItemId: string;
+  name: string;
+  price: number | null;
+  paidQty: number;
+  unpaidQty: number;
 }
 
 export interface PaymentSummary {

@@ -41,6 +41,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/").permitAll()
                         // Client logos are public images so <img> can load them without a token.
                         .requestMatchers(HttpMethod.GET, "/clients/*/logo").permitAll()
+                        // Customer-facing endpoints reached by scanning an order point QR (no login):
+                        // GET the table/menu and POST a self-service order.
+                        .requestMatchers("/public/**").permitAll()
                         // Everything else requires a valid token. Fine-grained rules
                         // (e.g. SUPER-only client writes) live on the methods via @PreAuthorize.
                         .anyRequest().authenticated())

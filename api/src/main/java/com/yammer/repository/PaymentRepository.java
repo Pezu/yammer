@@ -3,7 +3,9 @@ package com.yammer.repository;
 import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +15,27 @@ import org.springframework.data.repository.query.Param;
 public interface PaymentRepository extends JpaRepository<PaymentEntity, UUID> {
 
     List<PaymentEntity> findByOrderPointIdOrderByCreatedAtDesc(UUID orderPointId);
+
+    /** Per order point: paid (cash/card) and tip totals — for the waiter tables stats (no row load). */
+    interface OrderPointPaymentAgg {
+        UUID getOpId();
+        BigDecimal getPaidCard();
+        BigDecimal getPaidCash();
+        BigDecimal getTipCard();
+        BigDecimal getTipCash();
+    }
+
+    @Query(nativeQuery = true, value = """
+            select order_point_id as "opId",
+              coalesce(sum(case when method='CARD' then amount else 0 end),0) as "paidCard",
+              coalesce(sum(case when method='CASH' then amount else 0 end),0) as "paidCash",
+              coalesce(sum(case when method='CARD' then tip else 0 end),0) as "tipCard",
+              coalesce(sum(case when method='CASH' then tip else 0 end),0) as "tipCash"
+            from payment
+            where order_point_id in :opIds
+            group by order_point_id
+            """)
+    List<OrderPointPaymentAgg> aggregateByOrderPoint(@Param("opIds") Collection<UUID> opIds);
 
     List<PaymentEntity> findByOrderPointIdIn(List<UUID> orderPointIds);
 

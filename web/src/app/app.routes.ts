@@ -155,6 +155,13 @@ export const routes: Routes = [
       { path: '', redirectTo: 'tables', pathMatch: 'full' },
     ],
   },
+  {
+    path: 'customer/order-point/:opId',
+    loadComponent: () =>
+      import('./features/customer/customer-order-point-page').then(
+        (m) => m.CustomerOrderPointPage,
+      ),
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' },
 ];

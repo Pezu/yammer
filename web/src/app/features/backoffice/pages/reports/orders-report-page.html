@@ -43,6 +43,27 @@
                 <th class="status-col">Paid</th>
                 <th class="status-col">Status</th>
               </tr>
+              <tr class="filter-row">
+                <th class="no-col">
+                  <input #fno type="number" class="f-input" placeholder="#" [value]="fOrderNo()"
+                    (keyup.enter)="setOrderNo(fno.value)" (change)="setOrderNo(fno.value)" />
+                </th>
+                <th class="op-col">
+                  <app-filter-combo [value]="fOrderPointId()" [options]="orderPointComboOptions()"
+                    [searchable]="true" (changed)="setOrderPoint($event)" />
+                </th>
+                <th class="who-col">
+                  <app-filter-combo [value]="fWaiter()" [options]="waiterComboOptions()"
+                    [searchable]="true" (changed)="setWaiter($event)" />
+                </th>
+                <th class="num-col"></th>
+                <th class="status-col">
+                  <app-filter-combo [value]="fPaid()" [options]="paidOptions" (changed)="setPaid($event)" />
+                </th>
+                <th class="status-col">
+                  <app-filter-combo [value]="fStatus()" [options]="statusOptions" (changed)="setStatus($event)" />
+                </th>
+              </tr>
             </thead>
             <tbody>
               @for (o of pagedOrders(); track o.id) {

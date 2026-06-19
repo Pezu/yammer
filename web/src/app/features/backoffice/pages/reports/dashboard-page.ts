@@ -30,7 +30,6 @@ const PAGE_SIZE = 8;
               <input type="text" #eq placeholder="Search events…" [value]="eventSearch()" (input)="eventSearch.set(eq.value)" (keyup.escape)="closeEventCombo()" autofocus />
             </div>
             <ul class="event-list">
-              <li><button type="button" class="event-option" [class.active]="!eventId()" (click)="selectEvent('')">All events</button></li>
               @for (e of eventOptions(); track e.id) {
                 <li><button type="button" class="event-option" [class.active]="e.id === eventId()" (click)="selectEvent(e.id)">{{ e.name }}</button></li>
               } @empty {
@@ -43,8 +42,9 @@ const PAGE_SIZE = 8;
     </header>
 
     <section class="page-body">
-      <!-- Tables (2/3): ordered / paid / remaining per order point -->
-      <div class="widget col-2">
+      @if (eventId()) {
+      <!-- Tables (full width): ordered / paid / remaining per order point -->
+      <div class="widget col-3">
         <div class="widget-head">
           <h5 class="widget-title">Tables</h5>
         </div>
@@ -63,6 +63,7 @@ const PAGE_SIZE = 8;
                   <th class="num div">Ord. prot.</th>
                   <th class="num">Cash</th>
                   <th class="num">Card</th>
+                  <th class="num">Paid</th>
                   <th class="num div">Protocol</th>
                   <th class="num">Remaining</th>
                   <th class="num">Rem. prot.</th>
@@ -77,6 +78,7 @@ const PAGE_SIZE = 8;
                     <td class="num div">{{ t.orderedProtocol | number: '1.2-2' }}</td>
                     <td class="num">{{ t.paidCash | number: '1.2-2' }}</td>
                     <td class="num">{{ t.paidCard | number: '1.2-2' }}</td>
+                    <td class="num">{{ t.paidCash + t.paidCard | number: '1.2-2' }}</td>
                     <td class="num div">{{ t.protocol | number: '1.2-2' }}</td>
                     <td class="num" [class.rem]="t.remaining > 0">{{ t.remaining | number: '1.2-2' }}</td>
                     <td class="num" [class.rem]="t.remainingProtocol > 0">{{ t.remainingProtocol | number: '1.2-2' }}</td>
@@ -91,6 +93,7 @@ const PAGE_SIZE = 8;
                   <td class="num div">{{ tableTotals().orderedProtocol | number: '1.2-2' }}</td>
                   <td class="num">{{ tableTotals().paidCash | number: '1.2-2' }}</td>
                   <td class="num">{{ tableTotals().paidCard | number: '1.2-2' }}</td>
+                  <td class="num">{{ tableTotals().paidCash + tableTotals().paidCard | number: '1.2-2' }}</td>
                   <td class="num div">{{ tableTotals().protocol | number: '1.2-2' }}</td>
                   <td class="num">{{ tableTotals().remaining | number: '1.2-2' }}</td>
                   <td class="num">{{ tableTotals().remainingProtocol | number: '1.2-2' }}</td>
@@ -110,8 +113,8 @@ const PAGE_SIZE = 8;
         </div>
       </div>
 
-      <!-- Sales (1/3) -->
-      <app-sales-widget class="col-1" [eventId]="eventId()" />
+      <!-- Sales (full width) -->
+      <app-sales-widget class="col-3" [eventId]="eventId()" />
 
       <!-- Products (1/3): paginated product list with quantities -->
       <div class="widget col-1">
@@ -152,8 +155,8 @@ const PAGE_SIZE = 8;
         </div>
       </div>
 
-      <!-- Waiters (1/3): orders + sales per waiter -->
-      <div class="widget col-1">
+      <!-- Waiters (2/3): orders + sales per waiter -->
+      <div class="widget col-2">
         <div class="widget-head">
           <h5 class="widget-title">Waiters</h5>
         </div>
@@ -165,7 +168,13 @@ const PAGE_SIZE = 8;
           } @else {
             <table class="grid">
               <thead>
-                <tr><th>Waiter</th><th class="num">Orders</th><th class="num">Sales</th></tr>
+                <tr>
+                  <th>Waiter</th>
+                  <th class="num">Orders</th>
+                  <th class="num">Sales</th>
+                  <th class="num">Unsettled paid</th>
+                  <th class="num">Unsettled prot.</th>
+                </tr>
               </thead>
               <tbody>
                 @for (w of waiters(); track w.name) {
@@ -176,10 +185,12 @@ const PAGE_SIZE = 8;
                     </td>
                     <td class="num">{{ w.orders | number: '1.0-0' }}</td>
                     <td class="num">{{ w.sales | number: '1.2-2' }}</td>
+                    <td class="num" [class.rem]="w.unsettledPaid > 0">{{ w.unsettledPaid | number: '1.2-2' }}</td>
+                    <td class="num" [class.rem]="w.unsettledProtocol > 0">{{ w.unsettledProtocol | number: '1.2-2' }}</td>
                   </tr>
                   @if (expandedWaiter() === w.name) {
                     <tr class="sub-row">
-                      <td colspan="3">
+                      <td colspan="5">
                         <table class="subgrid">
                           <thead>
                             <tr>
@@ -214,12 +225,17 @@ const PAGE_SIZE = 8;
                   <td>Total</td>
                   <td class="num">{{ waiterTotals().orders | number: '1.0-0' }}</td>
                   <td class="num">{{ waiterTotals().sales | number: '1.2-2' }}</td>
+                  <td class="num">{{ waiterTotals().unsettledPaid | number: '1.2-2' }}</td>
+                  <td class="num">{{ waiterTotals().unsettledProtocol | number: '1.2-2' }}</td>
                 </tr>
               </tfoot>
             </table>
           }
         </div>
       </div>
+      } @else {
+        <div class="select-prompt">Select an event to see the dashboard.</div>
+      }
     </section>
   `,
   styles: [
@@ -342,6 +358,14 @@ const PAGE_SIZE = 8;
         grid-template-columns: repeat(3, 1fr);
         gap: 1.5rem;
         align-items: start;
+      }
+      /* shown until an event is picked */
+      .select-prompt {
+        grid-column: 1 / -1;
+        padding: 4rem 2rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.95rem;
       }
       /* widget widths: 1/3, 2/3, 3/3 of the row */
       .col-1 {
@@ -561,13 +585,13 @@ export class DashboardPage {
 
   readonly error = signal<string | null>(null);
 
-  // --- event filter ---
+  // --- event filter (an event must be selected for the dashboard to show anything) ---
   readonly events = signal<EventOption[]>([]);
-  readonly eventId = signal<string>(''); // '' = all events
+  readonly eventId = signal<string>(''); // '' = nothing selected yet
   readonly eventComboOpen = signal(false);
   readonly eventSearch = signal('');
   readonly eventName = computed(
-    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'All events',
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'Select an event…',
   );
   readonly eventOptions = computed(() => {
     const q = this.eventSearch().trim().toLowerCase();
@@ -628,8 +652,13 @@ export class DashboardPage {
   readonly expandedWaiter = signal<string | null>(null);
   readonly waiterTotals = computed(() =>
     this.waiters().reduce(
-      (acc, w) => ({ orders: acc.orders + w.orders, sales: acc.sales + w.sales }),
-      { orders: 0, sales: 0 },
+      (acc, w) => ({
+        orders: acc.orders + w.orders,
+        sales: acc.sales + w.sales,
+        unsettledPaid: acc.unsettledPaid + w.unsettledPaid,
+        unsettledProtocol: acc.unsettledProtocol + w.unsettledProtocol,
+      }),
+      { orders: 0, sales: 0, unsettledPaid: 0, unsettledProtocol: 0 },
     ),
   );
 
@@ -642,15 +671,20 @@ export class DashboardPage {
 
   constructor() {
     this.service.listEvents().subscribe({
-      next: (events) => this.events.set(events),
+      next: (events) => {
+        this.events.set(events);
+        // Default to the first event so the dashboard isn't empty on open.
+        if (events.length > 0 && !this.eventId()) {
+          this.selectEvent(events[0].id);
+        }
+      },
       error: () => {
-        /* a failed event list just leaves the filter showing "All events" */
+        /* a failed event list just leaves the picker empty */
       },
     });
-    this.load();
   }
 
-  /** (Re)load every widget for the current event filter. The Sales widget reloads itself
+  /** (Re)load every widget for the selected event. The Sales widget reloads itself
    *  via its [eventId] input. */
   private load(): void {
     const ev = this.eventId() || null;

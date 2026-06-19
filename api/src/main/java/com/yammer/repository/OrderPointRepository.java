@@ -14,6 +14,9 @@ public interface OrderPointRepository extends JpaRepository<OrderPointEntity, UU
 
     List<OrderPointEntity> findByLocationIdAndEventIdOrderByName(UUID locationId, UUID eventId);
 
+    /** Order points of one event (for the orders-report order-point filter combo). */
+    List<OrderPointEntity> findByEventIdOrderByName(UUID eventId);
+
     /** Order points at a location, scoped to an event when one is given, else all of the location. */
     default List<OrderPointEntity> findByLocationAndOptionalEventOrderByName(UUID locationId, UUID eventId) {
         return eventId != null

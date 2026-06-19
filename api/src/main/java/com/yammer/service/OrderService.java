@@ -1,6 +1,9 @@
 package com.yammer.service;
 
+import com.yammer.dto.CustomerOrderRequest;
+import com.yammer.dto.OrderFilterOptions;
 import com.yammer.dto.OrderItemRequest;
+import com.yammer.dto.OrderPointBillLine;
 import com.yammer.dto.OrderItemsUpdateRequest;
 import com.yammer.dto.OrderResponse;
 import com.yammer.dto.PagedResponse;
@@ -10,12 +13,14 @@ import com.yammer.event.OrderChangedEvent;
 import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.LocationEntity;
+import com.yammer.entity.MenuItemEntity;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
 import com.yammer.repository.LocationRepository;
+import com.yammer.repository.MenuItemRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
@@ -23,11 +28,15 @@ import com.yammer.repository.PaymentRepository;
 import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +50,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +66,7 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
+    private final MenuItemRepository menuItemRepository;
     private final CurrentUserProvider currentUser;
     private final AccessGuard accessGuard;
     private final ApplicationEventPublisher eventPublisher;
@@ -103,6 +114,56 @@ public class OrderService {
             eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
         }
         return OrderResponse.from(savedOrder, savedItems, op.getName());
+    }
+
+    /**
+     * Places a self-service customer order (from the public QR page) at an order point: pay-later,
+     * created as ORDERED. Name and price are resolved from the order point's default menu — the
+     * client only sends product ids + quantities, so prices can't be tampered with. Each id must be
+     * an orderable product of that menu.
+     */
+    public void placeCustomerOrder(UUID orderPointId, CustomerOrderRequest request) {
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is empty");
+        }
+        OrderPointEntity op = orderPointRepository.findById(orderPointId)
+                .orElseThrow(() -> notFound(orderPointId));
+        LocationEntity location = locationRepository.findById(op.getLocationId())
+                .orElseThrow(() -> notFound(orderPointId));
+        if (op.getMenuId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This table has no menu");
+        }
+
+        List<UUID> menuItemIds = request.items().stream().map(CustomerOrderRequest.Line::menuItemId).toList();
+        Map<UUID, MenuItemEntity> menuItems = menuItemRepository.findAllById(menuItemIds).stream()
+                .collect(Collectors.toMap(MenuItemEntity::getId, mi -> mi));
+
+        OrderEntity order = new OrderEntity();
+        order.setOrderNo(orderRepository.maxOrderNoForClient(location.getClientId()) + 1);
+        order.setOrderPointId(op.getId());
+        order.setEventId(op.getEventId());
+        order.setCreatedBy("Customer");
+        order.setCreatedAt(LocalDateTime.now());
+        order.setStatus("ORDERED");
+        OrderEntity savedOrder = orderRepository.save(order);
+
+        List<OrderItemEntity> toSave = new ArrayList<>(request.items().size());
+        for (CustomerOrderRequest.Line line : request.items()) {
+            MenuItemEntity mi = menuItems.get(line.menuItemId());
+            if (mi == null || !mi.isOrderable() || !op.getMenuId().equals(mi.getMenuId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Item not on this table's menu: " + line.menuItemId());
+            }
+            OrderItemEntity item = new OrderItemEntity();
+            item.setOrderId(savedOrder.getId());
+            item.setMenuItemId(mi.getId());
+            item.setName(mi.getName());
+            item.setPrice(mi.getPrice());
+            item.setQuantity(line.quantity());
+            toSave.add(item);
+        }
+        orderItemRepository.saveAll(toSave);
+        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
     }
 
     /**
@@ -220,42 +281,136 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<ProductReportRow> productReport(UUID eventId) {
         List<UUID> opIds = accessGuard.visibleOrderPointIds();
-        if (eventId != null) {
-            Set<UUID> eventOps = Set.copyOf(orderPointRepository.findIdsByEventId(eventId));
-            opIds = opIds.stream().filter(eventOps::contains).toList();
-        }
-        if (opIds.isEmpty()) {
-            return List.of();
-        }
         // Aggregated in the database — no full order_item load into the JVM.
-        return orderItemRepository.aggregateProductQuantities(opIds).stream()
+        List<OrderItemRepository.ProductQuantity> rows;
+        if (eventId != null) {
+            // tenant gate: the caller must see at least one of the event's order points
+            Set<UUID> eventOps = Set.copyOf(orderPointRepository.findIdsByEventId(eventId));
+            if (opIds.stream().noneMatch(eventOps::contains)) {
+                return List.of();
+            }
+            rows = orderItemRepository.aggregateProductQuantitiesByEvent(eventId);
+        } else {
+            if (opIds.isEmpty()) {
+                return List.of();
+            }
+            rows = orderItemRepository.aggregateProductQuantities(opIds);
+        }
+        return rows.stream()
                 .map(q -> new ProductReportRow(q.getName(), q.getQuantity()))
                 .toList();
     }
 
     /**
-     * One page of the caller's visible orders, newest first — server-side paginated.
-     * When {@code eventId} is given, the page is restricted to that event.
+     * One page of the caller's visible orders, newest first — server-side paginated and filtered.
+     * Every filter is optional: {@code eventId}, {@code orderNo}, {@code orderPointId},
+     * {@code waiter} (created_by), {@code status}, and {@code paid} (NOT / PAR / PAID, derived from
+     * the order's line payment state).
      */
     @Transactional(readOnly = true)
-    public PagedResponse<OrderResponse> listPaged(int page, int size, UUID eventId) {
+    public PagedResponse<OrderResponse> listPaged(
+            int page, int size, UUID eventId, Long orderNo, UUID orderPointId,
+            String waiter, String status, String paid) {
         UserPrincipal me = currentUser.require();
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<OrderEntity> result;
-        if (me.isSuper()) {
-            result = eventId != null
-                    ? orderRepository.findByEventId(eventId, pageable)
-                    : orderRepository.findAll(pageable);
-        } else {
-            List<UUID> opIds = accessGuard.visibleOrderPointIds();
-            if (opIds.isEmpty()) {
-                return new PagedResponse<>(List.of(), 0, page, size);
-            }
-            result = eventId != null
-                    ? orderRepository.findByOrderPointIdInAndEventId(opIds, eventId, pageable)
-                    : orderRepository.findByOrderPointIdIn(opIds, pageable);
+        List<UUID> opIds = me.isSuper() ? null : accessGuard.visibleOrderPointIds();
+        if (opIds != null && opIds.isEmpty()) {
+            return new PagedResponse<>(List.of(), 0, page, size);
         }
+        Specification<OrderEntity> spec =
+                ordersFilter(opIds, eventId, orderNo, orderPointId, waiter, status, paid);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<OrderEntity> result = orderRepository.findAll(spec, pageable);
         return new PagedResponse<>(toResponses(result.getContent()), result.getTotalElements(), page, size);
+    }
+
+    /** Builds the dynamic filter for the paginated orders list (null {@code opIds} = SUPER, unscoped). */
+    private Specification<OrderEntity> ordersFilter(
+            List<UUID> opIds, UUID eventId, Long orderNo, UUID orderPointId,
+            String waiter, String status, String paid) {
+        return (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (opIds != null) {
+                ps.add(root.get("orderPointId").in(opIds));
+            }
+            if (eventId != null) {
+                ps.add(cb.equal(root.get("eventId"), eventId));
+            }
+            if (orderNo != null) {
+                ps.add(cb.equal(root.get("orderNo"), orderNo));
+            }
+            if (orderPointId != null) {
+                ps.add(cb.equal(root.get("orderPointId"), orderPointId));
+            }
+            if (waiter != null && !waiter.isBlank()) {
+                ps.add(cb.equal(root.get("createdBy"), waiter));
+            }
+            if (status != null && !status.isBlank()) {
+                ps.add(cb.equal(root.get("status"), status));
+            }
+            if (paid != null && !paid.isBlank()) {
+                Predicate hasPaid = cb.exists(itemExists(query, cb, root, true));
+                Predicate hasUnpaid = cb.exists(itemExists(query, cb, root, false));
+                switch (paid) {
+                    case "PAID" -> ps.add(cb.and(hasPaid, cb.not(hasUnpaid)));
+                    case "PAR" -> ps.add(cb.and(hasPaid, hasUnpaid));
+                    case "NOT" -> ps.add(cb.not(hasPaid)); // no paid lines (incl. empty orders)
+                    default -> { /* unknown value: no constraint */ }
+                }
+            }
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
+    }
+
+    /** Subquery: this order has a line that is paid ({@code paid=true}) or unpaid ({@code paid=false}). */
+    private Subquery<UUID> itemExists(
+            jakarta.persistence.criteria.CriteriaQuery<?> query,
+            jakarta.persistence.criteria.CriteriaBuilder cb,
+            Root<OrderEntity> order, boolean paid) {
+        Subquery<UUID> sub = query.subquery(UUID.class);
+        Root<OrderItemEntity> item = sub.from(OrderItemEntity.class);
+        Predicate sameOrder = cb.equal(item.get("orderId"), order.get("id"));
+        Predicate payState = paid ? cb.isNotNull(item.get("paymentId")) : cb.isNull(item.get("paymentId"));
+        return sub.select(item.get("id")).where(cb.and(sameOrder, payState));
+    }
+
+    /** Option lists for the orders-report filter combos (order points + waiter names), scoped to the caller. */
+    @Transactional(readOnly = true)
+    public OrderFilterOptions filterOptions(UUID eventId) {
+        UserPrincipal me = currentUser.require();
+        List<UUID> opIds = me.isSuper() ? null : accessGuard.visibleOrderPointIds();
+        if (opIds != null && opIds.isEmpty()) {
+            return new OrderFilterOptions(List.of(), List.of());
+        }
+
+        List<OrderPointEntity> ops;
+        if (eventId != null) {
+            ops = orderPointRepository.findByEventIdOrderByName(eventId);
+            if (opIds != null) {
+                Set<UUID> visible = new HashSet<>(opIds);
+                ops = ops.stream().filter(o -> visible.contains(o.getId())).toList();
+            }
+        } else if (opIds != null) {
+            ops = orderPointRepository.findAllById(opIds);
+        } else {
+            ops = orderPointRepository.findAll();
+        }
+        List<OrderFilterOptions.OrderPointOption> orderPoints = ops.stream()
+                .map(o -> new OrderFilterOptions.OrderPointOption(o.getId(), o.getName()))
+                .sorted((a, b) -> a.name().compareToIgnoreCase(b.name()))
+                .toList();
+
+        List<String> waiters;
+        if (opIds == null) {
+            waiters = eventId == null
+                    ? orderRepository.distinctWaiters()
+                    : orderRepository.distinctWaitersByEvent(eventId);
+        } else {
+            waiters = eventId == null
+                    ? orderRepository.distinctWaitersByOps(opIds)
+                    : orderRepository.distinctWaitersByOpsAndEvent(eventId, opIds);
+        }
+
+        return new OrderFilterOptions(orderPoints, waiters);
     }
 
     /** Orders visible to the current user: SUPER → everything; otherwise their own client's. */
@@ -276,6 +431,19 @@ public class OrderService {
     public List<OrderResponse> listByOrderPoint(UUID orderPointId) {
         accessGuard.requireAccessibleOrderPoint(orderPointId);
         return toResponses(orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(List.of(orderPointId)));
+    }
+
+    /**
+     * The order point's bill aggregated per product: paid and unpaid quantities. Computed in the DB
+     * so the waiter table screen never loads the point's full order/item history.
+     */
+    @Transactional(readOnly = true)
+    public List<OrderPointBillLine> billByOrderPoint(UUID orderPointId) {
+        accessGuard.requireAccessibleOrderPoint(orderPointId);
+        return orderItemRepository.billByOrderPoint(orderPointId).stream()
+                .map(b -> new OrderPointBillLine(
+                        b.getMenuItemId(), b.getName(), b.getPrice(), b.getPaidQty(), b.getUnpaidQty()))
+                .toList();
     }
 
     /**

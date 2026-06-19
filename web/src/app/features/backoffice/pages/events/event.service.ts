@@ -40,4 +40,9 @@ export class EventService {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
+
+  /** Download a printable PDF of QR codes (one per order point) for the event. */
+  exportQrPdf(id: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${id}/qr`, { responseType: 'blob' });
+  }
 }

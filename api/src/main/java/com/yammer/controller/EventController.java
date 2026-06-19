@@ -3,11 +3,15 @@ package com.yammer.controller;
 import com.yammer.dto.EventRequest;
 import com.yammer.dto.EventResponse;
 import com.yammer.service.EventService;
+import com.yammer.service.QrPdfService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,12 +31,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class EventController {
 
     private final EventService eventService;
+    private final QrPdfService qrPdfService;
 
     /** Events for one location, or — when {@code locationId} is omitted — every event the caller can see. */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public List<EventResponse> list(@RequestParam(required = false) UUID locationId) {
         return locationId != null ? eventService.listByLocation(locationId) : eventService.listAccessible();
+    }
+
+    /** A printable PDF of one QR code per order point (links to the customer landing page). */
+    @GetMapping("/{eventId}/qr")
+    public ResponseEntity<byte[]> qrPdf(@PathVariable UUID eventId) {
+        byte[] pdf = qrPdfService.generateOrderPointsQrPdf(eventId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"qr-" + eventId + ".pdf\"")
+                .body(pdf);
     }
 
     @PostMapping

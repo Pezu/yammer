@@ -100,29 +100,23 @@ public class OrderPointAssignmentService {
             return List.of();
         }
 
-        // bill state per order point: no items → EMPTY, any unpaid line → UNPAID, else PAID.
+        // bill state per order point, aggregated in the DB: no lines → EMPTY, any unpaid → UNPAID, else PAID.
         List<UUID> opIds = ops.stream().map(OrderPointEntity::getId).toList();
-        List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(opIds);
-        Map<UUID, UUID> orderToOp = orders.stream()
-                .collect(Collectors.toMap(OrderEntity::getId, OrderEntity::getOrderPointId));
-        List<OrderItemEntity> items = orders.isEmpty()
-                ? List.of()
-                : orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList());
-        Map<UUID, List<OrderItemEntity>> itemsByOp = items.stream()
-                .filter(it -> orderToOp.containsKey(it.getOrderId()))
-                .collect(Collectors.groupingBy(it -> orderToOp.get(it.getOrderId())));
+        Map<UUID, OrderItemRepository.OrderPointItemAgg> agg = orderItemRepository.aggregateByOrderPoint(opIds)
+                .stream()
+                .collect(Collectors.toMap(OrderItemRepository.OrderPointItemAgg::getOpId, a -> a));
 
         return ops.stream()
-                .map(op -> MyTableResponse.from(op, billStatus(itemsByOp.get(op.getId()))))
+                .map(op -> MyTableResponse.from(op, billStatus(agg.get(op.getId()))))
                 .toList();
     }
 
     /** EMPTY when there are no lines, UNPAID when any line is unsettled, else PAID. */
-    private static String billStatus(List<OrderItemEntity> opItems) {
-        if (opItems == null || opItems.isEmpty()) {
+    private static String billStatus(OrderItemRepository.OrderPointItemAgg agg) {
+        if (agg == null || agg.getItems() == 0) {
             return "EMPTY";
         }
-        return opItems.stream().anyMatch(i -> i.getPaymentId() == null) ? "UNPAID" : "PAID";
+        return agg.getUnpaidCount() > 0 ? "UNPAID" : "PAID";
     }
 
     /** Per-table takings (card/cash paid + tips, and unpaid) for the current user's tables. */
@@ -134,58 +128,28 @@ public class OrderPointAssignmentService {
         }
         List<UUID> opIds = ops.stream().map(OrderPointEntity::getId).toList();
 
-        // ordered total per order point
-        List<OrderEntity> orders = orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(opIds);
-        Map<UUID, UUID> orderToOp = orders.stream()
-                .collect(Collectors.toMap(OrderEntity::getId, OrderEntity::getOrderPointId));
-        // per order point: settled (paid lines) and unpaid line totals
-        Map<UUID, BigDecimal> unpaidByOp = new HashMap<>();
-        Map<UUID, BigDecimal> settledByOp = new HashMap<>();
-        if (!orders.isEmpty()) {
-            for (OrderItemEntity it : orderItemRepository.findByOrderIdIn(
-                    orders.stream().map(OrderEntity::getId).toList())) {
-                UUID opId = orderToOp.get(it.getOrderId());
-                if (opId == null) {
-                    continue;
-                }
-                BigDecimal price = it.getPrice() == null ? BigDecimal.ZERO : it.getPrice();
-                BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(it.getQuantity()));
-                if (it.getPaymentId() == null) {
-                    unpaidByOp.merge(opId, lineTotal, BigDecimal::add);
-                } else {
-                    settledByOp.merge(opId, lineTotal, BigDecimal::add);
-                }
-            }
-        }
-
-        // payments grouped by order point
-        Map<UUID, List<PaymentEntity>> paymentsByOp = new HashMap<>();
-        for (PaymentEntity p : paymentRepository.findByOrderPointIdIn(opIds)) {
-            paymentsByOp.computeIfAbsent(p.getOrderPointId(), k -> new ArrayList<>()).add(p);
-        }
+        // ordered/unpaid/settled per order point and paid/tip per order point — both aggregated in the DB.
+        Map<UUID, OrderItemRepository.OrderPointItemAgg> itemAgg = orderItemRepository.aggregateByOrderPoint(opIds)
+                .stream()
+                .collect(Collectors.toMap(OrderItemRepository.OrderPointItemAgg::getOpId, a -> a));
+        Map<UUID, PaymentRepository.OrderPointPaymentAgg> payAgg = paymentRepository.aggregateByOrderPoint(opIds)
+                .stream()
+                .collect(Collectors.toMap(PaymentRepository.OrderPointPaymentAgg::getOpId, a -> a));
 
         List<TableStatsResponse> result = new ArrayList<>(ops.size());
         for (OrderPointEntity op : ops) {
-            BigDecimal paidCard = BigDecimal.ZERO;
-            BigDecimal paidCash = BigDecimal.ZERO;
-            BigDecimal tipCard = BigDecimal.ZERO;
-            BigDecimal tipCash = BigDecimal.ZERO;
-            for (PaymentEntity p : paymentsByOp.getOrDefault(op.getId(), List.of())) {
-                BigDecimal amt = p.getAmount() == null ? BigDecimal.ZERO : p.getAmount();
-                BigDecimal tip = p.getTip() == null ? BigDecimal.ZERO : p.getTip();
-                if (p.getMethod() == PaymentMethod.CARD) {
-                    paidCard = paidCard.add(amt);
-                    tipCard = tipCard.add(tip);
-                } else if (p.getMethod() == PaymentMethod.CASH) {
-                    paidCash = paidCash.add(amt);
-                    tipCash = tipCash.add(tip);
-                }
-            }
-            BigDecimal unpaid = unpaidByOp.getOrDefault(op.getId(), BigDecimal.ZERO);
-            BigDecimal settled = settledByOp.getOrDefault(op.getId(), BigDecimal.ZERO);
+            OrderItemRepository.OrderPointItemAgg i = itemAgg.get(op.getId());
+            PaymentRepository.OrderPointPaymentAgg p = payAgg.get(op.getId());
             result.add(new TableStatsResponse(
-                    op.getId(), op.getName(), paidCard, paidCash, tipCard, tipCash,
-                    unpaid, settled, op.isProtocol()));
+                    op.getId(),
+                    op.getName(),
+                    p != null ? p.getPaidCard() : BigDecimal.ZERO,
+                    p != null ? p.getPaidCash() : BigDecimal.ZERO,
+                    p != null ? p.getTipCard() : BigDecimal.ZERO,
+                    p != null ? p.getTipCash() : BigDecimal.ZERO,
+                    i != null ? i.getUnpaid() : BigDecimal.ZERO,
+                    i != null ? i.getSettled() : BigDecimal.ZERO,
+                    op.isProtocol()));
         }
         return result;
     }

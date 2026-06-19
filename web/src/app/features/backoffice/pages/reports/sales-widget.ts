@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { OrderReportService, SalesIntervalRow, SalesSummary } from './order.service';
+import { OrderReportService, SalesIntervalRow } from './order.service';
 
 interface Bar {
   d: string;
@@ -29,7 +29,7 @@ interface ChartModel {
   plotBottom: number;
 }
 
-type Tab = 'summary' | 'amount' | 'orders';
+type Tab = 'amount' | 'orders';
 
 const VW = 820;
 const VH = 300;
@@ -46,11 +46,6 @@ const PAD_B = 30;
       <div class="widget-head"><h5 class="widget-title">Sales</h5></div>
 
       <ul class="tabs">
-        <li>
-          <button type="button" class="tab" [class.active]="tab() === 'summary'" (click)="setTab('summary')">
-            Summary
-          </button>
-        </li>
         <li>
           <button type="button" class="tab" [class.active]="tab() === 'amount'" (click)="setTab('amount')">
             Amount
@@ -70,14 +65,6 @@ const PAD_B = 30;
           <p class="state err">{{ error() }}</p>
         } @else if (rows().length === 0) {
           <p class="state">No sales data yet.</p>
-        } @else if (tab() === 'summary') {
-          <dl class="summary">
-            <div class="row total"><dt>Total sales</dt><dd>{{ summary().totalSales | number: '1.2-2' }}</dd></div>
-            <div class="row"><dt>Paid <span class="hint">(tips excl.)</span></dt><dd>{{ summary().totalPaid | number: '1.2-2' }}</dd></div>
-            <div class="row"><dt>Settled — protocol</dt><dd>{{ summary().totalProtocol | number: '1.2-2' }}</dd></div>
-            <div class="row rem"><dt>Remaining to pay</dt><dd>{{ summary().remainingToPay | number: '1.2-2' }}</dd></div>
-            <div class="row rem"><dt>Remaining — protocol</dt><dd>{{ summary().remainingProtocol | number: '1.2-2' }}</dd></div>
-          </dl>
         } @else if (tab() === 'amount') {
           <div class="legend">
             <span class="lg"><i class="dot" style="background:#3454d1"></i>Ordered
@@ -283,14 +270,7 @@ export class SalesWidget {
   readonly rows = signal<SalesIntervalRow[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  readonly tab = signal<Tab>('summary');
-  readonly summary = signal<SalesSummary>({
-    totalSales: 0,
-    totalPaid: 0,
-    totalProtocol: 0,
-    remainingToPay: 0,
-    remainingProtocol: 0,
-  });
+  readonly tab = signal<Tab>('amount');
 
   readonly vw = VW;
   readonly vh = VH;
@@ -300,9 +280,24 @@ export class SalesWidget {
   readonly totalProtocol = computed(() => this.rows().reduce((s, r) => s + r.amountProtocol, 0));
   readonly totalOrders = computed(() => this.rows().reduce((s, r) => s + r.orderCount, 0));
 
+  /**
+   * Rows trimmed to the first…last bucket that has any activity, so the Amount and Orders
+   * charts span first order → last order instead of the whole (mostly-empty) daily window.
+   */
+  readonly chartRows = computed<SalesIntervalRow[]>(() => {
+    const rows = this.rows();
+    const active = (r: SalesIntervalRow) =>
+      r.amountOrdered > 0 || r.amountPaid > 0 || r.amountProtocol > 0 || r.orderCount > 0;
+    const first = rows.findIndex(active);
+    if (first === -1) return rows; // nothing to trim to — leave as-is
+    let last = rows.length - 1;
+    while (last > first && !active(rows[last])) last--;
+    return rows.slice(first, last + 1);
+  });
+
   /** Running cumulative totals as connect-the-dots lines: ordered, paid, paid+protocol. */
   readonly amountChart = computed<ChartModel>(() => {
-    const rows = this.rows();
+    const rows = this.chartRows();
     const cumOrdered = this.cumulative(rows.map((r) => r.amountOrdered));
     const cumPaid = this.cumulative(rows.map((r) => r.amountPaid));
     const cumProtocol = this.cumulative(rows.map((r) => r.amountProtocol));
@@ -322,7 +317,7 @@ export class SalesWidget {
   /** Number of orders per interval as rounded bars (integer scale). */
   readonly ordersChart = computed<ChartModel>(() =>
     this.buildChart(
-      [{ name: 'Orders', color: '#e49e3d', values: this.rows().map((r) => r.orderCount) }],
+      [{ name: 'Orders', color: '#e49e3d', values: this.chartRows().map((r) => r.orderCount) }],
       'bar',
       true,
       (v) => `${this.fmt(v)} orders`,
@@ -347,12 +342,6 @@ export class SalesWidget {
         this.loading.set(false);
       },
     });
-    this.service.salesSummary(eventId).subscribe({
-      next: (s) => this.summary.set(s),
-      error: () => {
-        /* charts still work; summary stays zeroed */
-      },
-    });
   }
 
   setTab(tab: Tab): void {
@@ -365,7 +354,7 @@ export class SalesWidget {
     integer: boolean,
     tooltip: (v: number) => string,
   ): ChartModel {
-    const rows = this.rows();
+    const rows = this.chartRows();
     const n = rows.length;
     const k = defs.length;
     const plotLeft = PAD_L;

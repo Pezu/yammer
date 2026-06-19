@@ -70,7 +70,9 @@
 
   li {
     display: grid;
-    grid-template-columns: 2rem 1fr auto;
+    /* qty column sizes to its content so the gap before the name is consistent
+       whether the quantity is "2×" or "7343×" */
+    grid-template-columns: auto 1fr auto;
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.5rem 0.25rem;
@@ -351,11 +353,33 @@
   }
 }
 .zone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
+}
+.zone-action {
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  &:disabled {
+    color: var(--muted);
+    opacity: 0.5;
+    cursor: default;
+  }
 }
 .zone-empty {
   margin: auto;

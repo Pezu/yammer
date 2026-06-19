@@ -8,10 +8,33 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
+public interface OrderRepository
+        extends JpaRepository<OrderEntity, UUID>, JpaSpecificationExecutor<OrderEntity> {
+
+    // Distinct waiter names for the filter combo. Split by event/scope rather than using a
+    // `:param is null or ...` guard, which leaves Postgres unable to infer the param type.
+
+    @Query("select distinct o.createdBy from OrderEntity o "
+            + "where o.createdBy is not null order by o.createdBy")
+    List<String> distinctWaiters();
+
+    @Query("select distinct o.createdBy from OrderEntity o "
+            + "where o.createdBy is not null and o.eventId = :eventId order by o.createdBy")
+    List<String> distinctWaitersByEvent(@Param("eventId") UUID eventId);
+
+    @Query("select distinct o.createdBy from OrderEntity o "
+            + "where o.createdBy is not null and o.orderPointId in :opIds order by o.createdBy")
+    List<String> distinctWaitersByOps(@Param("opIds") Collection<UUID> opIds);
+
+    @Query("select distinct o.createdBy from OrderEntity o "
+            + "where o.createdBy is not null and o.eventId = :eventId and o.orderPointId in :opIds "
+            + "order by o.createdBy")
+    List<String> distinctWaitersByOpsAndEvent(
+            @Param("eventId") UUID eventId, @Param("opIds") Collection<UUID> opIds);
 
     List<OrderEntity> findByOrderPointIdInOrderByCreatedAtDesc(List<UUID> orderPointIds);
 

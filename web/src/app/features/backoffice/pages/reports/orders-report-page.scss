@@ -26,7 +26,30 @@
 .card {
   border: 1px solid var(--border);
   border-radius: 10px;
-  overflow: hidden;
+  /* visible so the filter combos' dropdowns aren't clipped by the card */
+  overflow: visible;
+}
+
+/* --- in-table column filters --- */
+.filter-row th {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.f-input {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 5px;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.f-input:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 /* --- event filter combo (page header) --- */

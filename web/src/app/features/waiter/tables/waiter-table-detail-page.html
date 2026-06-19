@@ -79,21 +79,24 @@
       <button type="button" class="pay-btn ghost" (click)="printProforma()" [disabled]="printingProforma()">
         {{ printingProforma() ? 'Printing…' : 'Proforma' }}
       </button>
-      <div class="pay-group">
-        <button type="button" class="pay-btn ghost" (click)="togglePayMenu()">
-          <span>Pay</span>
-          <svg class="pay-caret" [class.open]="payMenuOpen()" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-        </button>
-        @if (payMenuOpen()) {
-          <div class="pay-backdrop" (click)="closePayMenu()"></div>
-          <div class="pay-menu">
-            <button type="button" class="pay-opt" (click)="openPayment(false)">Full payment</button>
-            @if (!protocol()) {
+      @if (protocol()) {
+        <!-- protocol tables are comped in one go — a single Settle action, no sub-options -->
+        <button type="button" class="pay-btn ghost" (click)="openPayment(false)">Settle</button>
+      } @else {
+        <div class="pay-group">
+          <button type="button" class="pay-btn ghost" (click)="togglePayMenu()">
+            <span>Pay</span>
+            <svg class="pay-caret" [class.open]="payMenuOpen()" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          </button>
+          @if (payMenuOpen()) {
+            <div class="pay-backdrop" (click)="closePayMenu()"></div>
+            <div class="pay-menu">
+              <button type="button" class="pay-opt" (click)="openPayment(false)">Full payment</button>
               <button type="button" class="pay-opt" (click)="openPayment(true)">Partial payment</button>
-            }
-          </div>
-        }
-      </div>
+            </div>
+          }
+        </div>
+      }
     }
   </footer>
 }
@@ -118,7 +121,10 @@
           <p class="hint">Drag items from the bill to “Paying” (or tap them).</p>
           <div class="dnd">
             <div class="zone bill" data-zone="bill" (dragover)="$event.preventDefault()" (drop)="dropToBill()">
-              <div class="zone-title">Bill</div>
+              <div class="zone-title">
+                <span>Bill</span>
+                <button type="button" class="zone-action" (click)="moveAllToPaying()" [disabled]="billList().length === 0">All →</button>
+              </div>
               @for (p of billList(); track p.menuItemId) {
                 <button type="button" class="chip" draggable="true" (dragstart)="onDragStart(p.menuItemId, 'bill')" (pointerdown)="onChipPointerDown($event, p.menuItemId, 'bill')" (click)="onChipClick(p.menuItemId, 'bill')">
                   <span class="cname" [innerHTML]="p.name"></span>
@@ -129,7 +135,10 @@
               }
             </div>
             <div class="zone paying" data-zone="paying" (dragover)="$event.preventDefault()" (drop)="dropToPaying()">
-              <div class="zone-title">Paying</div>
+              <div class="zone-title">
+                <span>Paying</span>
+                <button type="button" class="zone-action" (click)="clearPaying()" [disabled]="payingList().length === 0">Clear</button>
+              </div>
               @for (p of payingList(); track p.menuItemId) {
                 <button type="button" class="chip on" draggable="true" (dragstart)="onDragStart(p.menuItemId, 'paying')" (pointerdown)="onChipPointerDown($event, p.menuItemId, 'paying')" (click)="onChipClick(p.menuItemId, 'paying')">
                   <span class="cname" [innerHTML]="p.name"></span>

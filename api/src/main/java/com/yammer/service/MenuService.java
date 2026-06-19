@@ -62,6 +62,15 @@ public class MenuService {
     }
 
     /**
+     * Menu tree without a tenant access check — for the public customer surface reached by scanning
+     * an order point's QR (the menu isn't sensitive; access is implied by holding the link).
+     */
+    @Transactional(readOnly = true)
+    public List<MenuItemNode> getTreeUnchecked(UUID menuId) {
+        return buildTree(menuItemRepository.findByMenuIdOrderBySortOrder(menuId));
+    }
+
+    /**
      * Saves the tree by reconciling against the existing rows, preserving node ids:
      * nodes that carry a known id are updated in place, new nodes (null/unknown id) are
      * inserted, and rows no longer present are deleted. Keeping ids stable means edits
