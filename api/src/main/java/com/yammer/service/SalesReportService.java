@@ -45,13 +45,41 @@ public class SalesReportService {
     private final PaymentRepository paymentRepository;
     private final AccessGuard accessGuard;
 
-    public List<SalesIntervalRow> intervals() {
-        // Reporting window: since yesterday afternoon (12:00) up to now.
+    public List<SalesIntervalRow> intervals(UUID eventId) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime rangeStart = now.toLocalDate().minusDays(1).atTime(12, 0);
-        LocalDateTime lastBucket = bucketOf(now);
+        // Default (no event): reporting window is since yesterday afternoon (12:00) up to now.
+        LocalDateTime defaultStart = now.toLocalDate().minusDays(1).atTime(12, 0);
 
-        List<UUID> opIds = scopedOrderPointIds();
+        List<UUID> opIds = reportOpIds(eventId);
+        List<OrderEntity> orders = reportOrders(opIds, eventId, defaultStart, now);
+        List<PaymentEntity> payments = reportPayments(opIds, eventId, defaultStart, now);
+
+        // The continuous timeline: for an event it spans its own data; otherwise the daily window.
+        LocalDateTime rangeStart;
+        LocalDateTime lastBucket;
+        if (eventId != null) {
+            if (orders.isEmpty() && payments.isEmpty()) {
+                return List.of();
+            }
+            LocalDateTime earliest = now;
+            LocalDateTime latest = now;
+            boolean seen = false;
+            for (OrderEntity o : orders) {
+                earliest = !seen || o.getCreatedAt().isBefore(earliest) ? o.getCreatedAt() : earliest;
+                latest = !seen || o.getCreatedAt().isAfter(latest) ? o.getCreatedAt() : latest;
+                seen = true;
+            }
+            for (PaymentEntity p : payments) {
+                earliest = !seen || p.getCreatedAt().isBefore(earliest) ? p.getCreatedAt() : earliest;
+                latest = !seen || p.getCreatedAt().isAfter(latest) ? p.getCreatedAt() : latest;
+                seen = true;
+            }
+            rangeStart = bucketOf(earliest);
+            lastBucket = bucketOf(latest);
+        } else {
+            rangeStart = defaultStart;
+            lastBucket = bucketOf(now);
+        }
 
         // Pre-seed every 10-minute bucket in the window so the timeline is continuous.
         Map<LocalDateTime, BigDecimal> orderedByBucket = new TreeMap<>();
@@ -65,10 +93,7 @@ public class SalesReportService {
             countByBucket.put(b, 0L);
         }
 
-        if (!opIds.isEmpty()) {
-            // Let the DB filter to the report window instead of scanning full history.
-            List<OrderEntity> orders =
-                    orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
+        if (!orders.isEmpty() || !payments.isEmpty()) {
             Map<UUID, List<OrderItemEntity>> itemsByOrder = orders.isEmpty()
                     ? Map.of()
                     : orderItemRepository.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList())
@@ -85,8 +110,6 @@ public class SalesReportService {
                 countByBucket.merge(bucket, 1L, Long::sum);
             }
 
-            List<PaymentEntity> payments =
-                    paymentRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
             // Batch-load the lines settled by protocol payments (avoids a query per payment).
             List<UUID> protocolPaymentIds = payments.stream()
                     .filter(p -> p.getMethod() == PaymentMethod.PROTOCOL)
@@ -127,7 +150,7 @@ public class SalesReportService {
      * Totals over the report window: total sales, paid (tips excluded), settled for protocol,
      * and what's still unpaid — split by whether the order point is a protocol point.
      */
-    public SalesSummaryResponse summary() {
+    public SalesSummaryResponse summary(UUID eventId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime rangeStart = now.toLocalDate().minusDays(1).atTime(12, 0);
 
@@ -137,14 +160,13 @@ public class SalesReportService {
         BigDecimal remainingToPay = BigDecimal.ZERO;
         BigDecimal remainingProtocol = BigDecimal.ZERO;
 
-        List<UUID> opIds = scopedOrderPointIds();
+        List<UUID> opIds = reportOpIds(eventId);
         if (!opIds.isEmpty()) {
             Map<UUID, Boolean> protocolByOp = new HashMap<>();
             for (OrderPointEntity op : orderPointRepository.findAllById(opIds)) {
                 protocolByOp.put(op.getId(), op.isProtocol());
             }
-            List<OrderEntity> orders =
-                    orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
+            List<OrderEntity> orders = reportOrders(opIds, eventId, rangeStart, now);
             Map<UUID, UUID> opByOrder = new HashMap<>();
             for (OrderEntity o : orders) {
                 opByOrder.put(o.getId(), o.getOrderPointId());
@@ -187,11 +209,11 @@ public class SalesReportService {
      * Per order point over the window: ordered, cash, card, protocol-settled, and what's
      * unpaid — split into "to pay" (non-protocol points) and "protocol" (protocol points).
      */
-    public List<TableReportRow> tables() {
+    public List<TableReportRow> tables(UUID eventId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime rangeStart = now.toLocalDate().minusDays(1).atTime(12, 0);
 
-        List<UUID> opIds = scopedOrderPointIds();
+        List<UUID> opIds = reportOpIds(eventId);
         if (opIds.isEmpty()) {
             return List.of();
         }
@@ -211,8 +233,7 @@ public class SalesReportService {
 
         // cash/card payment amounts + a method lookup for protocol-settled items
         Map<UUID, PaymentMethod> methodById = new HashMap<>();
-        for (PaymentEntity p :
-                paymentRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now)) {
+        for (PaymentEntity p : reportPayments(opIds, eventId, rangeStart, now)) {
             methodById.put(p.getId(), p.getMethod());
             BigDecimal amt = p.getAmount() == null ? BigDecimal.ZERO : p.getAmount();
             if (p.getMethod() == PaymentMethod.CASH) {
@@ -222,8 +243,7 @@ public class SalesReportService {
             }
         }
 
-        List<OrderEntity> orders =
-                orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
+        List<OrderEntity> orders = reportOrders(opIds, eventId, rangeStart, now);
         Map<UUID, UUID> opByOrder = new HashMap<>();
         for (OrderEntity o : orders) {
             opByOrder.put(o.getId(), o.getOrderPointId());
@@ -266,16 +286,15 @@ public class SalesReportService {
     }
 
     /** Per waiter over the window: number of orders placed and their sales value. */
-    public List<WaiterReportRow> waiters() {
+    public List<WaiterReportRow> waiters(UUID eventId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime rangeStart = now.toLocalDate().minusDays(1).atTime(12, 0);
 
-        List<UUID> opIds = scopedOrderPointIds();
+        List<UUID> opIds = reportOpIds(eventId);
         if (opIds.isEmpty()) {
             return List.of();
         }
-        List<OrderEntity> orders =
-                orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
+        List<OrderEntity> orders = reportOrders(opIds, eventId, rangeStart, now);
         if (orders.isEmpty()) {
             return List.of();
         }
@@ -304,11 +323,11 @@ public class SalesReportService {
      * Per waiter and order point over the window: ordered, paid (cash/card), tip, and
      * protocol-settled — all attributed to the waiter who placed the order.
      */
-    public List<WaiterTableRow> waiterTables() {
+    public List<WaiterTableRow> waiterTables(UUID eventId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime rangeStart = now.toLocalDate().minusDays(1).atTime(12, 0);
 
-        List<UUID> opIds = scopedOrderPointIds();
+        List<UUID> opIds = reportOpIds(eventId);
         if (opIds.isEmpty()) {
             return List.of();
         }
@@ -316,8 +335,7 @@ public class SalesReportService {
         for (OrderPointEntity op : orderPointRepository.findAllById(opIds)) {
             opNames.put(op.getId(), op.getName());
         }
-        List<OrderEntity> orders =
-                orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, rangeStart, now);
+        List<OrderEntity> orders = reportOrders(opIds, eventId, rangeStart, now);
         if (orders.isEmpty()) {
             return List.of();
         }
@@ -402,5 +420,42 @@ public class SalesReportService {
     /** Order-point ids visible to the current user: SUPER → all; otherwise their client's. */
     private List<UUID> scopedOrderPointIds() {
         return accessGuard.visibleOrderPointIds();
+    }
+
+    /**
+     * Visible order points, optionally narrowed to one event. Intersecting the event's order
+     * points with the caller's visible set keeps tenant isolation intact (a cross-tenant event
+     * id simply yields no shared order points).
+     */
+    private List<UUID> reportOpIds(UUID eventId) {
+        List<UUID> opIds = scopedOrderPointIds();
+        if (eventId == null) {
+            return opIds;
+        }
+        Set<UUID> eventOps = new HashSet<>(orderPointRepository.findIdsByEventId(eventId));
+        return opIds.stream().filter(eventOps::contains).toList();
+    }
+
+    /**
+     * Orders backing a report: the full event when {@code eventId} is set (an order point belongs
+     * to exactly one event), otherwise just the daily window {@code [start, end]}.
+     */
+    private List<OrderEntity> reportOrders(List<UUID> opIds, UUID eventId, LocalDateTime start, LocalDateTime end) {
+        if (opIds.isEmpty()) {
+            return List.of();
+        }
+        return eventId != null
+                ? orderRepository.findByOrderPointIdInOrderByCreatedAtDesc(opIds)
+                : orderRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, start, end);
+    }
+
+    /** Payments backing a report — full event when {@code eventId} is set, else the daily window. */
+    private List<PaymentEntity> reportPayments(List<UUID> opIds, UUID eventId, LocalDateTime start, LocalDateTime end) {
+        if (opIds.isEmpty()) {
+            return List.of();
+        }
+        return eventId != null
+                ? paymentRepository.findByOrderPointIdIn(opIds)
+                : paymentRepository.findByOrderPointIdInAndCreatedAtBetween(opIds, start, end);
     }
 }

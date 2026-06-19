@@ -218,8 +218,12 @@ public class OrderService {
 
     /** Every product the caller can see, with the total ordered quantity (highest first). */
     @Transactional(readOnly = true)
-    public List<ProductReportRow> productReport() {
+    public List<ProductReportRow> productReport(UUID eventId) {
         List<UUID> opIds = accessGuard.visibleOrderPointIds();
+        if (eventId != null) {
+            Set<UUID> eventOps = Set.copyOf(orderPointRepository.findIdsByEventId(eventId));
+            opIds = opIds.stream().filter(eventOps::contains).toList();
+        }
         if (opIds.isEmpty()) {
             return List.of();
         }

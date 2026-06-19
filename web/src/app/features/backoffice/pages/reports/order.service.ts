@@ -119,27 +119,43 @@ export class OrderReportService {
     return this.http.delete<void>(`${this.baseUrl}/${orderId}`);
   }
 
-  products(): Observable<ProductReportRow[]> {
-    return this.http.get<ProductReportRow[]>(`${this.baseUrl}/products-report`);
+  products(eventId?: string | null): Observable<ProductReportRow[]> {
+    return this.http.get<ProductReportRow[]>(`${this.baseUrl}/products-report`, {
+      params: this.eventParams(eventId),
+    });
   }
 
-  sales(): Observable<SalesIntervalRow[]> {
-    return this.http.get<SalesIntervalRow[]>(`${this.baseUrl}/sales-report`);
+  sales(eventId?: string | null): Observable<SalesIntervalRow[]> {
+    return this.http.get<SalesIntervalRow[]>(`${this.baseUrl}/sales-report`, {
+      params: this.eventParams(eventId),
+    });
   }
 
-  salesSummary(): Observable<SalesSummary> {
-    return this.http.get<SalesSummary>(`${this.baseUrl}/sales-summary`);
+  salesSummary(eventId?: string | null): Observable<SalesSummary> {
+    return this.http.get<SalesSummary>(`${this.baseUrl}/sales-summary`, {
+      params: this.eventParams(eventId),
+    });
   }
 
-  tablesReport(): Observable<TableReportRow[]> {
-    return this.http.get<TableReportRow[]>(`${this.baseUrl}/tables-report`);
+  tablesReport(eventId?: string | null): Observable<TableReportRow[]> {
+    return this.http.get<TableReportRow[]>(`${this.baseUrl}/tables-report`, {
+      params: this.eventParams(eventId),
+    });
   }
 
-  waitersReport(): Observable<WaiterReportRow[]> {
-    return this.http.get<WaiterReportRow[]>(`${this.baseUrl}/waiters-report`);
+  waitersReport(eventId?: string | null): Observable<WaiterReportRow[]> {
+    return this.http.get<WaiterReportRow[]>(`${this.baseUrl}/waiters-report`, {
+      params: this.eventParams(eventId),
+    });
   }
 
-  waiterTablesReport(): Observable<WaiterTableRow[]> {
-    return this.http.get<WaiterTableRow[]>(`${this.baseUrl}/waiter-tables-report`);
+  waiterTablesReport(eventId?: string | null): Observable<WaiterTableRow[]> {
+    return this.http.get<WaiterTableRow[]>(`${this.baseUrl}/waiter-tables-report`, {
+      params: this.eventParams(eventId),
+    });
+  }
+
+  private eventParams(eventId?: string | null): HttpParams {
+    return eventId ? new HttpParams().set('eventId', eventId) : new HttpParams();
   }
 }

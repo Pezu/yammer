@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { OrderReportService, SalesIntervalRow, SalesSummary } from './order.service';
 
@@ -277,6 +277,9 @@ const PAD_B = 30;
 export class SalesWidget {
   private readonly service = inject(OrderReportService);
 
+  /** Optional event filter; '' (default) means all events / the daily window. */
+  readonly eventId = input<string>('');
+
   readonly rows = signal<SalesIntervalRow[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -327,7 +330,14 @@ export class SalesWidget {
   );
 
   constructor() {
-    this.service.sales().subscribe({
+    // Reload whenever the selected event changes (runs once on init too).
+    effect(() => this.load(this.eventId() || null));
+  }
+
+  private load(eventId: string | null): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.service.sales(eventId).subscribe({
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
@@ -337,7 +347,7 @@ export class SalesWidget {
         this.loading.set(false);
       },
     });
-    this.service.salesSummary().subscribe({
+    this.service.salesSummary(eventId).subscribe({
       next: (s) => this.summary.set(s),
       error: () => {
         /* charts still work; summary stays zeroed */

@@ -12,3 +12,9 @@
 # Logs
 *.log
 *.log.*
+
+# Code-review reports (working artifacts, not app source)
+/CODE_REVIEW*.md
+
+# Generated sample/test fixtures
+/customers-sample-*.xlsx

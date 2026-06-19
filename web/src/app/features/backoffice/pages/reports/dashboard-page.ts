@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import {
+  EventOption,
   OrderReportService,
   ProductReportRow,
   TableReportRow,
@@ -17,6 +18,28 @@ const PAGE_SIZE = 8;
   template: `
     <header class="page-header">
       <h1>Dashboard</h1>
+      <div class="event-combo">
+        <button type="button" class="event-trigger" [class.placeholder]="!eventId()" (click)="toggleEventCombo()" aria-label="Filter by event">
+          <span>{{ eventName() }}</span>
+          <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        @if (eventComboOpen()) {
+          <div class="event-backdrop" (click)="closeEventCombo()"></div>
+          <div class="event-menu">
+            <div class="event-search">
+              <input type="text" #eq placeholder="Search events…" [value]="eventSearch()" (input)="eventSearch.set(eq.value)" (keyup.escape)="closeEventCombo()" autofocus />
+            </div>
+            <ul class="event-list">
+              <li><button type="button" class="event-option" [class.active]="!eventId()" (click)="selectEvent('')">All events</button></li>
+              @for (e of eventOptions(); track e.id) {
+                <li><button type="button" class="event-option" [class.active]="e.id === eventId()" (click)="selectEvent(e.id)">{{ e.name }}</button></li>
+              } @empty {
+                <li class="event-empty">No events found</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
     </header>
 
     <section class="page-body">
@@ -88,7 +111,7 @@ const PAGE_SIZE = 8;
       </div>
 
       <!-- Sales (1/3) -->
-      <app-sales-widget class="col-1" />
+      <app-sales-widget class="col-1" [eventId]="eventId()" />
 
       <!-- Products (1/3): paginated product list with quantities -->
       <div class="widget col-1">
@@ -216,6 +239,102 @@ const PAGE_SIZE = 8;
         margin: 0;
         font-size: 1.3rem;
         font-weight: 800;
+      }
+      /* event filter combo */
+      .event-combo {
+        position: relative;
+      }
+      .event-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 200px;
+        padding: 0.45rem 0.75rem;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text);
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .event-trigger.placeholder {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .event-trigger .caret {
+        color: var(--muted);
+        flex: none;
+      }
+      .event-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+      }
+      .event-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 21;
+        min-width: 100%;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 0.5rem 1.5rem rgba(18, 27, 46, 0.15);
+        overflow: hidden;
+      }
+      .event-search {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .event-search input {
+        width: 100%;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+        color: var(--text);
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .event-search input:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .event-list {
+        margin: 0;
+        padding: 0.25rem;
+        max-height: 240px;
+        overflow-y: auto;
+        list-style: none;
+      }
+      .event-empty {
+        padding: 0.6rem 0.65rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .event-option {
+        display: block;
+        width: 100%;
+        padding: 0.5rem 0.65rem;
+        font: inherit;
+        font-size: 0.85rem;
+        text-align: left;
+        color: var(--text);
+        background: none;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .event-option:hover {
+        background: var(--page-bg);
+      }
+      .event-option.active {
+        color: var(--primary);
+        background: rgba(52, 84, 209, 0.08);
+        font-weight: 600;
       }
       .page-body {
         padding: 1.5rem 2rem;
@@ -442,6 +561,20 @@ export class DashboardPage {
 
   readonly error = signal<string | null>(null);
 
+  // --- event filter ---
+  readonly events = signal<EventOption[]>([]);
+  readonly eventId = signal<string>(''); // '' = all events
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'All events',
+  );
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    const all = this.events();
+    return q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
+  });
+
   // --- Products ---
   readonly products = signal<ProductReportRow[]>([]);
   readonly productsLoading = signal(true);
@@ -508,7 +641,23 @@ export class DashboardPage {
   }
 
   constructor() {
-    this.service.products().subscribe({
+    this.service.listEvents().subscribe({
+      next: (events) => this.events.set(events),
+      error: () => {
+        /* a failed event list just leaves the filter showing "All events" */
+      },
+    });
+    this.load();
+  }
+
+  /** (Re)load every widget for the current event filter. The Sales widget reloads itself
+   *  via its [eventId] input. */
+  private load(): void {
+    const ev = this.eventId() || null;
+    this.productsLoading.set(true);
+    this.tablesLoading.set(true);
+    this.waitersLoading.set(true);
+    this.service.products(ev).subscribe({
       next: (rows) => {
         this.products.set(rows);
         this.productsLoading.set(false);
@@ -518,26 +667,43 @@ export class DashboardPage {
         this.productsLoading.set(false);
       },
     });
-    this.service.tablesReport().subscribe({
+    this.service.tablesReport(ev).subscribe({
       next: (rows) => {
         this.tables.set(rows);
         this.tablesLoading.set(false);
       },
       error: () => this.tablesLoading.set(false),
     });
-    this.service.waitersReport().subscribe({
+    this.service.waitersReport(ev).subscribe({
       next: (rows) => {
         this.waiters.set(rows);
         this.waitersLoading.set(false);
       },
       error: () => this.waitersLoading.set(false),
     });
-    this.service.waiterTablesReport().subscribe({
+    this.service.waiterTablesReport(ev).subscribe({
       next: (rows) => this.waiterTables.set(rows),
       error: () => {
         /* drill-down unavailable; top-level still works */
       },
     });
+  }
+
+  toggleEventCombo(): void {
+    this.eventComboOpen.update((o) => !o);
+    if (this.eventComboOpen()) this.eventSearch.set('');
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    this.eventComboOpen.set(false);
+    if (this.eventId() === id) return;
+    this.eventId.set(id);
+    this.productPage.set(1);
+    this.tablePage.set(1);
+    this.expandedWaiter.set(null);
+    this.load();
   }
 
 

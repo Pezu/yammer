@@ -61,43 +61,43 @@ public class OrderController {
     /** Aggregated products report: every ordered product with its total quantity. */
     @GetMapping("/products-report")
     @PreAuthorize(REPORTS)
-    public List<ProductReportRow> productsReport() {
-        return orderService.productReport();
+    public List<ProductReportRow> productsReport(@RequestParam(required = false) UUID eventId) {
+        return orderService.productReport(eventId);
     }
 
     /** Sales report bucketed into 10-minute intervals (amount ordered, amount paid, order count). */
     @GetMapping("/sales-report")
     @PreAuthorize(REPORTS)
-    public List<SalesIntervalRow> salesReport() {
-        return salesReportService.intervals();
+    public List<SalesIntervalRow> salesReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.intervals(eventId);
     }
 
     /** Sales totals: sales, paid, protocol-settled, and what's still outstanding. */
     @GetMapping("/sales-summary")
     @PreAuthorize(REPORTS)
-    public SalesSummaryResponse salesSummary() {
-        return salesReportService.summary();
+    public SalesSummaryResponse salesSummary(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.summary(eventId);
     }
 
     /** Per order point: ordered, paid cash, paid card, remaining. */
     @GetMapping("/tables-report")
     @PreAuthorize(REPORTS)
-    public List<TableReportRow> tablesReport() {
-        return salesReportService.tables();
+    public List<TableReportRow> tablesReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.tables(eventId);
     }
 
     /** Per waiter: number of orders and their sales value. */
     @GetMapping("/waiters-report")
     @PreAuthorize(REPORTS)
-    public List<WaiterReportRow> waitersReport() {
-        return salesReportService.waiters();
+    public List<WaiterReportRow> waitersReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.waiters(eventId);
     }
 
     /** Per waiter and order point: ordered, paid, tip, protocol. */
     @GetMapping("/waiter-tables-report")
     @PreAuthorize(REPORTS)
-    public List<WaiterTableRow> waiterTablesReport() {
-        return salesReportService.waiterTables();
+    public List<WaiterTableRow> waiterTablesReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.waiterTables(eventId);
     }
 
     /** Move an order to a new kanban status. */

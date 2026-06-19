@@ -34,4 +34,8 @@ public interface OrderPointRepository extends JpaRepository<OrderPointEntity, UU
     @Query("select op.id from OrderPointEntity op "
             + "where op.locationId in (select l.id from LocationEntity l where l.clientId = :clientId)")
     List<UUID> findIdsByClientId(@Param("clientId") UUID clientId);
+
+    /** Just the ids of the order points belonging to the given event. */
+    @Query("select op.id from OrderPointEntity op where op.eventId = :eventId")
+    List<UUID> findIdsByEventId(@Param("eventId") UUID eventId);
 }
