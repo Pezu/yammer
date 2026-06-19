@@ -10,7 +10,7 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN: '/backoffice',
   SUPER: '/backoffice',
   SERVICE: '/service',
-  BARMAN: '/service',
+  BARMAN: '/waiter',
   WAITER: '/waiter',
   WATCHER: '/watcher',
 };

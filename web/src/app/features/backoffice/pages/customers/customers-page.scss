@@ -1,0 +1,184 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+/* "Load" import button — same chrome as .add-btn but with a label */
+.load-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out, color 0.15s ease-in-out;
+
+  &:hover:not(:disabled) {
+    background: var(--page-bg);
+    color: var(--text);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* pager (mirrors the orders report page) */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 2rem 2rem;
+}
+
+.pager-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.range {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pager-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pager-btns .page {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-btns button {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.ps-combo {
+  position: relative;
+
+  .combo-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    padding: 0.35rem 0.6rem;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+
+    .caret {
+      color: var(--muted);
+    }
+  }
+
+  .combo-menu {
+    top: auto;
+    bottom: calc(100% + 4px); /* open upward — the pager sits at the bottom of the page */
+    min-width: 7rem;
+    border-radius: 8px;
+  }
+
+  .combo-opt {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+    color: var(--text);
+    background: none;
+    border: none;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--page-bg);
+    }
+
+    &.active {
+      color: var(--primary);
+      font-weight: 700;
+    }
+  }
+}
+
+/* result banner after an import */
+.import-summary {
+  position: relative;
+  margin: 1rem 2rem 0;
+  padding: 0.7rem 2rem 0.7rem 0.9rem;
+  font-size: 0.85rem;
+  color: #1f7a3d;
+  background: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.25);
+  border-radius: 6px;
+
+  &.has-errors {
+    color: var(--text);
+    background: rgba(234, 167, 77, 0.12);
+    border-color: rgba(234, 167, 77, 0.3);
+  }
+
+  .summary-line {
+    margin: 0;
+  }
+
+  .skipped-list {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--danger);
+
+    li {
+      margin: 0.15rem 0;
+    }
+  }
+
+  .dismiss {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.5rem;
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}

@@ -10,4 +10,11 @@ public interface MenuRepository extends JpaRepository<MenuEntity, UUID> {
     List<MenuEntity> findByLocationIdOrderByName(UUID locationId);
 
     List<MenuEntity> findByLocationIdAndEventIdOrderByName(UUID locationId, UUID eventId);
+
+    /** Menus at a location, scoped to an event when one is given, else all of the location. */
+    default List<MenuEntity> findByLocationAndOptionalEventOrderByName(UUID locationId, UUID eventId) {
+        return eventId != null
+                ? findByLocationIdAndEventIdOrderByName(locationId, eventId)
+                : findByLocationIdOrderByName(locationId);
+    }
 }

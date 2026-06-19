@@ -24,12 +24,22 @@ export interface Order {
   orderNo: number;
   orderPointId: string;
   orderPointName: string;
+  eventId: string | null;
   createdBy: string | null;
   createdAt: string;
   status: string;
   items: OrderItem[];
   total: number;
   paid: 'NOT' | 'PAR' | 'PAID';
+}
+
+export interface EventOption {
+  id: string;
+  clientId: string;
+  locationId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface ProductReportRow {
@@ -85,10 +95,18 @@ export class OrderReportService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/orders`;
 
-  /** One page of orders (newest first), paginated on the server. */
-  listPaged(page: number, size: number): Observable<PagedResponse<Order>> {
-    const params = new HttpParams().set('page', page).set('size', size);
+  /** One page of orders (newest first), paginated on the server; optionally scoped to one event. */
+  listPaged(page: number, size: number, eventId?: string | null): Observable<PagedResponse<Order>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (eventId) {
+      params = params.set('eventId', eventId);
+    }
     return this.http.get<PagedResponse<Order>>(`${this.baseUrl}/page`, { params });
+  }
+
+  /** Every event the caller can see — backs the orders-report event filter. */
+  listEvents(): Observable<EventOption[]> {
+    return this.http.get<EventOption[]>(`${environment.apiUrl}/events`);
   }
 
   /** Update an order's unpaid item quantities (quantity ≤ 0 deletes the item). */

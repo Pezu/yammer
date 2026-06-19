@@ -1,12 +1,14 @@
 package com.yammer.dto;
 
 import com.yammer.entity.OrderPointEntity;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * An assigned order point for the waiter Tables grid, with its bill state.
  *
- * @param status EMPTY (no orders), UNPAID (something to pay) or PAID (all settled)
+ * @param status         EMPTY (no orders), UNPAID (something to pay) or PAID (all settled)
+ * @param paymentMethods accepted payment methods (CASH/CARD); empty = all
  */
 public record MyTableResponse(
         UUID id,
@@ -16,6 +18,7 @@ public record MyTableResponse(
         boolean protocol,
         UUID menuId,
         UUID serviceOrderPointId,
+        List<String> paymentMethods,
         String status) {
 
     public static MyTableResponse from(OrderPointEntity e, String status) {
@@ -27,6 +30,7 @@ public record MyTableResponse(
                 e.isProtocol(),
                 e.getMenuId(),
                 e.getServiceOrderPointId(),
+                e.getPaymentMethods(),
                 status);
     }
 }

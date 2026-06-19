@@ -1,9 +1,29 @@
 # Local development profile.
 # Activate with: --spring.profiles.active=local  (or set it in the IntelliJ run config).
 #
-# Points object storage at the fake-gcs-server emulator from docker-compose, so
-# logo/media uploads work locally without real GCP credentials.
+# Values are hard-coded here for local convenience — no environment variables required.
+# Do NOT use these values anywhere but local development.
+
+# Object storage → fake-gcs-server emulator from docker-compose (no real GCP credentials needed).
 gcs:
-  bucket: ${GCS_BUCKET:yammer-media}
-  project-id: ${GCS_PROJECT_ID:yammer-local}
-  endpoint: ${GCS_ENDPOINT:http://localhost:4443}
+  bucket: yammer-media
+  project-id: yammer-local
+  endpoint: http://localhost:4443
+
+# A local-only JWT signing secret (>= 32 bytes). The base config has no usable default on
+# purpose — JwtService refuses to start on the committed placeholder outside a dev profile —
+# so local runs need a real secret here.
+jwt:
+  secret: local-dev-only-jwt-secret-change-me-please-0123456789
+
+# On-prem bridge shared secret. Blank is accepted under the local/dev profile, so the bridge
+# and the manual /print endpoints work locally without a key.
+bridge:
+  api-key: ""
+
+# Local Postgres (matches the docker-compose db).
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/yammer?currentSchema=yammer
+    username: yammer
+    password: yammerpass

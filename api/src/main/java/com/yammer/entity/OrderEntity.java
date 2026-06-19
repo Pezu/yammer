@@ -28,6 +28,10 @@ public class OrderEntity {
     @Column(name = "order_point_id", nullable = false)
     private UUID orderPointId;
 
+    /** The event this order belongs to (snapshotted from the order point at placement). */
+    @Column(name = "event_id")
+    private UUID eventId;
+
     @Column(name = "created_by")
     private String createdBy;
 

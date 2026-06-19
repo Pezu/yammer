@@ -1,6 +1,7 @@
 package com.yammer.dto;
 
 import com.yammer.entity.OrderPointEntity;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderPointResponse(
@@ -13,7 +14,8 @@ public record OrderPointResponse(
         UUID menuId,
         UUID serviceOrderPointId,
         UUID printerId,
-        UUID cashRegisterId) {
+        UUID cashRegisterId,
+        List<String> paymentMethods) {
 
     public static OrderPointResponse from(OrderPointEntity entity) {
         return new OrderPointResponse(
@@ -26,6 +28,7 @@ public record OrderPointResponse(
                 entity.getMenuId(),
                 entity.getServiceOrderPointId(),
                 entity.getPrinterId(),
-                entity.getCashRegisterId());
+                entity.getCashRegisterId(),
+                entity.getPaymentMethods());
     }
 }

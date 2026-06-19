@@ -3,6 +3,49 @@
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     <span class="title" [innerHTML]="titleHtml()"></span>
   </button>
+
+  @if (!summaryOpen() && stack().length === 0 && hasProducts()) {
+    <div class="search-combo">
+      <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" class="search-input" placeholder="Search products…" [value]="searchQuery()" (input)="onSearch($event)" />
+      @if (searchQuery()) {
+        <button type="button" class="search-clear" (click)="clearSearch()" aria-label="Clear search">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      }
+      @if (searchGroups().length > 0) {
+        <div class="combo-backdrop" (click)="clearSearch()"></div>
+        <div class="combo-menu search-menu">
+          @for (group of searchGroups(); track group.menuId) {
+            <div class="search-group-label">{{ group.menuName }}</div>
+            @for (p of group.items; track p.id) {
+              <button type="button" class="combo-opt product-opt" (click)="addProduct(p)">
+                <span class="p-name" [innerHTML]="p.name"></span>
+                <span class="p-meta">{{ (p.price ?? 0) | number: '1.2-2' }} RON</span>
+              </button>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (!summaryOpen() && stack().length === 0 && menuOptions().length > 0) {
+    <div class="menu-combo">
+      <button type="button" class="combo-trigger" (click)="toggleMenuCombo()">
+        <span>{{ selectedMenuName() }}</span>
+        <svg class="caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      @if (menuComboOpen()) {
+        <div class="combo-backdrop" (click)="closeMenuCombo()"></div>
+        <div class="combo-menu">
+          @for (m of menuOptions(); track m.id) {
+            <button type="button" class="combo-opt" [class.active]="m.id === selectedMenuId()" (click)="selectMenu(m.id)">{{ m.name }}</button>
+          }
+        </div>
+      }
+    </div>
+  }
 </header>
 
 <section class="order-body">
@@ -73,4 +116,15 @@
       <button type="button" class="primary" [disabled]="!cart().length" (click)="openSummary()">Summary</button>
     }
   </footer>
+}
+
+@if (payMethodOpen()) {
+  <app-pay-modal
+    [amount]="total()"
+    [protocol]="protocol()"
+    [methods]="acceptedMethods()"
+    [submitting]="placing()"
+    (confirmed)="onPay($event)"
+    (cancelled)="closePayMethod()"
+  />
 }

@@ -112,6 +112,7 @@
               <th class="paylater-col">Pay later</th>
               <th class="service-col">Service point</th>
               <th class="protocol-col">Protocol</th>
+              <th class="paymenttype-col">Payment types</th>
               <th class="actions-col">Actions</th>
             </tr>
           </thead>
@@ -215,6 +216,24 @@
                 </td>
                 <td class="protocol-col">
                   <input type="checkbox" class="checkbox" [checked]="draftProtocol()" (change)="draftProtocol.set($any($event.target).checked)" aria-label="Protocol" />
+                </td>
+                <td class="paymenttype-col">
+                  <div class="client-combo menu-combo">
+                    <button type="button" class="combo-trigger" (click)="toggleDraftPaymentMethodCombo()">
+                      <span>{{ paymentMethodsLabel(draftPaymentMethods()) }}</span>
+                      <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    @if (draftPaymentMethodComboOpen()) {
+                      <div class="combo-backdrop" (click)="closeDraftPaymentMethodCombo()"></div>
+                      <div class="combo-menu">
+                        <ul class="combo-list">
+                          @for (opt of paymentMethodOptions; track opt.value) {
+                            <li><button type="button" class="combo-option multi" [class.active]="draftPaymentMethods().includes(opt.value)" (click)="toggleDraftPaymentMethod(opt.value)">{{ opt.label }}</button></li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  </div>
                 </td>
                 <td class="actions-col">
                   <div class="actions">
@@ -365,6 +384,28 @@
                     <svg class="check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="Protocol"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   }
                 </td>
+                <td class="paymenttype-col">
+                  @if (editingId() === point.id) {
+                    <div class="client-combo menu-combo">
+                      <button type="button" class="combo-trigger" (click)="toggleEditPaymentMethodCombo()">
+                        <span>{{ paymentMethodsLabel(editPaymentMethods()) }}</span>
+                        <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </button>
+                      @if (editPaymentMethodComboOpen()) {
+                        <div class="combo-backdrop" (click)="closeEditPaymentMethodCombo()"></div>
+                        <div class="combo-menu">
+                          <ul class="combo-list">
+                            @for (opt of paymentMethodOptions; track opt.value) {
+                              <li><button type="button" class="combo-option multi" [class.active]="editPaymentMethods().includes(opt.value)" (click)="toggleEditPaymentMethod(opt.value)">{{ opt.label }}</button></li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    {{ paymentMethodsLabel(point.paymentMethods) }}
+                  }
+                </td>
                 <td class="actions-col">
                   <div class="actions">
                     @if (editingId() === point.id) {
@@ -394,7 +435,7 @@
 
             @if (!draft() && !loading() && orderPoints().length === 0) {
               <tr>
-                <td colspan="9" class="empty">No order points yet — use the + button to add one, or the grid button to add several.</td>
+                <td colspan="10" class="empty">No order points yet — use the + button to add one, or the grid button to add several.</td>
               </tr>
             }
           </tbody>

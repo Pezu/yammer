@@ -8,6 +8,7 @@ import com.yammer.dto.PaymentMode;
 import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
+import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
 import com.yammer.repository.OrderItemRepository;
@@ -64,7 +65,9 @@ public class PaymentSplitService {
     private final ApplicationEventPublisher eventPublisher;
 
     public LinePaymentResult pay(LinePaymentRequest request) {
-        UserPrincipal me = requireAccessible(request.orderPointId());
+        OrderPointEntity op = accessGuard.requireAccessibleOrderPoint(request.orderPointId());
+        UserPrincipal me = currentUser.require();
+        UUID eventId = op.getEventId();
 
         // Unpaid lines under the table order, in deterministic allocation order.
         List<OrderEntity> orders = orderRepository.findByOrderPointIdOrderByCreatedAtAsc(request.orderPointId());
@@ -90,8 +93,8 @@ public class PaymentSplitService {
                 .setScale(2, RoundingMode.HALF_UP);
 
         LinePaymentResult result = request.mode() == PaymentMode.FULL
-                ? payFull(request, me, unpaid, tip)
-                : payPartial(request, me, unpaid, tip);
+                ? payFull(request, me, unpaid, tip, eventId)
+                : payPartial(request, me, unpaid, tip, eventId);
 
         // Fiscalize non-protocol payments after this transaction commits.
         if (result.paymentId() != null && request.method() != PaymentMethod.PROTOCOL) {
@@ -103,7 +106,7 @@ public class PaymentSplitService {
     // --- full ---
 
     private LinePaymentResult payFull(
-            LinePaymentRequest request, UserPrincipal me, List<OrderItemEntity> unpaid, BigDecimal tip) {
+            LinePaymentRequest request, UserPrincipal me, List<OrderItemEntity> unpaid, BigDecimal tip, UUID eventId) {
         if (unpaid.isEmpty()) {
             // already fully paid: no-op success, no empty Payment row
             return new LinePaymentResult(null, BigDecimal.ZERO.setScale(2), List.of(), List.of());
@@ -113,7 +116,7 @@ public class PaymentSplitService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        PaymentEntity payment = createPayment(request, amount, tip, me);
+        PaymentEntity payment = createPayment(request, amount, tip, me, eventId);
         List<UUID> covered = new ArrayList<>(unpaid.size());
         for (OrderItemEntity line : unpaid) {
             line.setPaymentId(payment.getId());
@@ -129,7 +132,7 @@ public class PaymentSplitService {
     }
 
     private LinePaymentResult payPartial(
-            LinePaymentRequest request, UserPrincipal me, List<OrderItemEntity> unpaid, BigDecimal tip) {
+            LinePaymentRequest request, UserPrincipal me, List<OrderItemEntity> unpaid, BigDecimal tip, UUID eventId) {
         List<LinePaymentItem> items = request.items();
         if (items == null || items.isEmpty()) {
             throw badRequest("Partial payment requires at least one item");
@@ -181,7 +184,7 @@ public class PaymentSplitService {
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
         // Apply: create the Payment, then stamp/split lines.
-        PaymentEntity payment = createPayment(request, amount, tip, me);
+        PaymentEntity payment = createPayment(request, amount, tip, me, eventId);
         List<UUID> covered = new ArrayList<>();
         List<Split> splits = new ArrayList<>();
         for (Alloc a : plan) {
@@ -213,11 +216,12 @@ public class PaymentSplitService {
     // --- helpers ---
 
     private PaymentEntity createPayment(
-            LinePaymentRequest request, BigDecimal amount, BigDecimal tip, UserPrincipal me) {
+            LinePaymentRequest request, BigDecimal amount, BigDecimal tip, UserPrincipal me, UUID eventId) {
         // protocol settles the lines but moves no money and takes no tip
         boolean protocol = request.method() == PaymentMethod.PROTOCOL;
         PaymentEntity payment = new PaymentEntity();
         payment.setOrderPointId(request.orderPointId());
+        payment.setEventId(eventId);
         payment.setAmount(protocol ? BigDecimal.ZERO : amount);
         payment.setTip(protocol ? BigDecimal.ZERO : tip);
         payment.setMethod(request.method());
@@ -235,11 +239,6 @@ public class PaymentSplitService {
 
     private BigDecimal lineTotal(OrderItemEntity line) {
         return unitPrice(line).multiply(BigDecimal.valueOf(line.getQuantity()));
-    }
-
-    private UserPrincipal requireAccessible(UUID orderPointId) {
-        accessGuard.requireAccessibleOrderPoint(orderPointId);
-        return currentUser.require();
     }
 
     private ResponseStatusException badRequest(String message) {

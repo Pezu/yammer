@@ -14,6 +14,7 @@ export interface OrderPoint {
   serviceOrderPointId: string | null;
   printerId: string | null;
   cashRegisterId: string | null;
+  paymentMethods: string[];
 }
 
 export interface OrderPointInput {
@@ -26,6 +27,7 @@ export interface OrderPointInput {
   serviceOrderPointId: string | null;
   printerId: string | null;
   cashRegisterId: string | null;
+  paymentMethods: string[];
 }
 
 export interface OrderPointBatchInput {

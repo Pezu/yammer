@@ -6,9 +6,13 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "order_point")
@@ -50,4 +54,9 @@ public class OrderPointEntity {
     /** Cash register integration assigned to this order point. */
     @Column(name = "cash_register_id")
     private UUID cashRegisterId;
+
+    /** Payment methods accepted here — a subset of {@link PaymentMethod} (CASH/CARD); empty = all. */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "payment_methods", columnDefinition = "text[]", nullable = false)
+    private List<String> paymentMethods = new ArrayList<>();
 }

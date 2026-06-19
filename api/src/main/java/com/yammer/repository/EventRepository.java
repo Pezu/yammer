@@ -8,4 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EventRepository extends JpaRepository<EventEntity, UUID> {
 
     List<EventEntity> findByLocationIdOrderByStartDateDesc(UUID locationId);
+
+    List<EventEntity> findByClientIdOrderByStartDateDesc(UUID clientId);
+
+    List<EventEntity> findAllByOrderByStartDateDesc();
 }

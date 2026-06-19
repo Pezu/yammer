@@ -67,6 +67,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'customers',
+        loadComponent: () =>
+          import('./features/backoffice/pages/customers/customers-page').then(
+            (m) => m.CustomersPage,
+          ),
+      },
+      {
         path: 'reports',
         children: [
           {

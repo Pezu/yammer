@@ -10,6 +10,7 @@ import java.util.UUID;
 public record PaymentResponse(
         UUID id,
         UUID orderPointId,
+        UUID eventId,
         BigDecimal amount,
         BigDecimal tip,
         PaymentMethod method,
@@ -22,6 +23,7 @@ public record PaymentResponse(
         return new PaymentResponse(
                 e.getId(),
                 e.getOrderPointId(),
+                e.getEventId(),
                 e.getAmount(),
                 e.getTip(),
                 e.getMethod(),

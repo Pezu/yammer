@@ -18,6 +18,13 @@ public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
     /** One page of orders for the given points (used by the paginated /orders/page endpoint). */
     Page<OrderEntity> findByOrderPointIdIn(Collection<UUID> orderPointIds, Pageable pageable);
 
+    /** One page of orders for a single event (SUPER, unscoped by order point). */
+    Page<OrderEntity> findByEventId(UUID eventId, Pageable pageable);
+
+    /** One page of the given points' orders, restricted to a single event. */
+    Page<OrderEntity> findByOrderPointIdInAndEventId(
+            Collection<UUID> orderPointIds, UUID eventId, Pageable pageable);
+
     List<OrderEntity> findByOrderPointIdOrderByCreatedAtAsc(UUID orderPointId);
 
     /**

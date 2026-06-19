@@ -28,10 +28,11 @@ public class EventController {
 
     private final EventService eventService;
 
+    /** Events for one location, or — when {@code locationId} is omitted — every event the caller can see. */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<EventResponse> list(@RequestParam UUID locationId) {
-        return eventService.listByLocation(locationId);
+    public List<EventResponse> list(@RequestParam(required = false) UUID locationId) {
+        return locationId != null ? eventService.listByLocation(locationId) : eventService.listAccessible();
     }
 
     @PostMapping

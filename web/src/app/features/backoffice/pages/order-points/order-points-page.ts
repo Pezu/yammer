@@ -249,6 +249,40 @@ export class OrderPointsPage {
     this.editCashRegisterComboOpen.set(false);
   }
 
+  // --- accepted payment methods (multi-select per order point: Cash / Card) ---
+  readonly paymentMethodOptions = [
+    { value: 'CASH', label: 'Cash' },
+    { value: 'CARD', label: 'Card' },
+  ];
+  private methodLabel(value: string): string {
+    return this.paymentMethodOptions.find((o) => o.value === value)?.label ?? value;
+  }
+  /** Comma-separated labels of the selected methods, or a placeholder ("All" when none chosen). */
+  paymentMethodsLabel(values: string[]): string {
+    return values.length ? values.map((v) => this.methodLabel(v)).join(', ') : 'All';
+  }
+  private toggleMethod(target: ReturnType<typeof signal<string[]>>, value: string): void {
+    target.update((vs) => (vs.includes(value) ? vs.filter((x) => x !== value) : [...vs, value]));
+  }
+  toggleDraftPaymentMethod(value: string): void {
+    this.toggleMethod(this.draftPaymentMethods, value);
+  }
+  toggleEditPaymentMethod(value: string): void {
+    this.toggleMethod(this.editPaymentMethods, value);
+  }
+  toggleDraftPaymentMethodCombo(): void {
+    this.draftPaymentMethodComboOpen.update((o) => !o);
+  }
+  closeDraftPaymentMethodCombo(): void {
+    this.draftPaymentMethodComboOpen.set(false);
+  }
+  toggleEditPaymentMethodCombo(): void {
+    this.editPaymentMethodComboOpen.update((o) => !o);
+  }
+  closeEditPaymentMethodCombo(): void {
+    this.editPaymentMethodComboOpen.set(false);
+  }
+
   // --- order points table ---
   readonly orderPoints = signal<OrderPoint[]>([]);
 
@@ -270,6 +304,10 @@ export class OrderPointsPage {
   readonly editServiceOrderPointId = signal<string>('');
   readonly editPrinterId = signal<string>('');
   readonly editCashRegisterId = signal<string>('');
+  readonly draftPaymentMethods = signal<string[]>([]);
+  readonly draftPaymentMethodComboOpen = signal(false);
+  readonly editPaymentMethods = signal<string[]>([]);
+  readonly editPaymentMethodComboOpen = signal(false);
 
   // --- "add multiple" modal ---
   readonly batchModalOpen = signal(false);
@@ -441,6 +479,8 @@ export class OrderPointsPage {
     this.draftPrinterComboOpen.set(false);
     this.draftCashRegisterId.set('');
     this.draftCashRegisterComboOpen.set(false);
+    this.draftPaymentMethods.set([]);
+    this.draftPaymentMethodComboOpen.set(false);
     this.error.set(null);
     this.draft.set(true);
   }
@@ -449,6 +489,7 @@ export class OrderPointsPage {
     this.draftServiceComboOpen.set(false);
     this.draftPrinterComboOpen.set(false);
     this.draftCashRegisterComboOpen.set(false);
+    this.draftPaymentMethodComboOpen.set(false);
     this.draft.set(false);
   }
   saveCreate(): void {
@@ -466,6 +507,7 @@ export class OrderPointsPage {
         serviceOrderPointId: this.draftPayLater() ? this.draftServiceOrderPointId() || null : null,
         printerId: this.draftPrinterId() || null,
         cashRegisterId: this.draftCashRegisterId() || null,
+        paymentMethods: this.draftPaymentMethods(),
       })
       .subscribe({
         next: (point) => {
@@ -546,6 +588,8 @@ export class OrderPointsPage {
     this.editPrinterComboOpen.set(false);
     this.editCashRegisterId.set(point.cashRegisterId ?? '');
     this.editCashRegisterComboOpen.set(false);
+    this.editPaymentMethods.set([...(point.paymentMethods ?? [])]);
+    this.editPaymentMethodComboOpen.set(false);
     this.error.set(null);
   }
   cancelEdit(): void {
@@ -553,6 +597,7 @@ export class OrderPointsPage {
     this.editServiceComboOpen.set(false);
     this.editPrinterComboOpen.set(false);
     this.editCashRegisterComboOpen.set(false);
+    this.editPaymentMethodComboOpen.set(false);
     this.editingId.set(null);
   }
   saveEdit(point: OrderPoint): void {
@@ -570,6 +615,7 @@ export class OrderPointsPage {
         serviceOrderPointId: this.editPayLater() ? this.editServiceOrderPointId() || null : null,
         printerId: this.editPrinterId() || null,
         cashRegisterId: this.editCashRegisterId() || null,
+        paymentMethods: this.editPaymentMethods(),
       })
       .subscribe({
         next: (updated) => {

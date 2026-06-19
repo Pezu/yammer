@@ -11,14 +11,18 @@ import com.yammer.entity.LocationEntity;
 import com.yammer.entity.MenuEntity;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.repository.IntegrationRepository;
+import com.yammer.repository.MenuItemRepository;
 import com.yammer.repository.MenuRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.security.AccessGuard;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,7 @@ public class OrderPointService {
 
     private final OrderPointRepository orderPointRepository;
     private final MenuRepository menuRepository;
+    private final MenuItemRepository menuItemRepository;
     private final IntegrationRepository integrationRepository;
     private final MenuService menuService;
     private final AccessGuard accessGuard;
@@ -50,7 +55,28 @@ public class OrderPointService {
         OrderPointEntity op = requireAccessibleOrderPoint(id);
         List<MenuItemNode> items =
                 op.getMenuId() == null ? List.of() : menuService.getTree(op.getMenuId());
-        return new OrderPointMenuResponse(op.getId(), op.getName(), op.getMenuId(), items);
+
+        List<MenuEntity> eventMenus =
+                menuRepository.findByLocationAndOptionalEventOrderByName(op.getLocationId(), op.getEventId());
+        List<OrderPointMenuResponse.MenuOption> menus = eventMenus.stream()
+                .map(m -> new OrderPointMenuResponse.MenuOption(m.getId(), m.getName()))
+                .toList();
+
+        // Every orderable product across all of the event's menus, for the search box.
+        Map<UUID, String> menuNameById = eventMenus.stream()
+                .collect(Collectors.toMap(MenuEntity::getId, MenuEntity::getName));
+        List<UUID> menuIds = eventMenus.stream().map(MenuEntity::getId).toList();
+        List<OrderPointMenuResponse.ProductOption> products = menuIds.isEmpty()
+                ? List.of()
+                : menuItemRepository.findByMenuIdInAndOrderableTrueOrderByName(menuIds).stream()
+                        .map(mi -> new OrderPointMenuResponse.ProductOption(
+                                mi.getId(), mi.getName(), mi.getPrice(),
+                                mi.getMenuId(), menuNameById.get(mi.getMenuId())))
+                        .toList();
+
+        return new OrderPointMenuResponse(
+                op.getId(), op.getName(), op.isPayLater(), op.isProtocol(), op.getPaymentMethods(),
+                op.getMenuId(), items, menus, products);
     }
 
     public OrderPointResponse create(OrderPointRequest request) {
@@ -61,14 +87,15 @@ public class OrderPointService {
                 resolveMenu(locationId, request.menuId()),
                 resolveService(locationId, request.payLater(), request.serviceOrderPointId()),
                 resolveDevice(locationId, request.printerId(), IntegrationType.PRINTER),
-                resolveDevice(locationId, request.cashRegisterId(), IntegrationType.CASH_REGISTER));
+                resolveDevice(locationId, request.cashRegisterId(), IntegrationType.CASH_REGISTER),
+                cleanMethods(request.paymentMethods()));
         return OrderPointResponse.from(orderPointRepository.save(entity));
     }
 
     /** Builds an OrderPointEntity from already-resolved values (single place that knows the columns). */
     private OrderPointEntity newOrderPoint(
             UUID locationId, UUID eventId, String name, boolean payLater, boolean protocol,
-            UUID menuId, UUID serviceId, UUID printerId, UUID cashRegisterId) {
+            UUID menuId, UUID serviceId, UUID printerId, UUID cashRegisterId, List<String> paymentMethods) {
         OrderPointEntity entity = new OrderPointEntity();
         entity.setLocationId(locationId);
         entity.setEventId(eventId);
@@ -79,7 +106,23 @@ public class OrderPointService {
         entity.setServiceOrderPointId(serviceId);
         entity.setPrinterId(printerId);
         entity.setCashRegisterId(cashRegisterId);
+        entity.setPaymentMethods(paymentMethods);
         return entity;
+    }
+
+    /** The accepted payment methods, normalized to the selectable subset (CASH/CARD), distinct. */
+    private static final Set<String> SELECTABLE_METHODS = Set.of("CASH", "CARD");
+
+    private static List<String> cleanMethods(List<String> methods) {
+        if (methods == null) {
+            return List.of();
+        }
+        return methods.stream()
+                .filter(Objects::nonNull)
+                .map(m -> m.trim().toUpperCase())
+                .filter(SELECTABLE_METHODS::contains)
+                .distinct()
+                .toList();
     }
 
     /** Creates {@code count} order points at once, auto-naming them (B{n}, or M{n}.1 for pay-later). */
@@ -103,7 +146,7 @@ public class OrderPointService {
         List<OrderPointEntity> toCreate = names.stream()
                 .map(name -> newOrderPoint(
                         request.locationId(), request.eventId(), name, request.payLater(), false,
-                        menuId, serviceId, printerId, cashRegisterId))
+                        menuId, serviceId, printerId, cashRegisterId, List.<String>of()))
                 .toList();
         return orderPointRepository.saveAll(toCreate).stream().map(OrderPointResponse::from).toList();
     }
@@ -120,6 +163,7 @@ public class OrderPointService {
         entity.setPrinterId(resolveDevice(entity.getLocationId(), request.printerId(), IntegrationType.PRINTER));
         entity.setCashRegisterId(
                 resolveDevice(entity.getLocationId(), request.cashRegisterId(), IntegrationType.CASH_REGISTER));
+        entity.setPaymentMethods(cleanMethods(request.paymentMethods()));
         return OrderPointResponse.from(orderPointRepository.save(entity));
     }
 
@@ -153,7 +197,8 @@ public class OrderPointService {
 
         OrderPointEntity newOp = newOrderPoint(
                 source.getLocationId(), source.getEventId(), prefix + (maxSuffix + 1), true, source.isProtocol(),
-                source.getMenuId(), source.getServiceOrderPointId(), source.getPrinterId(), source.getCashRegisterId());
+                source.getMenuId(), source.getServiceOrderPointId(), source.getPrinterId(), source.getCashRegisterId(),
+                source.getPaymentMethods());
         return OrderPointResponse.from(orderPointRepository.save(newOp));
     }
 

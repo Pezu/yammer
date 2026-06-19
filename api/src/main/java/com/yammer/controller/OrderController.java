@@ -46,11 +46,16 @@ public class OrderController {
         return orderPointId != null ? orderService.listByOrderPoint(orderPointId) : orderService.list();
     }
 
-    /** Server-side paginated order list (newest first) — backs the backoffice orders report. */
+    /**
+     * Server-side paginated order list (newest first) — backs the backoffice orders report.
+     * Pass {@code eventId} to restrict the page to one event.
+     */
     @GetMapping("/page")
     public PagedResponse<OrderResponse> listPage(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
-        return orderService.listPaged(page, size);
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) UUID eventId) {
+        return orderService.listPaged(page, size, eventId);
     }
 
     /** Aggregated products report: every ordered product with its total quantity. */

@@ -11,6 +11,8 @@ export interface AssignedOrderPoint {
   protocol: boolean;
   menuId: string | null;
   serviceOrderPointId: string | null;
+  /** Accepted payment methods (CASH/CARD); empty = all accepted. */
+  paymentMethods: string[];
   status: 'EMPTY' | 'UNPAID' | 'PAID';
 }
 
@@ -24,11 +26,34 @@ export interface MenuNode {
   children: MenuNode[];
 }
 
+export interface MenuOption {
+  id: string;
+  name: string;
+}
+
+export interface ProductOption {
+  id: string;
+  name: string;
+  price: number | null;
+  menuId: string;
+  menuName: string;
+}
+
 export interface OrderPointMenu {
   orderPointId: string;
   orderPointName: string;
+  /** Pay-later (table) flow vs immediate POS flow (pay on placement). */
+  payLater: boolean;
+  /** Protocol (comp/house) order point. */
+  protocol: boolean;
+  /** Accepted payment methods (CASH/CARD); empty = all — used by the immediate flow. */
+  paymentMethods: string[];
   menuId: string | null;
   items: MenuNode[];
+  /** Every menu available for the order point's event (for the menu switcher). */
+  menus: MenuOption[];
+  /** Every orderable product across all of the event's menus (for the search box). */
+  products: ProductOption[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -75,16 +100,29 @@ export class WaiterOrderPointService {
     return this.http.patch(`${environment.apiUrl}/orders/${orderId}/status`, { status });
   }
 
-  /** The menu tree for an order point. */
+  /** The order point's default menu tree plus the menus available for its event. */
   menu(orderPointId: string): Observable<OrderPointMenu> {
     return this.http.get<OrderPointMenu>(
       `${environment.apiUrl}/order-points/${orderPointId}/menu`,
     );
   }
 
-  /** Place an order at an order point. */
-  placeOrder(orderPointId: string, items: PlaceOrderItem[]): Observable<unknown> {
-    return this.http.post(`${environment.apiUrl}/orders`, { orderPointId, items });
+  /** The item tree of a specific menu — used when switching menus on the order screen. */
+  menuTree(menuId: string): Observable<MenuNode[]> {
+    return this.http.get<MenuNode[]>(`${environment.apiUrl}/menu/menus/${menuId}/tree`);
+  }
+
+  /**
+   * Place an order at an order point. When {@code paymentMethod} is given (the immediate POS flow)
+   * the backend creates the order already DELIVERED and settles it in full with that method.
+   */
+  placeOrder(
+    orderPointId: string,
+    items: PlaceOrderItem[],
+    paymentMethod?: PaymentMethod,
+    tip?: number,
+  ): Observable<unknown> {
+    return this.http.post(`${environment.apiUrl}/orders`, { orderPointId, items, paymentMethod, tip });
   }
 
   /** Orders already placed at an order point (newest first). */

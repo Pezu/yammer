@@ -28,6 +28,10 @@ public class PaymentEntity {
     @Column(name = "order_point_id", nullable = false)
     private UUID orderPointId;
 
+    /** The event this payment belongs to (snapshotted from the order point at payment time). */
+    @Column(name = "event_id")
+    private UUID eventId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 

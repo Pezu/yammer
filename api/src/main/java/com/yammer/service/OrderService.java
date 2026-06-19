@@ -7,18 +7,24 @@ import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
 import com.yammer.event.OrderChangedEvent;
+import com.yammer.event.PaymentCommittedEvent;
+import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.LocationEntity;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import com.yammer.entity.OrderPointEntity;
+import com.yammer.entity.PaymentEntity;
+import com.yammer.entity.PaymentMethod;
 import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointRepository;
 import com.yammer.repository.OrderRepository;
+import com.yammer.repository.PaymentRepository;
 import com.yammer.security.AccessGuard;
 import com.yammer.security.CurrentUserProvider;
 import com.yammer.security.UserPrincipal;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +53,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final PaymentRepository paymentRepository;
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
     private final CurrentUserProvider currentUser;
@@ -55,19 +62,27 @@ public class OrderService {
     private final OrderResponseAssembler orderResponseAssembler;
     private final BridgeService bridgeService;
 
-    /** Places an order at an order point with the given line items (name/price snapshotted). */
+    /**
+     * Places an order at an order point with the given line items (name/price snapshotted).
+     *
+     * <p>When {@code request.paymentMethod()} is present (the non-pay-later / immediate POS flow) the
+     * order is created already DELIVERED and settled in full with that method. Otherwise it is created
+     * ORDERED for the pay-later kanban flow.
+     */
     public OrderResponse place(PlaceOrderRequest request) {
         UserPrincipal me = currentUser.require();
         OrderPointEntity op = accessGuard.requireAccessibleOrderPoint(request.orderPointId());
         LocationEntity location = locationRepository.findById(op.getLocationId())
                 .orElseThrow(() -> notFound(request.orderPointId()));
+        boolean immediate = request.paymentMethod() != null;
 
         OrderEntity order = new OrderEntity();
         order.setOrderNo(orderRepository.maxOrderNoForClient(location.getClientId()) + 1);
         order.setOrderPointId(op.getId());
+        order.setEventId(op.getEventId());
         order.setCreatedBy(me.username());
         order.setCreatedAt(LocalDateTime.now());
-        order.setStatus("ORDERED");
+        order.setStatus(immediate ? "DELIVERED" : "ORDERED");
         OrderEntity savedOrder = orderRepository.save(order);
 
         List<OrderItemEntity> toSave = new ArrayList<>(request.items().size());
@@ -81,8 +96,52 @@ public class OrderService {
             toSave.add(item);
         }
         List<OrderItemEntity> savedItems = orderItemRepository.saveAll(toSave);
-        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
+
+        if (immediate) {
+            settleImmediately(savedItems, op, request.paymentMethod(), request.tip(), me);
+        } else {
+            eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
+        }
         return OrderResponse.from(savedOrder, savedItems, op.getName());
+    }
+
+    /**
+     * Settles a just-placed order in full: creates a {@link PaymentEntity}, stamps every line with it,
+     * and (for non-protocol) fires the fiscal outbox event — mirroring the line-payment flow but scoped
+     * to this single order's lines.
+     */
+    private void settleImmediately(
+            List<OrderItemEntity> items, OrderPointEntity op, PaymentMethod method, BigDecimal tip, UserPrincipal me) {
+        boolean protocol = method == PaymentMethod.PROTOCOL;
+        BigDecimal amount = items.stream()
+                .map(it -> (it.getPrice() == null ? BigDecimal.ZERO : it.getPrice())
+                        .multiply(BigDecimal.valueOf(it.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tipAmount = (tip == null ? BigDecimal.ZERO : tip)
+                .max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        PaymentEntity payment = new PaymentEntity();
+        payment.setOrderPointId(op.getId());
+        payment.setEventId(op.getEventId());
+        payment.setAmount(protocol ? BigDecimal.ZERO : amount);
+        payment.setTip(protocol ? BigDecimal.ZERO : tipAmount);
+        payment.setMethod(method);
+        if (protocol) {
+            payment.setFiscalStatus(FiscalStatus.PROTOCOL);
+        }
+        payment.setCreatedBy(me.username());
+        payment.setCreatedAt(LocalDateTime.now());
+        PaymentEntity savedPayment = paymentRepository.save(payment);
+
+        items.forEach(it -> it.setPaymentId(savedPayment.getId()));
+        orderItemRepository.saveAll(items);
+
+        if (!protocol) {
+            // fiscalize via the durable outbox once this transaction commits
+            eventPublisher.publishEvent(new PaymentCommittedEvent(savedPayment.getId()));
+        }
     }
 
     /** All orders the caller can see: SUPER → everything; otherwise their own client's. */
@@ -170,20 +229,27 @@ public class OrderService {
                 .toList();
     }
 
-    /** One page of the caller's visible orders, newest first — server-side paginated. */
+    /**
+     * One page of the caller's visible orders, newest first — server-side paginated.
+     * When {@code eventId} is given, the page is restricted to that event.
+     */
     @Transactional(readOnly = true)
-    public PagedResponse<OrderResponse> listPaged(int page, int size) {
+    public PagedResponse<OrderResponse> listPaged(int page, int size, UUID eventId) {
         UserPrincipal me = currentUser.require();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<OrderEntity> result;
         if (me.isSuper()) {
-            result = orderRepository.findAll(pageable);
+            result = eventId != null
+                    ? orderRepository.findByEventId(eventId, pageable)
+                    : orderRepository.findAll(pageable);
         } else {
             List<UUID> opIds = accessGuard.visibleOrderPointIds();
             if (opIds.isEmpty()) {
                 return new PagedResponse<>(List.of(), 0, page, size);
             }
-            result = orderRepository.findByOrderPointIdIn(opIds, pageable);
+            result = eventId != null
+                    ? orderRepository.findByOrderPointIdInAndEventId(opIds, eventId, pageable)
+                    : orderRepository.findByOrderPointIdIn(opIds, pageable);
         }
         return new PagedResponse<>(toResponses(result.getContent()), result.getTotalElements(), page, size);
     }

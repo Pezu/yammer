@@ -8,6 +8,7 @@ import {
   WaiterOrderPointService,
 } from './waiter-order-point.service';
 import { ToastService } from '../../../core/toast.service';
+import { PayModal } from '../../../shared/pay-modal/pay-modal';
 
 interface ProductLine {
   menuItemId: string;
@@ -40,7 +41,7 @@ type TipMode = 'none' | 'p10' | 'p12' | 'p15' | 'customPct' | 'customAmt';
 
 @Component({
   selector: 'app-waiter-table-detail-page',
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, PayModal],
   templateUrl: './waiter-table-detail-page.html',
   styleUrl: './waiter-table-detail-page.scss',
 })
@@ -53,6 +54,13 @@ export class WaiterTableDetailPage {
   readonly name = signal<string>(history.state?.name ?? '');
   /** Whether this order point is a protocol (comp/house) table. */
   readonly protocol = signal(false);
+  /** Accepted payment methods for this order point (empty = all). */
+  readonly acceptedMethods = signal<string[]>([]);
+  /** Non-protocol method buttons to show, defaulting to both Cash + Card when none configured. */
+  readonly payButtons = computed(() => {
+    const m = this.acceptedMethods();
+    return m.length ? m : ['CASH', 'CARD'];
+  });
 
   readonly orders = signal<PlacedOrder[]>([]);
   readonly payments = signal<Payment[]>([]);
@@ -188,6 +196,7 @@ export class WaiterTableDetailPage {
             this.name.set(op.name);
           }
           this.protocol.set(op.protocol);
+          this.acceptedMethods.set(op.paymentMethods ?? []);
         }
       },
     });
@@ -367,21 +376,32 @@ export class WaiterTableDetailPage {
     return tmp.textContent ?? '';
   }
 
+  /** Full / protocol payment from the shared modal (it carries the tip). */
+  onPayFull(e: { method: PaymentMethod; tip: number }): void {
+    this.settle('FULL', e.method, e.tip, []);
+  }
+
+  /** Partial payment from the inline drag-drop modal (tip from this page's own tip controls). */
   pay(method: PaymentMethod): void {
+    if (this.amount() <= 0) {
+      return;
+    }
+    const items = this.payingList().map((p) => ({ menuItemId: p.menuItemId, quantity: p.pay }));
+    this.settle('PARTIAL', method, this.computedTip(), items);
+  }
+
+  private settle(
+    mode: 'FULL' | 'PARTIAL',
+    method: PaymentMethod,
+    tip: number,
+    items: { menuItemId: string; quantity: number }[],
+  ): void {
     if (this.submitting()) {
       return;
     }
-    // protocol settles the bill at no charge, so a zero amount is fine
-    if (!this.protocol() && this.amount() <= 0) {
-      return;
-    }
-    const mode = this.partial() ? 'PARTIAL' : 'FULL';
-    const items = this.partial()
-      ? this.payingList().map((p) => ({ menuItemId: p.menuItemId, quantity: p.pay }))
-      : [];
     this.submitting.set(true);
     this.payError.set(null);
-    this.service.payLines(this.id, mode, method, this.computedTip(), items).subscribe({
+    this.service.payLines(this.id, mode, method, tip, items).subscribe({
       next: () => {
         this.submitting.set(false);
         this.payOpen.set(false);

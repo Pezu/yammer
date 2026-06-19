@@ -1,5 +1,27 @@
 <header class="page-header">
   <h1>Orders</h1>
+  <div class="event-combo">
+    <button type="button" class="event-trigger" [class.placeholder]="!eventId()" (click)="toggleEventCombo()" aria-label="Filter by event">
+      <span>{{ eventName() }}</span>
+      <svg class="caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    @if (eventComboOpen()) {
+      <div class="event-backdrop" (click)="closeEventCombo()"></div>
+      <div class="event-menu">
+        <div class="event-search">
+          <input type="text" #eq placeholder="Search events…" [value]="eventSearch()" (input)="eventSearch.set(eq.value)" (keyup.escape)="closeEventCombo()" autofocus />
+        </div>
+        <ul class="event-list">
+          <li><button type="button" class="event-option" [class.active]="!eventId()" (click)="selectEvent('')">All events</button></li>
+          @for (e of eventOptions(); track e.id) {
+            <li><button type="button" class="event-option" [class.active]="e.id === eventId()" (click)="selectEvent(e.id)">{{ e.name }}</button></li>
+          } @empty {
+            <li class="event-empty">No events found</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
 </header>
 
 <section class="page-body">
@@ -92,6 +114,9 @@
           <div class="detail-head">
             <span class="dt-no">Order #{{ selected()!.orderNo }}</span>
             <span class="dt-op">{{ selected()!.orderPointName }}</span>
+            @if (eventNameOf(selected()!); as ev) {
+              <span class="dt-ev">{{ ev }}</span>
+            }
           </div>
 
           @if (pendingDelete()) {

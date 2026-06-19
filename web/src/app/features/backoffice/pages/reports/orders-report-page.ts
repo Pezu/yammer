@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Order, OrderItem, OrderReportService } from './order.service';
+import { EventOption, Order, OrderItem, OrderReportService } from './order.service';
 
 @Component({
   selector: 'app-orders-report-page',
@@ -20,6 +20,20 @@ export class OrdersReportPage {
   readonly pageSizes = [10, 50, 100];
   readonly pageSize = signal(10);
   readonly comboOpen = signal(false);
+
+  // --- event filter ---
+  readonly events = signal<EventOption[]>([]);
+  readonly eventId = signal<string>(''); // '' = all events
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'All events',
+  );
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    const all = this.events();
+    return q ? all.filter((e) => e.name.toLowerCase().includes(q)) : all;
+  });
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
   readonly pagedOrders = computed(() => this.orders());
@@ -49,12 +63,22 @@ export class OrdersReportPage {
   });
 
   constructor() {
+    this.loadEvents();
     this.load();
+  }
+
+  private loadEvents(): void {
+    this.service.listEvents().subscribe({
+      next: (events) => this.events.set(events),
+      error: () => {
+        /* a failed event list just leaves the filter showing "All events" */
+      },
+    });
   }
 
   private load(): void {
     this.loading.set(true);
-    this.service.listPaged(this.page() - 1, this.pageSize()).subscribe({
+    this.service.listPaged(this.page() - 1, this.pageSize(), this.eventId() || null).subscribe({
       next: (res) => {
         this.orders.set(res.content);
         this.total.set(res.total);
@@ -150,6 +174,12 @@ export class OrdersReportPage {
     return this.money((i.price ?? 0) * (qty ?? i.quantity));
   }
 
+  /** Display name of an order's event (null when unset or not in the loaded list). */
+  eventNameOf(o: Order): string | null {
+    if (!o.eventId) return null;
+    return this.events().find((e) => e.id === o.eventId)?.name ?? null;
+  }
+
   statusLabel(status: string): string {
     switch (status) {
       case 'ORDERED':
@@ -186,6 +216,25 @@ export class OrdersReportPage {
     this.pageSize.set(n);
     this.page.set(1);
     this.comboOpen.set(false);
+    this.load();
+  }
+
+  toggleEventCombo(): void {
+    this.eventComboOpen.update((o) => !o);
+    if (this.eventComboOpen()) this.eventSearch.set('');
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    if (this.eventId() === id) {
+      this.closeEventCombo();
+      return;
+    }
+    this.eventId.set(id);
+    this.page.set(1);
+    this.selected.set(null);
+    this.eventComboOpen.set(false);
     this.load();
   }
 }

@@ -6,6 +6,8 @@ import com.yammer.entity.EventEntity;
 import com.yammer.entity.LocationEntity;
 import com.yammer.repository.EventRepository;
 import com.yammer.security.AccessGuard;
+import com.yammer.security.CurrentUserProvider;
+import com.yammer.security.UserPrincipal;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final AccessGuard accessGuard;
+    private final CurrentUserProvider currentUser;
 
     @Transactional(readOnly = true)
     public List<EventResponse> listByLocation(UUID locationId) {
@@ -28,6 +31,21 @@ public class EventService {
         return eventRepository.findByLocationIdOrderByStartDateDesc(locationId).stream()
                 .map(EventResponse::from)
                 .toList();
+    }
+
+    /** Every event the caller may see: SUPER → all; otherwise their own client's. Backs the orders-report filter. */
+    @Transactional(readOnly = true)
+    public List<EventResponse> listAccessible() {
+        UserPrincipal me = currentUser.require();
+        List<EventEntity> events;
+        if (me.isSuper()) {
+            events = eventRepository.findAllByOrderByStartDateDesc();
+        } else if (me.clientId() == null) {
+            return List.of();
+        } else {
+            events = eventRepository.findByClientIdOrderByStartDateDesc(me.clientId());
+        }
+        return events.stream().map(EventResponse::from).toList();
     }
 
     public EventResponse create(EventRequest request) {

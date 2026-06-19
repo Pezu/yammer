@@ -19,8 +19,8 @@
       }
     </div>
 
-    <a class="order-btn" [routerLink]="['order']" [state]="{ name: name() }" aria-label="Menu">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"></path><rect x="9" y="3" width="6" height="4" rx="1"></rect><line x1="9" y1="12" x2="15" y2="12"></line><line x1="9" y1="16" x2="13" y2="16"></line></svg>
+    <a class="order-btn" [routerLink]="['order']" [state]="{ name: name() }" aria-label="Add items">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
     </a>
   </div>
 </header>
@@ -71,14 +71,14 @@
   }
 </section>
 
-@if (!loadingOrders() && orderedTotal() > 0) {
+@if (!loadingOrders() && orderedTotal() > 0 && view() === 'unpaid') {
   <footer class="pay-bar">
-    <button type="button" class="pay-btn ghost" (click)="printProforma()" [disabled]="printingProforma() || remaining() <= 0">
-      {{ printingProforma() ? 'Printing…' : 'Proforma' }}
-    </button>
     @if (fullyPaid()) {
       <span class="paid-tag">Paid in full</span>
     } @else {
+      <button type="button" class="pay-btn ghost" (click)="printProforma()" [disabled]="printingProforma()">
+        {{ printingProforma() ? 'Printing…' : 'Proforma' }}
+      </button>
       <div class="pay-group">
         <button type="button" class="pay-btn ghost" (click)="togglePayMenu()">
           <span>Pay</span>
@@ -99,24 +99,22 @@
 }
 
 @if (payOpen()) {
-  <div class="modal-overlay" (mousedown)="closePayment()">
-    <div class="modal" (mousedown)="$event.stopPropagation()" role="dialog" aria-modal="true">
-      <div class="modal-head">
-        <h3>{{ partial() ? 'Partial payment' : 'Payment' }}</h3>
-        <button type="button" class="close" (click)="closePayment()" aria-label="Close">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
+  @if (partial() && !protocol()) {
+    <!-- Partial payment keeps the drag-drop bill → paying picker; tip/methods are inline. -->
+    <div class="modal-overlay" (mousedown)="closePayment()">
+      <div class="modal" (mousedown)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <h3>Partial payment</h3>
+          <button type="button" class="close" (click)="closePayment()" aria-label="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
 
-      <div class="modal-body">
-        @if (payError()) {
-          <p class="err-line">{{ payError() }}</p>
-        }
+        <div class="modal-body">
+          @if (payError()) {
+            <p class="err-line">{{ payError() }}</p>
+          }
 
-        @if (protocol()) {
-          <p class="hint">All items will be settled on protocol — no charge, no tip.</p>
-        } @else {
-        @if (partial()) {
           <p class="hint">Drag items from the bill to “Paying” (or tap them).</p>
           <div class="dnd">
             <div class="zone bill" data-zone="bill" (dragover)="$event.preventDefault()" (drop)="dropToBill()">
@@ -142,58 +140,63 @@
               }
             </div>
           </div>
-        } @else {
-          <div class="amount-row">
-            <span class="lbl">Amount</span>
-            <span class="amount-fixed">{{ remaining() | number: '1.2-2' }} RON</span>
-          </div>
-        }
 
-        <div class="section-label">Tip</div>
-        <div class="tip-row">
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'none'" (click)="setTip('none')">None</button>
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'p10'" (click)="setTip('p10')">10%</button>
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'p12'" (click)="setTip('p12')">12%</button>
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'p15'" (click)="setTip('p15')">15%</button>
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'customPct'" (click)="setTip('customPct')">Custom %</button>
-          <button type="button" class="tip-chip" [class.active]="tipMode() === 'customAmt'" (click)="setTip('customAmt')">Custom RON</button>
-        </div>
-        @if (tipMode() === 'customPct') {
-          <div class="tip-input-row">
-            <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Percent" [value]="tipCustomPercent()" (input)="tipCustomPercent.set(+$any($event.target).value)" />
-            <span class="suffix">%</span>
+          <div class="section-label">Tip</div>
+          <div class="tip-row">
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'none'" (click)="setTip('none')">None</button>
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'p10'" (click)="setTip('p10')">10%</button>
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'p12'" (click)="setTip('p12')">12%</button>
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'p15'" (click)="setTip('p15')">15%</button>
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'customPct'" (click)="setTip('customPct')">Custom %</button>
+            <button type="button" class="tip-chip" [class.active]="tipMode() === 'customAmt'" (click)="setTip('customAmt')">Custom RON</button>
           </div>
-        }
-        @if (tipMode() === 'customAmt') {
-          <div class="tip-input-row">
-            <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Amount" [value]="tipCustomAmount()" (input)="tipCustomAmount.set(+$any($event.target).value)" />
-            <span class="suffix">RON</span>
-          </div>
-        }
-
-        <div class="sum-row">
-          <span>Amount</span>
-          <span>{{ amount() | number: '1.2-2' }} RON</span>
-        </div>
-        <div class="sum-row">
-          <span>Tip</span>
-          <span>{{ computedTip() | number: '1.2-2' }} RON</span>
-        </div>
-        <div class="sum-row total">
-          <span>Total to pay</span>
-          <span>{{ totalToPay() | number: '1.2-2' }} RON</span>
-        </div>
-        }
-
-        <div class="methods">
-          @if (protocol()) {
-            <button type="button" class="method protocol" [disabled]="submitting()" (click)="pay('PROTOCOL')">Protocol</button>
-          } @else {
-            <button type="button" class="method cash" [disabled]="submitting() || amount() <= 0" (click)="pay('CASH')">Cash</button>
-            <button type="button" class="method card" [disabled]="submitting() || amount() <= 0" (click)="pay('CARD')">Card</button>
+          @if (tipMode() === 'customPct') {
+            <div class="tip-input-row">
+              <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Percent" [value]="tipCustomPercent()" (input)="tipCustomPercent.set(+$any($event.target).value)" />
+              <span class="suffix">%</span>
+            </div>
           }
+          @if (tipMode() === 'customAmt') {
+            <div class="tip-input-row">
+              <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Amount" [value]="tipCustomAmount()" (input)="tipCustomAmount.set(+$any($event.target).value)" />
+              <span class="suffix">RON</span>
+            </div>
+          }
+
+          <div class="sum-row">
+            <span>Amount</span>
+            <span>{{ amount() | number: '1.2-2' }} RON</span>
+          </div>
+          <div class="sum-row">
+            <span>Tip</span>
+            <span>{{ computedTip() | number: '1.2-2' }} RON</span>
+          </div>
+          <div class="sum-row total">
+            <span>Total to pay</span>
+            <span>{{ totalToPay() | number: '1.2-2' }} RON</span>
+          </div>
+
+          <div class="methods">
+            @for (m of payButtons(); track m) {
+              @if (m === 'CASH') {
+                <button type="button" class="method cash" [disabled]="submitting() || amount() <= 0" (click)="pay('CASH')">Cash</button>
+              } @else if (m === 'CARD') {
+                <button type="button" class="method card" [disabled]="submitting() || amount() <= 0" (click)="pay('CARD')">Card</button>
+              }
+            }
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  } @else {
+    <!-- Full / protocol payment uses the shared pay modal (amount + tip + methods). -->
+    <app-pay-modal
+      [amount]="remaining()"
+      [protocol]="protocol()"
+      [methods]="acceptedMethods()"
+      [submitting]="submitting()"
+      (confirmed)="onPayFull($event)"
+      (cancelled)="closePayment()"
+    />
+  }
 }
