@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -28,9 +29,18 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class MenuService {
 
+    /** Object-storage prefix for menu item images. */
+    public static final String IMAGE_PREFIX = "menu-items";
+
     private final MenuRepository menuRepository;
     private final MenuItemRepository menuItemRepository;
     private final AccessGuard accessGuard;
+    private final StorageService storageService;
+
+    /** Stores a menu-item image and returns its object-storage key (admin upload). */
+    public String uploadImage(MultipartFile file) {
+        return storageService.uploadImage(IMAGE_PREFIX, file);
+    }
 
     @Transactional(readOnly = true)
     public List<MenuResponse> listByLocation(UUID locationId, UUID eventId) {
@@ -122,6 +132,7 @@ public class MenuService {
             entity.setOrderable(node.orderable());
             entity.setPrice(node.orderable() ? node.price() : null);
             entity.setVatTypeId(node.orderable() ? node.vatTypeId() : null);
+            entity.setImageObject(node.imageObject());
             entity.setSortOrder(order++);
             UUID id = menuItemRepository.save(entity).getId();
             kept.add(id);
@@ -148,6 +159,7 @@ public class MenuService {
                         e.isOrderable(),
                         e.getPrice(),
                         e.getVatTypeId(),
+                        e.getImageObject(),
                         toNodes(byParent.get(e.getId()), byParent)))
                 .toList();
     }

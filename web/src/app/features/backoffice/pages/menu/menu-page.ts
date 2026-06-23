@@ -7,6 +7,7 @@ import { Menu, MenuNode, MenuService } from './menu.service';
 import { Event, EventService } from '../events/event.service';
 import { VatService, VatType } from '../vat/vat.service';
 import { ConfirmDialog } from '../../../../shared/confirm-dialog/confirm-dialog';
+import { TransparentImageDirective } from '../../../../shared/transparent-image.directive';
 
 interface TreeNode {
   key: string;
@@ -15,13 +16,14 @@ interface TreeNode {
   orderable: boolean;
   price: number | null;
   vatTypeId: string | null;
+  imageObject: string | null;
   children: TreeNode[];
   expanded: boolean;
 }
 
 @Component({
   selector: 'app-menu-page',
-  imports: [NgTemplateOutlet, DecimalPipe, ConfirmDialog],
+  imports: [NgTemplateOutlet, DecimalPipe, ConfirmDialog, TransparentImageDirective],
   templateUrl: './menu-page.html',
   styleUrl: './menu-page.scss',
 })
@@ -34,6 +36,12 @@ export class MenuPage {
   private readonly vatService = inject(VatService);
 
   readonly vatTypes = signal<VatType[]>([]);
+
+  // image objects detected to have a transparent background — hidden, placeholder shown instead
+  readonly transparentImages = signal<Set<string>>(new Set());
+  markTransparent(object: string): void {
+    this.transparentImages.update((s) => new Set(s).add(object));
+  }
 
   /** Rich-text (HTML) name editor element inside the modal. */
   readonly nameEditor = viewChild<ElementRef<HTMLDivElement>>('nameEditor');
@@ -119,6 +127,9 @@ export class MenuPage {
   });
   /** key of the product row whose inline VAT combo is open. */
   readonly vatRowKey = signal<string | null>(null);
+  // --- item image (category/product) ---
+  readonly formImageObject = signal<string | null>(null);
+  readonly uploadingImage = signal(false);
   private modalParent: TreeNode | null = null; // parent for a new node (null = root)
 
   constructor() {
@@ -403,6 +414,7 @@ export class MenuPage {
     this.formName.set('');
     this.formPrice.set(orderable ? 0 : null);
     this.formVatTypeId.set(orderable ? this.defaultVatTypeId() : '');
+    this.formImageObject.set(null);
     this.vatComboOpen.set(false);
     this.showModal.set(true);
   }
@@ -416,12 +428,53 @@ export class MenuPage {
     this.formName.set(node.name);
     this.formPrice.set(node.price);
     this.formVatTypeId.set(node.vatTypeId ?? '');
+    this.formImageObject.set(node.imageObject ?? null);
     this.vatComboOpen.set(false);
     this.showModal.set(true);
   }
   closeModal(): void {
     this.showModal.set(false);
     this.vatComboOpen.set(false);
+  }
+
+  // --- item image ---
+  onImageSelected(input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file
+    if (!file) {
+      return;
+    }
+    this.uploadingImage.set(true);
+    this.menuService.uploadImage(file).subscribe({
+      next: ({ object }) => {
+        this.formImageObject.set(object);
+        this.uploadingImage.set(false);
+      },
+      error: () => this.uploadingImage.set(false),
+    });
+  }
+  removeImage(): void {
+    this.formImageObject.set(null);
+  }
+  imageUrl(object: string): string {
+    return this.menuService.imageUrl(object);
+  }
+
+  /** Inline image upload from a tree row (no modal): upload, assign to the node, auto-save. */
+  uploadRowImage(node: TreeNode, input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file
+    if (!file) {
+      return;
+    }
+    this.menuService.uploadImage(file).subscribe({
+      next: ({ object }) => {
+        node.imageObject = object;
+        this.bump();
+        this.scheduleSave();
+      },
+      error: () => {},
+    });
   }
 
   // VAT custom combo (no search)
@@ -466,16 +519,19 @@ export class MenuPage {
     const orderable = this.modalOrderable();
     const price = orderable ? this.formPrice() : null;
     const vatTypeId = orderable ? this.formVatTypeId() || null : null;
+    const imageObject = this.formImageObject();
     const editing = this.editingNode();
     if (editing) {
       editing.name = name;
       editing.price = price;
       editing.vatTypeId = vatTypeId;
+      editing.imageObject = imageObject;
     } else {
       const node = this.newNode(orderable);
       node.name = name;
       node.price = price;
       node.vatTypeId = vatTypeId;
+      node.imageObject = imageObject;
       if (this.modalParent) {
         this.modalParent.children.push(node);
         this.modalParent.children.sort(byCategoryFirst);
@@ -575,6 +631,7 @@ export class MenuPage {
       orderable,
       price: orderable ? 0 : null,
       vatTypeId: null,
+      imageObject: null,
       children: [],
       expanded: true,
     };
@@ -597,6 +654,7 @@ export class MenuPage {
         orderable: n.orderable,
         price: n.price,
         vatTypeId: n.vatTypeId ?? null,
+        imageObject: n.imageObject ?? null,
         children: this.toTree(n.children ?? []),
         expanded: true,
       }))
@@ -609,6 +667,7 @@ export class MenuPage {
       orderable: n.orderable,
       price: n.orderable ? n.price : null,
       vatTypeId: n.orderable ? n.vatTypeId : null,
+      imageObject: n.imageObject,
       children: this.toMenuNodes(n.children),
     }));
   }

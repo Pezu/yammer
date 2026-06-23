@@ -14,11 +14,16 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * A parked self-service cart awaiting online (Netopia) payment. While PENDING no order exists; on a
+ * confirmed gateway IPN the real order + {@link PaymentEntity} are created and linked here. The
+ * row's {@code id} is the reference passed to Netopia as the order id and echoed back in the IPN.
+ */
 @Entity
-@Table(name = "payment")
+@Table(name = "online_payment")
 @Getter
 @Setter
-public class PaymentEntity {
+public class OnlinePaymentEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -28,38 +33,35 @@ public class PaymentEntity {
     @Column(name = "order_point_id", nullable = false)
     private UUID orderPointId;
 
-    /** The event this payment belongs to (snapshotted from the order point at payment time). */
     @Column(name = "event_id")
     private UUID eventId;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal tip = BigDecimal.ZERO;
+    /** JSON snapshot of the validated cart: [{menuItemId,name,price,quantity}]. */
+    @Column(nullable = false)
+    private String items;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PaymentMethod method;
+    private OnlinePaymentStatus status = OnlinePaymentStatus.PENDING;
 
-    @Column(name = "created_by")
-    private String createdBy;
+    /** Netopia transaction id (ntpID). */
+    @Column(name = "ntp_id")
+    private String ntpId;
+
+    /** The order created once payment is confirmed. */
+    @Column(name = "order_id")
+    private UUID orderId;
+
+    /** The payment created once payment is confirmed. */
+    @Column(name = "payment_id")
+    private UUID paymentId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "fiscal_status", nullable = false)
-    private FiscalStatus fiscalStatus = FiscalStatus.PENDING;
-
-    @Column(name = "receipt_number")
-    private String receiptNumber;
-
-    /** Gateway transaction id (Netopia ntpID) for an ONLINE payment; null for in-person payments. */
-    @Column(name = "external_ref")
-    private String externalRef;
-
-    /** When the fiscal RECEIPT was last pushed to the bridge (for stale re-send). */
-    @Column(name = "fiscal_sent_at")
-    private LocalDateTime fiscalSentAt;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

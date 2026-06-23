@@ -162,6 +162,13 @@ export const routes: Routes = [
         (m) => m.CustomerOrderPointPage,
       ),
   },
+  {
+    path: 'customer/order-point/:opId/payment-return',
+    loadComponent: () =>
+      import('./features/customer/payment-return-page').then(
+        (m) => m.PaymentReturnPage,
+      ),
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' },
 ];

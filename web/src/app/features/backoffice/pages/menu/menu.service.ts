@@ -17,6 +17,7 @@ export interface MenuNode {
   orderable: boolean;
   price: number | null;
   vatTypeId: string | null;
+  imageObject: string | null;
   children: MenuNode[];
 }
 
@@ -47,5 +48,17 @@ export class MenuService {
 
   saveTree(menuId: string, nodes: MenuNode[]): Observable<MenuNode[]> {
     return this.http.put<MenuNode[]>(`${this.baseUrl}/menus/${menuId}/tree`, nodes);
+  }
+
+  /** Upload a menu-item image; resolves to its object-storage key. */
+  uploadImage(file: File): Observable<{ object: string }> {
+    const data = new FormData();
+    data.append('file', file);
+    return this.http.post<{ object: string }>(`${this.baseUrl}/image`, data);
+  }
+
+  /** Public URL serving a stored menu-item image. */
+  imageUrl(object: string): string {
+    return `${environment.apiUrl}/public/menu-image?object=${encodeURIComponent(object)}`;
   }
 }

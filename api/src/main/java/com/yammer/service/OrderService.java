@@ -116,13 +116,51 @@ public class OrderService {
         return OrderResponse.from(savedOrder, savedItems, op.getName());
     }
 
+    /** A validated, price-snapshotted customer order line (resolved from the order point's menu). */
+    public record ResolvedLine(UUID menuItemId, String name, BigDecimal price, int quantity) {}
+
+    /** Ids of the order + payment created when an online payment is confirmed. */
+    public record OnlineOrderResult(UUID orderId, UUID paymentId) {}
+
+    /**
+     * Validates customer cart lines against the order point's default menu and snapshots name+price.
+     * The client only sends product ids + quantities, so prices can't be tampered with. Each id must
+     * be an orderable product of that menu.
+     */
+    public List<ResolvedLine> resolveCustomerOrderLines(
+            OrderPointEntity op, List<CustomerOrderRequest.Line> lines) {
+        if (op.getMenuId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This table has no menu");
+        }
+        List<UUID> menuItemIds = lines.stream().map(CustomerOrderRequest.Line::menuItemId).toList();
+        Map<UUID, MenuItemEntity> menuItems = menuItemRepository.findAllById(menuItemIds).stream()
+                .collect(Collectors.toMap(MenuItemEntity::getId, mi -> mi));
+        List<ResolvedLine> out = new ArrayList<>(lines.size());
+        for (CustomerOrderRequest.Line line : lines) {
+            MenuItemEntity mi = menuItems.get(line.menuItemId());
+            if (mi == null || !mi.isOrderable() || !op.getMenuId().equals(mi.getMenuId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Item not on this table's menu: " + line.menuItemId());
+            }
+            out.add(new ResolvedLine(mi.getId(), mi.getName(), mi.getPrice(), line.quantity()));
+        }
+        return out;
+    }
+
+    /** Sum of price × quantity over resolved lines, scaled to 2 decimals. */
+    public BigDecimal totalOf(List<ResolvedLine> lines) {
+        return lines.stream()
+                .map(l -> (l.price() == null ? BigDecimal.ZERO : l.price())
+                        .multiply(BigDecimal.valueOf(l.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
     /**
      * Places a self-service customer order (from the public QR page) at an order point: pay-later,
-     * created as ORDERED. Name and price are resolved from the order point's default menu — the
-     * client only sends product ids + quantities, so prices can't be tampered with. Each id must be
-     * an orderable product of that menu.
+     * created as ORDERED. Returns the new order id.
      */
-    public void placeCustomerOrder(UUID orderPointId, CustomerOrderRequest request) {
+    public UUID placeCustomerOrder(UUID orderPointId, CustomerOrderRequest request) {
         if (request.items() == null || request.items().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is empty");
         }
@@ -130,40 +168,70 @@ public class OrderService {
                 .orElseThrow(() -> notFound(orderPointId));
         LocationEntity location = locationRepository.findById(op.getLocationId())
                 .orElseThrow(() -> notFound(orderPointId));
-        if (op.getMenuId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This table has no menu");
-        }
+        List<ResolvedLine> lines = resolveCustomerOrderLines(op, request.items());
 
-        List<UUID> menuItemIds = request.items().stream().map(CustomerOrderRequest.Line::menuItemId).toList();
-        Map<UUID, MenuItemEntity> menuItems = menuItemRepository.findAllById(menuItemIds).stream()
-                .collect(Collectors.toMap(MenuItemEntity::getId, mi -> mi));
+        OrderEntity savedOrder = saveOrderWithItems(op, location, lines, "ORDERED", null);
+        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
+        return savedOrder.getId();
+    }
 
+    /**
+     * Creates a fully-paid online order: an ORDERED order with its items, an ONLINE
+     * {@link PaymentEntity} that settles every line, then fires the board + fiscal events. This is
+     * the confirmed-IPN counterpart of {@link #placeCustomerOrder} for pay-now order points.
+     */
+    public OnlineOrderResult createPaidOnlineOrder(
+            OrderPointEntity op, LocationEntity location, List<ResolvedLine> lines, String ntpId) {
+        BigDecimal amount = totalOf(lines);
+
+        PaymentEntity payment = new PaymentEntity();
+        payment.setOrderPointId(op.getId());
+        payment.setEventId(op.getEventId());
+        payment.setAmount(amount);
+        payment.setTip(BigDecimal.ZERO);
+        payment.setMethod(PaymentMethod.ONLINE);
+        payment.setCreatedBy("Customer");
+        payment.setCreatedAt(LocalDateTime.now());
+        payment.setExternalRef(ntpId);
+        PaymentEntity savedPayment = paymentRepository.save(payment);
+
+        OrderEntity savedOrder = saveOrderWithItems(op, location, lines, "ORDERED", savedPayment.getId());
+
+        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
+        // fiscalize via the durable outbox once this transaction commits (same as a card payment)
+        eventPublisher.publishEvent(new PaymentCommittedEvent(savedPayment.getId()));
+        return new OnlineOrderResult(savedOrder.getId(), savedPayment.getId());
+    }
+
+    /**
+     * Persists an order and its line items. When {@code paymentId} is non-null every line is stamped
+     * with it (fully settled); otherwise lines are left unpaid.
+     */
+    private OrderEntity saveOrderWithItems(
+            OrderPointEntity op, LocationEntity location, List<ResolvedLine> lines,
+            String status, UUID paymentId) {
         OrderEntity order = new OrderEntity();
         order.setOrderNo(orderRepository.maxOrderNoForClient(location.getClientId()) + 1);
         order.setOrderPointId(op.getId());
         order.setEventId(op.getEventId());
         order.setCreatedBy("Customer");
         order.setCreatedAt(LocalDateTime.now());
-        order.setStatus("ORDERED");
+        order.setStatus(status);
         OrderEntity savedOrder = orderRepository.save(order);
 
-        List<OrderItemEntity> toSave = new ArrayList<>(request.items().size());
-        for (CustomerOrderRequest.Line line : request.items()) {
-            MenuItemEntity mi = menuItems.get(line.menuItemId());
-            if (mi == null || !mi.isOrderable() || !op.getMenuId().equals(mi.getMenuId())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Item not on this table's menu: " + line.menuItemId());
-            }
+        List<OrderItemEntity> toSave = new ArrayList<>(lines.size());
+        for (ResolvedLine l : lines) {
             OrderItemEntity item = new OrderItemEntity();
             item.setOrderId(savedOrder.getId());
-            item.setMenuItemId(mi.getId());
-            item.setName(mi.getName());
-            item.setPrice(mi.getPrice());
-            item.setQuantity(line.quantity());
+            item.setMenuItemId(l.menuItemId());
+            item.setName(l.name());
+            item.setPrice(l.price());
+            item.setQuantity(l.quantity());
+            item.setPaymentId(paymentId);
             toSave.add(item);
         }
         orderItemRepository.saveAll(toSave);
-        eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
+        return savedOrder;
     }
 
     /**
