@@ -56,6 +56,19 @@ gcs:
   project-id: ${GCS_PROJECT_ID:yammer}
   endpoint: ${GCS_ENDPOINT:}
 
+# Netopia online card payments (customer self-service QR flow for pay-now order points).
+# Disabled by default; supply real credentials + enable per environment. Never commit live keys.
+# notify-url must be a PUBLICLY reachable URL of this app's /public/payments/netopia/notify
+# (use an ngrok/tunnel in dev). The browser redirect URL is sent per-request by the client.
+netopia:
+  enabled: ${NETOPIA_ENABLED:false}
+  api-key: ${NETOPIA_API_KEY:}
+  pos-signature: ${NETOPIA_POS_SIGNATURE:}
+  base-url: ${NETOPIA_BASE_URL:https://secure.sandbox.netopia-payments.com}
+  notify-url: ${NETOPIA_NOTIFY_URL:}
+  language: ${NETOPIA_LANGUAGE:ro}
+  currency: ${NETOPIA_CURRENCY:RON}
+
 # Actuator endpoints. Only health/info are exposed (metrics is internal-only); health detail
 # is shown only to authenticated callers so anonymous probes get a bare UP/DOWN.
 management:

@@ -13,8 +13,10 @@ import com.yammer.dto.PaymentSummaryResponse;
 import com.yammer.dto.TableStatsResponse;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
+import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
+import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.repository.OrderItemRepository;
 import com.yammer.repository.OrderPointAssignmentRepository;
 import com.yammer.repository.OrderPointRepository;
@@ -36,6 +38,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +59,7 @@ public class OrderPointAssignmentService {
     private final CurrentUserProvider currentUser;
     private final AccessGuard accessGuard;
     private final OrderResponseAssembler orderResponseAssembler;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** Parent name = the part of an order-point name before the first dot ("M80.1" → "M80", "B1" → "B1"). */
     public static String parentOf(String name) {
@@ -230,20 +234,29 @@ public class OrderPointAssignmentService {
         return orderResponseAssembler.assemble(orders, names);
     }
 
-    /** Retry fiscalization for a failed payment. For now this only logs the payment details. */
+    /**
+     * Retry fiscalization for a failed payment: re-arm the durable outbox (back to PENDING, clear the
+     * sent stamp) and trigger an immediate dispatch once this transaction commits — the same path the
+     * original payment used. The bridge de-dupes by requestId, so a replay is safe.
+     */
     public void retryFiscal(UUID paymentId) {
         PaymentEntity payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Payment not found: " + paymentId));
-        List<OrderItemEntity> items = orderItemRepository.findByPaymentId(paymentId);
-        String lines = items.stream()
-                .map(i -> "%dx %s @ %s".formatted(
-                        i.getQuantity(),
-                        i.getName(),
-                        i.getPrice() == null ? BigDecimal.ZERO : i.getPrice()))
-                .collect(Collectors.joining(", "));
-        log.info("Fiscal retry requested for payment {} (method={}, amount={}, tip={}): items=[{}]",
-                paymentId, payment.getMethod(), payment.getAmount(), payment.getTip(), lines);
+        accessGuard.requireAccessibleOrderPoint(payment.getOrderPointId());
+        if (payment.getMethod() == PaymentMethod.PROTOCOL) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Protocol payments are not fiscalized");
+        }
+        if (payment.getFiscalStatus() == FiscalStatus.SUCCESS) {
+            return; // already fiscalized — nothing to retry
+        }
+        payment.setFiscalStatus(FiscalStatus.PENDING);
+        payment.setFiscalSentAt(null); // clear the back-off stamp so it dispatches on the next tick
+        paymentRepository.save(payment);
+        log.info("Fiscal retry for payment {} (method={}) — re-queued for dispatch",
+                paymentId, payment.getMethod());
+        // Flush immediately if a bridge is live (fires after this tx commits).
+        eventPublisher.publishEvent(new PaymentCommittedEvent(paymentId));
     }
 
     /** The order points whose parent the given user is assigned to (name-ordered per location). */

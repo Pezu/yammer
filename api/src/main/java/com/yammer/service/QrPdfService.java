@@ -7,11 +7,14 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.action.PdfAction;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Image;
+import com.itextpdf.layout.element.Link;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.HorizontalAlignment;
@@ -90,6 +93,10 @@ public class QrPdfService {
                 cell.add(new Paragraph(op.getName())
                         .setFontSize(10).setBold().setTextAlignment(TextAlignment.CENTER));
                 cell.add(image);
+                // TODO: testing aid — clickable link under each QR; remove for production.
+                Link link = new Link(url, PdfAction.createURI(url));
+                link.setFontColor(ColorConstants.BLUE);
+                cell.add(new Paragraph(link).setFontSize(6).setTextAlignment(TextAlignment.CENTER));
                 cell.setTextAlignment(TextAlignment.CENTER);
                 table.addCell(cell);
             }

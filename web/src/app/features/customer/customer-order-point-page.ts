@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import {
@@ -6,6 +6,7 @@ import {
   CustomerOrderPointService,
   MenuNode,
 } from './customer-order-point.service';
+import { TransparentImageDirective } from '../../shared/transparent-image.directive';
 
 /**
  * Landing/ordering page a customer reaches by scanning an order point's QR code
@@ -14,53 +15,45 @@ import {
  */
 @Component({
   selector: 'app-customer-order-point-page',
-  imports: [DecimalPipe, NgTemplateOutlet],
+  imports: [DecimalPipe, NgTemplateOutlet, TransparentImageDirective],
   template: `
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" [src]="logoSrc()" alt="logo" (error)="logoFailed.set(true)" />
+      </div>
+      <button type="button" class="hamburger" (click)="toggleMenu()" aria-label="Menu" aria-haspopup="true">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+    </header>
+
+    @if (menuOpen()) {
+      <div class="drawer-backdrop" (click)="closeMenu()"></div>
+      <nav class="drawer">
+        <button type="button" class="drawer-item active" (click)="selectOrder()">Order</button>
+      </nav>
+    }
+
     <main class="cust">
       @if (loading()) {
         <p class="state">Loading…</p>
       } @else if (error()) {
         <p class="state err">{{ error() }}</p>
       } @else if (op(); as o) {
-        <header class="cust-head">
-          @if (o.eventName) {
-            <p class="event">{{ o.eventName }}</p>
-          }
-          <h1 class="table">{{ o.name }}</h1>
-        </header>
-
         @if (placed()) {
           <div class="placed" role="status">Your order has been sent. Thank you!</div>
         }
 
         @if (o.menu.length > 0) {
-          <div class="menu">
-            <ng-template #nodeTpl let-n>
-              @if (n.orderable) {
-                <div class="product">
-                  <div class="pinfo">
-                    <span class="pname" [innerHTML]="n.name"></span>
-                    @if (n.price != null) {
-                      <span class="pprice">{{ n.price | number: '1.2-2' }}</span>
-                    }
-                  </div>
-                  <div class="stepper">
-                    <button type="button" (click)="dec(n.id)" [disabled]="qty(n.id) <= 0" aria-label="Remove one">−</button>
-                    <span class="qv">{{ qty(n.id) }}</span>
-                    <button type="button" (click)="inc(n)" aria-label="Add one">+</button>
-                  </div>
-                </div>
-              } @else {
-                <section class="category">
-                  <h2 class="cname" [innerHTML]="n.name"></h2>
-                  @for (c of n.children; track c.id) {
-                    <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: c }" />
-                  }
-                </section>
+          @if (topCategories().length > 1) {
+            <nav class="cat-nav">
+              @for (cat of topCategories(); track cat.id) {
+                <button type="button" class="cat-chip" (click)="scrollTo(cat.id)" [innerHTML]="cat.name"></button>
               }
-            </ng-template>
-            @for (n of o.menu; track n.id) {
-              <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: n }" />
+            </nav>
+          }
+          <div class="menu-tree">
+            @for (node of o.menu; track node.id) {
+              <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: node, level: 0 }"></ng-container>
             }
           </div>
         } @else {
@@ -80,12 +73,140 @@ import {
         </footer>
       }
     </main>
+
+    <!-- Recursive node: an orderable product renders as a row; a category renders a header + its children. -->
+    <ng-template #nodeTpl let-node let-level="level">
+      @if (node.orderable) {
+        <div class="item-card">
+          @if (node.imageObject && !transparentImages().has(node.imageObject)) {
+            <img
+              class="item-img"
+              appTransparentCheck
+              (transparent)="markTransparent(node.imageObject)"
+              [src]="imageUrl(node.imageObject)"
+              alt=""
+            />
+          } @else {
+            <div class="item-img placeholder"></div>
+          }
+          <div class="item-body">
+            <span class="item-name" [innerHTML]="node.name"></span>
+          </div>
+          <div class="item-side">
+            @if (node.price != null) {
+              <span class="item-price">{{ node.price | number: '1.2-2' }} RON</span>
+            }
+            <div class="qty">
+              @if (qty(node.id) > 0) {
+                <button type="button" class="qty-btn" aria-label="Remove one" (click)="dec(node.id)">−</button>
+                <span class="qty-val">{{ qty(node.id) }}</span>
+              }
+              <button type="button" class="qty-btn" aria-label="Add one" (click)="inc(node)">+</button>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <section class="menu-cat" [id]="'cat-' + node.id">
+          <div class="cat-head" [class.sub]="level > 0">
+            <span class="cat-name" [innerHTML]="node.name"></span>
+          </div>
+          <div class="cat-children">
+            @for (child of node.children; track child.id) {
+              <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: child, level: level + 1 }"></ng-container>
+            }
+          </div>
+        </section>
+      }
+    </ng-template>
   `,
   styles: `
     :host {
       display: block;
       min-height: 100vh;
       background: #fff;
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      height: 56px;
+      padding: 0 1rem;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+    .logo {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      padding: 4px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(18, 27, 46, 0.08);
+    }
+    .brand-name {
+      font-weight: 800;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hamburger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      color: var(--text);
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(18, 27, 46, 0.35);
+    }
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 21;
+      width: 240px;
+      max-width: 80vw;
+      padding: 4rem 0.75rem 1rem;
+      background: #fff;
+      box-shadow: -0.5rem 0 1.5rem rgba(18, 27, 46, 0.15);
+    }
+    .drawer-item {
+      display: block;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: left;
+      color: var(--text);
+      background: none;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .drawer-item:hover,
+    .drawer-item.active {
+      background: var(--page-bg);
+      color: var(--primary);
     }
     .cust {
       max-width: 30rem;
@@ -131,59 +252,128 @@ import {
       font-size: 0.9rem;
       text-align: center;
     }
-    .menu {
-      margin-top: 1rem;
+    /* servio-style: horizontal category quick-nav (jump to section) */
+    .cat-nav {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin: 0.25rem 0 1rem;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .cat-nav::-webkit-scrollbar {
+      display: none;
+    }
+    .cat-chip {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    /* servio-style: single scrolling list, products one per row */
+    .menu-tree {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
       text-align: left;
     }
-    .category {
-      margin: 1.25rem 0;
+    .menu-cat {
+      scroll-margin-top: 72px;
     }
-    .cname {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
+    .cat-children {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .cat-head {
+      padding: 28px 0 8px;
+    }
+    .cat-head.sub {
+      padding-top: 12px;
+    }
+    .cat-name {
+      display: block;
+      font-size: 14px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 0.35rem;
-    }
-    .category .category {
-      margin-left: 0.75rem;
-    }
-    .product {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .pinfo {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.15rem;
-      min-width: 0;
-    }
-    .pname {
       color: var(--text);
     }
-    .pprice {
-      font-variant-numeric: tabular-nums;
-      font-size: 0.85rem;
+    .cat-head.sub .cat-name {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0;
       color: var(--muted);
     }
-    .stepper {
+    .item-card {
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+      min-height: 92px;
+      padding: 14px 2px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+    }
+    .item-img {
+      flex-shrink: 0;
+      align-self: center;
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .item-img.placeholder {
+      background: var(--page-bg);
+      border: 1px dashed var(--border);
+    }
+    .item-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .item-name {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .item-price {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .item-side {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .qty {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .qty-btn {
+      width: 24px;
+      height: 24px;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      flex: none;
-    }
-    .stepper button {
-      width: 32px;
-      height: 32px;
-      font-size: 1.2rem;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
       line-height: 1;
       color: var(--primary);
       background: #fff;
@@ -191,16 +381,13 @@ import {
       border-radius: 50%;
       cursor: pointer;
     }
-    .stepper button:disabled {
-      color: var(--muted);
-      opacity: 0.4;
-      cursor: default;
-    }
-    .qv {
-      min-width: 1.25rem;
+    .qty-val {
+      min-width: 18px;
+      font-size: 14px;
+      font-weight: 700;
       text-align: center;
+      color: var(--text);
       font-variant-numeric: tabular-nums;
-      font-weight: 600;
     }
     .cart-bar {
       position: fixed;
@@ -237,9 +424,9 @@ import {
       padding: 0.7rem 1.5rem;
       font: inherit;
       font-weight: 700;
-      color: #fff;
-      background: var(--primary);
-      border: none;
+      color: var(--primary);
+      background: #fff;
+      border: 1px solid var(--primary);
       border-radius: 8px;
       cursor: pointer;
     }
@@ -249,7 +436,7 @@ import {
     }
   `,
 })
-export class CustomerOrderPointPage {
+export class CustomerOrderPointPage implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(CustomerOrderPointService);
   private readonly opId = this.route.snapshot.paramMap.get('opId') ?? '';
@@ -258,10 +445,25 @@ export class CustomerOrderPointPage {
   readonly error = signal<string | null>(null);
   readonly op = signal<CustomerOrderPoint | null>(null);
 
+  // app bar / drawer
+  readonly menuOpen = signal(false);
+  readonly logoFailed = signal(false);
+
   // cart: product id -> quantity
   readonly cart = signal<Record<string, number>>({});
   readonly placing = signal(false);
   readonly placed = signal(false);
+
+  // top-level categories, surfaced as quick-nav chips that scroll to each section
+  readonly topCategories = computed<MenuNode[]>(() =>
+    (this.op()?.menu ?? []).filter((n) => !n.orderable),
+  );
+
+  // image objects detected to have a transparent background — hidden, placeholder shown instead
+  readonly transparentImages = signal<Set<string>>(new Set());
+  markTransparent(object: string): void {
+    this.transparentImages.update((s) => new Set(s).add(object));
+  }
 
   /** Flat list of orderable products in the menu, for cart totals / price lookup. */
   private readonly products = computed(() => {
@@ -293,6 +495,8 @@ export class CustomerOrderPointPage {
   });
 
   constructor() {
+    // The customer page is full-white (no admin gray peeking through on mobile overscroll).
+    document.body.style.background = '#fff';
     if (!this.opId) {
       this.error.set('Invalid link.');
       this.loading.set(false);
@@ -308,6 +512,39 @@ export class CustomerOrderPointPage {
         this.loading.set(false);
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    document.body.style.background = '';
+  }
+
+  imageUrl(object: string): string {
+    return this.service.imageUrl(object);
+  }
+
+  /** Smooth-scroll the menu to a top-level category section. */
+  scrollTo(categoryId: string): void {
+    document
+      .getElementById('cat-' + categoryId)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Brand logo: the client's logo, falling back to the app placeholder when absent/unloadable. */
+  logoSrc(): string {
+    const clientId = this.op()?.clientId;
+    if (!clientId || this.logoFailed()) return 'assets/images/logo-abbr.png';
+    return this.service.clientLogoUrl(clientId);
+  }
+
+  toggleMenu(): void {
+    this.menuOpen.update((o) => !o);
+  }
+  closeMenu(): void {
+    this.menuOpen.set(false);
+  }
+  /** Only menu item for now — shows the menu (the default content). */
+  selectOrder(): void {
+    this.closeMenu();
   }
 
   qty(id: string): number {
@@ -330,10 +567,17 @@ export class CustomerOrderPointPage {
   placeOrder(): void {
     if (this.placing() || this.cartCount() === 0) return;
     const items = Object.entries(this.cart()).map(([menuItemId, quantity]) => ({ menuItemId, quantity }));
+    const returnUrl = `${window.location.origin}/customer/order-point/${this.opId}/payment-return`;
     this.placing.set(true);
     this.error.set(null);
-    this.service.placeOrder(this.opId, items).subscribe({
-      next: () => {
+    this.service.placeOrder(this.opId, items, returnUrl).subscribe({
+      next: (result) => {
+        if (result.paymentUrl) {
+          // Pay-now: hand off to the gateway. Don't clear placing — we're navigating away.
+          window.location.href = result.paymentUrl;
+          return;
+        }
+        // Pay-later: order created.
         this.cart.set({});
         this.placing.set(false);
         this.placed.set(true);

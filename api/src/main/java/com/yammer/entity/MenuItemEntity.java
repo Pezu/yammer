@@ -39,6 +39,10 @@ public class MenuItemEntity {
     @Column(name = "vat_type_id")
     private UUID vatTypeId;
 
+    /** Object-storage key of the item's image, or null. */
+    @Column(name = "image_object")
+    private String imageObject;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 }

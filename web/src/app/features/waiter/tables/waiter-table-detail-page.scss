@@ -429,6 +429,70 @@
   }
 }
 
+/* quantity editor (opened by long-press on a chip) */
+.qty-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(18, 27, 46, 0.25);
+}
+.qty-edit {
+  position: fixed;
+  z-index: 31;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(18rem, 88vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1rem 2rem rgba(18, 27, 46, 0.2);
+}
+.qty-edit-name {
+  font-weight: 700;
+  color: var(--text);
+}
+.qty-edit-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.qty-edit-input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.qty-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.qe-btn {
+  flex: 1;
+  padding: 0.55rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+
+  &.primary {
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+}
+
 .amount-row {
   display: flex;
   align-items: center;

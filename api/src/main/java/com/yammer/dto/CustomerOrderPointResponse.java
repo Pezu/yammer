@@ -13,5 +13,6 @@ public record CustomerOrderPointResponse(
         String name,
         UUID eventId,
         String eventName,
+        UUID clientId,
         List<MenuItemNode> menu) {
 }

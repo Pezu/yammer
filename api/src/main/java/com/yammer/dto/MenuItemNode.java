@@ -16,5 +16,6 @@ public record MenuItemNode(
         boolean orderable,
         BigDecimal price,
         UUID vatTypeId,
+        String imageObject,
         List<MenuItemNode> children) {
 }
