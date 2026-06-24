@@ -63,7 +63,7 @@ jobs:
             --port 8080 --min-instances 1 --max-instances 1 --timeout 3600 \
             --add-cloudsql-instances "$SQL_INSTANCE" \
             --set-env-vars "^@^DATABASE_URL=jdbc:postgresql:///yammer?cloudSqlInstance=$SQL_INSTANCE&socketFactory=com.google.cloud.sql.postgres.SocketFactory&currentSchema=yammer@DATABASE_USERNAME=yammer_app@GCS_BUCKET=yammer-order-app-uploads@GCS_PROJECT_ID=yammer-order-app@GCS_ENDPOINT=@APP_CUSTOMER_BASE_URL=https://rendezvous-app.ro@NETOPIA_ENABLED=true@NETOPIA_BASE_URL=https://secure.sandbox.netopia-payments.com@NETOPIA_NOTIFY_URL=https://rendezvous-app.ro/api/public/payments/netopia/notify" \
-            --set-secrets "DATABASE_PASSWORD=yammer-db-password:latest,JWT_SECRET=jwt-secret:latest,BRIDGE_API_KEY=bridge-api-key:latest,NETOPIA_API_KEY=netopia-api-key:latest,NETOPIA_POS_SIGNATURE=netopia-pos-signature:latest"
+            --set-secrets "DATABASE_PASSWORD=yammer-db-password:latest,JWT_SECRET=jwt-secret:latest,BRIDGE_API_KEY=bridge-api-key:latest,NETOPIA_API_KEY=netopia-api-key:latest,NETOPIA_POS_SIGNATURE=netopia-pos-signature:latest,WEBPUSH_PUBLIC_KEY=webpush-public-key:latest,WEBPUSH_PRIVATE_KEY=webpush-private-key:latest"
 
   web:
     needs: changes
