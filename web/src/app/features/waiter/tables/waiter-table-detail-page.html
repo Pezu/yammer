@@ -118,7 +118,7 @@
             <p class="err-line">{{ payError() }}</p>
           }
 
-          <p class="hint">Drag items from the bill to “Paying” (or tap them).</p>
+          <p class="hint">Drag items from the bill to “Paying” (or tap to move one). Long-press an item to type a quantity.</p>
           <div class="dnd">
             <div class="zone bill" data-zone="bill" (dragover)="$event.preventDefault()" (drop)="dropToBill()">
               <div class="zone-title">
@@ -149,6 +149,29 @@
               }
             </div>
           </div>
+
+          @if (editingId()) {
+            <div class="qty-edit-backdrop" (mousedown)="cancelQtyEdit()"></div>
+            <div class="qty-edit" (mousedown)="$event.stopPropagation()">
+              <span class="qty-edit-name" [innerHTML]="editingName()"></span>
+              <span class="qty-edit-sub">Quantity to pay — max {{ editingMax() }}</span>
+              <input
+                #qe
+                class="qty-edit-input"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                [max]="editingMax()"
+                [value]="editingCurrent()"
+                (keydown.enter)="applyQty(qe.valueAsNumber)"
+                autofocus
+              />
+              <div class="qty-edit-actions">
+                <button type="button" class="qe-btn" (click)="cancelQtyEdit()">Cancel</button>
+                <button type="button" class="qe-btn primary" (click)="applyQty(qe.valueAsNumber)">Set</button>
+              </div>
+            </div>
+          }
 
           <div class="section-label">Tip</div>
           <div class="tip-row">

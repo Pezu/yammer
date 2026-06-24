@@ -309,6 +309,10 @@ export class WaiterPaymentsPage {
   }
 
   constructor() {
+    this.load();
+  }
+
+  private load(): void {
     this.service.paymentsSummary().subscribe({
       next: (rows) => {
         this.rows.set(rows);
@@ -325,7 +329,13 @@ export class WaiterPaymentsPage {
     if (this.retrying().has(p.id)) return;
     this.retrying.update((s) => new Set(s).add(p.id));
     this.service.retryFiscal(p.id).subscribe({
-      next: () => this.retrying.update((s) => this.without(s, p.id)),
+      // Fiscalization runs async on the bridge; give it a moment, then refresh so the
+      // updated fiscal status (SUCCESS / still FAILED) shows without a manual reload.
+      next: () =>
+        setTimeout(() => {
+          this.retrying.update((s) => this.without(s, p.id));
+          this.load();
+        }, 2500),
       error: () => this.retrying.update((s) => this.without(s, p.id)),
     });
   }

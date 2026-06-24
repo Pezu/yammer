@@ -119,6 +119,23 @@ export class WaiterTableDetailPage {
   readonly paying = signal<Record<string, number>>({});
   readonly dragged = signal<{ id: string; source: 'bill' | 'paying' } | null>(null);
 
+  /** Product whose quantity editor (opened by long-press) is shown, or null. */
+  readonly editingId = signal<string | null>(null);
+  readonly editingName = computed(() => {
+    const id = this.editingId();
+    return id ? (this.unpaidByProduct().find((p) => p.menuItemId === id)?.name ?? '') : '';
+  });
+  /** Most that can be moved for the edited product (its total unpaid quantity). */
+  readonly editingMax = computed(() => {
+    const id = this.editingId();
+    return id ? (this.unpaidByProduct().find((p) => p.menuItemId === id)?.qty ?? 0) : 0;
+  });
+  /** Quantity currently selected to pay for the edited product. */
+  readonly editingCurrent = computed(() => {
+    const id = this.editingId();
+    return id ? (this.paying()[id] ?? 0) : 0;
+  });
+
   readonly billList = computed(() =>
     this.unpaidByProduct()
       .map((p) => ({ ...p, rem: p.qty - (this.paying()[p.menuItemId] ?? 0) }))
@@ -260,8 +277,54 @@ export class WaiterTableDetailPage {
   clearPaying(): void {
     this.paying.set({});
   }
+  // long-press (any pointer): open a quantity editor for the pressed product
+  private pressTimer: ReturnType<typeof setTimeout> | null = null;
+  private clearPress(): void {
+    if (this.pressTimer) {
+      clearTimeout(this.pressTimer);
+      this.pressTimer = null;
+    }
+  }
+  openQtyEditor(id: string): void {
+    this.editingId.set(id);
+  }
+  applyQty(value: number): void {
+    const id = this.editingId();
+    if (id) {
+      this.setPayQty(id, value);
+    }
+    this.editingId.set(null);
+  }
+  cancelQtyEdit(): void {
+    this.editingId.set(null);
+  }
+  /** Set an exact quantity to pay for a product, clamped to what's still unpaid. */
+  setPayQty(id: string, value: number): void {
+    const product = this.unpaidByProduct().find((p) => p.menuItemId === id);
+    if (!product) {
+      return;
+    }
+    let q = Math.floor(value);
+    if (isNaN(q) || q < 0) {
+      q = 0;
+    }
+    if (q > product.qty) {
+      q = product.qty;
+    }
+    this.paying.update((m) => {
+      const next = { ...m };
+      if (q <= 0) {
+        delete next[id];
+      } else {
+        next[id] = q;
+      }
+      return next;
+    });
+  }
+
   // mouse: native HTML5 drag-and-drop
   onDragStart(id: string, source: 'bill' | 'paying'): void {
+    this.clearPress(); // a real drag started — not a long-press
     this.dragged.set({ id, source });
   }
   dropToPaying(): void {
@@ -304,8 +367,21 @@ export class WaiterTableDetailPage {
   } | null = null;
 
   onChipPointerDown(event: PointerEvent, id: string, source: 'bill' | 'paying'): void {
+    // long-press → quantity editor (works for both mouse hold and touch hold)
+    this.clearPress();
+    this.pressTimer = setTimeout(() => {
+      this.pressTimer = null;
+      if (this.touchDrag) {
+        this.touchDrag.ghost?.remove();
+        this.touchDrag = null;
+      }
+      this.justDragged = true; // suppress the click/drag that follows the release
+      setTimeout(() => (this.justDragged = false), 400);
+      this.openQtyEditor(id);
+    }, 500);
+
     if (event.pointerType === 'mouse') {
-      return; // mouse uses native DnD + click
+      return; // mouse uses native DnD + click (plus the long-press timer above)
     }
     this.touchDrag = { id, source, startX: event.clientX, startY: event.clientY, moved: false };
   }
@@ -321,6 +397,7 @@ export class WaiterTableDetailPage {
     }
     if (!d.moved) {
       d.moved = true;
+      this.clearPress(); // moved → it's a drag, not a long-press
       d.ghost = this.makeGhost(d.id);
     }
     event.preventDefault();
@@ -332,6 +409,7 @@ export class WaiterTableDetailPage {
 
   @HostListener('document:pointerup', ['$event'])
   onDocPointerUp(event: PointerEvent): void {
+    this.clearPress(); // released before the long-press fired → cancel it
     const d = this.touchDrag;
     if (!d) {
       return;
