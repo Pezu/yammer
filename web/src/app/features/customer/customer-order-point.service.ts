@@ -21,7 +21,24 @@ export interface CustomerOrderPoint {
   eventId: string | null;
   eventName: string | null;
   clientId: string | null;
+  /** When false, ordering goes through online (Netopia) payment. */
+  payLater: boolean;
   menu: MenuNode[];
+}
+
+/** Customer identity for the pay-now flow: a returning customer's id, or first-time details. */
+export interface CustomerInfo {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  prefix?: string;
+  phone?: string;
+}
+
+/** Result of looking a customer up by prefix + phone. */
+export interface CustomerLookupResult {
+  customerId: string | null;
 }
 
 /**
@@ -32,12 +49,24 @@ export interface PlaceOrderResult {
   orderId: string | null;
   paymentUrl: string | null;
   reference: string | null;
+  /** Resolved customer id (pay-now) — the client stores it to skip the info form next time. */
+  customerId: string | null;
 }
 
 /** Online-payment intent status, polled by the payment-return page. */
 export interface OnlinePaymentStatus {
   status: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
   orderId: string | null;
+}
+
+/** A customer's past order (self-service order-history view). */
+export interface CustomerOrder {
+  id: string;
+  orderNo: number;
+  status: string;
+  createdAt: string;
+  total: number;
+  items: { name: string; quantity: number; price: number }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,10 +86,27 @@ export class CustomerOrderPointService {
     opId: string,
     items: { menuItemId: string; quantity: number }[],
     returnUrl: string,
+    customer?: CustomerInfo,
   ): Observable<PlaceOrderResult> {
     return this.http.post<PlaceOrderResult>(
       `${environment.apiUrl}/public/order-points/${opId}/orders`,
-      { items, returnUrl },
+      { items, returnUrl, customer },
+    );
+  }
+
+  /** Look up a customer by dial prefix + phone (pay-now flow). `customerId` is null if not found. */
+  lookupCustomer(prefix: string, phone: string): Observable<CustomerLookupResult> {
+    return this.http.post<CustomerLookupResult>(
+      `${environment.apiUrl}/public/customers/lookup`,
+      { prefix, phone },
+    );
+  }
+
+  /** A customer's order history at one event (the "Orders" drawer view). */
+  customerOrders(customerId: string, eventId: string): Observable<CustomerOrder[]> {
+    return this.http.get<CustomerOrder[]>(
+      `${environment.apiUrl}/public/customers/${customerId}/orders`,
+      { params: { eventId } },
     );
   }
 

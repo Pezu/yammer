@@ -30,11 +30,14 @@ public class NetopiaPaymentService {
      * id). {@code redirectUrl} is where the gateway sends the browser back after payment.
      */
     public NetopiaStartResponse startPayment(
-            String reference, double amount, String firstName, String lastName, String redirectUrl) {
+            String reference, double amount, String firstName, String lastName, String email,
+            String phone, String redirectUrl) {
         var config = new NetopiaStartRequest.Config(
                 props.getEmailTemplate(), props.getNotifyUrl(), redirectUrl, props.getLanguage());
+        String billingEmail = email == null || email.isBlank() ? props.getGuestEmail() : email;
+        String billingPhone = phone == null || phone.isBlank() ? props.getGuestPhone() : phone;
         var billing = new NetopiaStartRequest.Billing(
-                props.getGuestEmail(), props.getGuestPhone(), firstName, lastName,
+                billingEmail, billingPhone, firstName, lastName,
                 "Bucharest", ROMANIA_ISO_NUMERIC, "Romania", "Bucharest", "010000", "N/A");
         var order = new NetopiaStartRequest.Order(
                 reference, amount, props.getPosSignature(),

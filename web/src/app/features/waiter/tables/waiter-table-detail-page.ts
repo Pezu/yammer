@@ -1,6 +1,6 @@
 import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   BillLine,
   PaymentMethod,
@@ -26,6 +26,7 @@ type TipMode = 'none' | 'p10' | 'p12' | 'p15' | 'customPct' | 'customAmt';
 })
 export class WaiterTableDetailPage {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly service = inject(WaiterOrderPointService);
   private readonly toast = inject(ToastService);
 
@@ -58,8 +59,10 @@ export class WaiterTableDetailPage {
       .filter((b) => b.paidQty > 0)
       .map((b) => ({ menuItemId: b.menuItemId, name: b.name, price: b.price, qty: b.paidQty })),
   );
-  // which list to show: unpaid (default) or paid
-  readonly view = signal<'unpaid' | 'paid'>('unpaid');
+  // which list to show, persisted in the URL (?view=) so a refresh stays put
+  readonly view = signal<'unpaid' | 'paid'>(
+    this.route.snapshot.queryParamMap.get('view') === 'paid' ? 'paid' : 'unpaid',
+  );
   readonly viewComboOpen = signal(false);
   toggleViewCombo(): void {
     this.viewComboOpen.update((o) => !o);
@@ -70,6 +73,12 @@ export class WaiterTableDetailPage {
   selectView(v: 'unpaid' | 'paid'): void {
     this.view.set(v);
     this.viewComboOpen.set(false);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { view: v === 'paid' ? 'paid' : null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   readonly orderedTotal = computed(() =>

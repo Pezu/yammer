@@ -14,5 +14,6 @@ public record CustomerOrderPointResponse(
         UUID eventId,
         String eventName,
         UUID clientId,
+        boolean payLater,
         List<MenuItemNode> menu) {
 }

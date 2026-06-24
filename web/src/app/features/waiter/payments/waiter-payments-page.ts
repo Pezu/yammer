@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PaymentSummary, WaiterOrderPointService } from '../tables/waiter-order-point.service';
 
 type StatusFilter = 'ALL' | 'SUCCESS' | 'PENDING' | 'FAILED';
@@ -279,6 +280,8 @@ const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
 })
 export class WaiterPaymentsPage {
   private readonly service = inject(WaiterOrderPointService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly rows = signal<PaymentSummary[]>([]);
   readonly loading = signal(true);
@@ -286,7 +289,8 @@ export class WaiterPaymentsPage {
   readonly retrying = signal<Set<string>>(new Set());
 
   readonly options = FILTER_OPTIONS;
-  readonly filter = signal<StatusFilter>('FAILED');
+  // filter persisted in the URL (?status=) so a refresh keeps the selected filter
+  readonly filter = signal<StatusFilter>(this.readFilter());
   readonly comboOpen = signal(false);
   readonly filterLabel = computed(
     () => FILTER_OPTIONS.find((o) => o.value === this.filter())?.label ?? 'All',
@@ -306,6 +310,17 @@ export class WaiterPaymentsPage {
   select(value: StatusFilter): void {
     this.filter.set(value);
     this.comboOpen.set(false);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { status: value },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private readFilter(): StatusFilter {
+    const s = this.route.snapshot.queryParamMap.get('status');
+    return s === 'ALL' || s === 'SUCCESS' || s === 'PENDING' || s === 'FAILED' ? s : 'FAILED';
   }
 
   constructor() {

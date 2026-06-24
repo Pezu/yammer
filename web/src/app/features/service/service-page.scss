@@ -127,6 +127,9 @@
 
 
 .card {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -143,6 +146,12 @@
   &.dim {
     opacity: 0.35;
   }
+}
+
+/* 75% order info | 25% controls */
+.card-info {
+  flex: 3;
+  min-width: 0;
 }
 
 /* floating clone that follows the pointer while dragging */
@@ -164,6 +173,13 @@
     align-items: baseline;
     gap: 0.45rem;
     min-width: 0;
+  }
+
+  .ord-no {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
   }
 
   .op {
@@ -206,30 +222,26 @@
   }
 }
 
-.card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 0.55rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
 .actions {
-  display: inline-flex;
+  flex: 1; /* 25% of the card */
+  display: flex;
+  flex-direction: column;
   gap: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
 }
 
 .act {
+  flex: 1; /* available controls split the column evenly */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 100%;
+  min-height: 34px;
   color: var(--muted);
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: 8px;
   cursor: pointer;
   transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
 

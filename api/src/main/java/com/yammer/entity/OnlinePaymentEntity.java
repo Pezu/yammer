@@ -36,6 +36,10 @@ public class OnlinePaymentEntity {
     @Column(name = "event_id")
     private UUID eventId;
 
+    /** The customer placing the order (resolved at start), carried to the order on confirm. */
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 

@@ -1,12 +1,15 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
+  CustomerInfo,
+  CustomerOrder,
   CustomerOrderPoint,
   CustomerOrderPointService,
   MenuNode,
 } from './customer-order-point.service';
 import { TransparentImageDirective } from '../../shared/transparent-image.directive';
+import { timeAgo } from '../../shared/relative-time';
 
 /**
  * Landing/ordering page a customer reaches by scanning an order point's QR code
@@ -29,7 +32,13 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
     @if (menuOpen()) {
       <div class="drawer-backdrop" (click)="closeMenu()"></div>
       <nav class="drawer">
-        <button type="button" class="drawer-item active" (click)="selectOrder()">Order</button>
+        <button type="button" class="drawer-close" (click)="closeMenu()" aria-label="Close menu">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <button type="button" class="drawer-item" [class.active]="activeView() === 'menu'" (click)="showMenu()">Menu</button>
+        @if (hasOrdersTab()) {
+          <button type="button" class="drawer-item" [class.active]="activeView() === 'orders'" (click)="showOrders()">Orders</button>
+        }
       </nav>
     }
 
@@ -43,7 +52,34 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
           <div class="placed" role="status">Your order has been sent. Thank you!</div>
         }
 
-        @if (o.menu.length > 0) {
+        @if (activeView() === 'orders') {
+          @if (ordersLoading()) {
+            <p class="state">Loading…</p>
+          } @else if (custOrders().length === 0) {
+            <p class="soon">No orders yet.</p>
+          } @else {
+            <div class="orders-list">
+              @for (ord of custOrders(); track ord.id) {
+                <div class="ord-card">
+                  <div class="ord-head">
+                    <span class="ord-no">Order #{{ ord.orderNo }}</span>
+                    <span class="ord-status" [class]="'st-' + ord.status.toLowerCase()">{{ ord.status }}</span>
+                  </div>
+                  <div class="ord-when">{{ relativeTime(ord.createdAt) }}</div>
+                  <div class="ord-items">
+                    @for (it of ord.items; track $index) {
+                      <div class="ord-line">
+                        <span class="ord-line-name">{{ it.quantity }}× {{ it.name }}</span>
+                        <span class="ord-line-amt">{{ (it.price || 0) * it.quantity | number: '1.2-2' }}</span>
+                      </div>
+                    }
+                  </div>
+                  <div class="ord-total"><span>Total</span><span>{{ ord.total | number: '1.2-2' }} RON</span></div>
+                </div>
+              }
+            </div>
+          }
+        } @else if (o.menu.length > 0) {
           @if (topCategories().length > 1) {
             <nav class="cat-nav">
               @for (cat of topCategories(); track cat.id) {
@@ -61,7 +97,7 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
         }
       }
 
-      @if (cartCount() > 0) {
+      @if (cartCount() > 0 && activeView() === 'menu') {
         <footer class="cart-bar">
           <div class="cart-info">
             <span class="cart-count">{{ cartCount() }} item{{ cartCount() === 1 ? '' : 's' }}</span>
@@ -73,6 +109,53 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
         </footer>
       }
     </main>
+
+    @if (customerFormOpen()) {
+      <div class="cust-modal-overlay" (click)="closeCustomerForm()">
+        <div class="cust-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+          @if (custStep() === 'phone') {
+            <h3 class="cust-modal-title">Your phone number</h3>
+            <p class="cust-modal-sub">We'll use it to notify you when your order is ready.</p>
+            <div class="cust-phone-row">
+              <select class="cust-input cust-prefix" [value]="custPrefix()" (change)="custPrefix.set($any($event.target).value)">
+                @for (p of prefixes; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+              <input class="cust-input" type="tel" inputmode="tel" placeholder="Phone number" autocomplete="tel-national"
+                [value]="custPhone()" (input)="custPhone.set($any($event.target).value)" />
+            </div>
+            @if (custError()) {
+              <p class="cust-err">{{ custError() }}</p>
+            }
+            <div class="cust-actions">
+              <button type="button" class="cust-cancel" (click)="closeCustomerForm()">Cancel</button>
+              <button type="button" class="cust-continue" [disabled]="custLooking()" (click)="submitPhone()">
+                {{ custLooking() ? 'Checking…' : 'Continue' }}
+              </button>
+            </div>
+          } @else {
+            <h3 class="cust-modal-title">Your details</h3>
+            <p class="cust-modal-sub">We don't have you yet — a few details to continue.</p>
+            <input class="cust-input" type="text" placeholder="First name" autocomplete="given-name"
+              [value]="custFirstName()" (input)="custFirstName.set($any($event.target).value)" />
+            <input class="cust-input" type="text" placeholder="Last name" autocomplete="family-name"
+              [value]="custLastName()" (input)="custLastName.set($any($event.target).value)" />
+            <input class="cust-input" type="email" inputmode="email" placeholder="Email" autocomplete="email"
+              [value]="custEmail()" (input)="custEmail.set($any($event.target).value)" />
+            @if (custError()) {
+              <p class="cust-err">{{ custError() }}</p>
+            }
+            <div class="cust-actions">
+              <button type="button" class="cust-cancel" (click)="closeCustomerForm()">Cancel</button>
+              <button type="button" class="cust-continue" [disabled]="placing()" (click)="submitDetails()">
+                Continue to payment
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
 
     <!-- Recursive node: an orderable product renders as a row; a category renders a header + its children. -->
     <ng-template #nodeTpl let-node let-level="level">
@@ -188,6 +271,20 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
       padding: 4rem 0.75rem 1rem;
       background: #fff;
       box-shadow: -0.5rem 0 1.5rem rgba(18, 27, 46, 0.15);
+    }
+    .drawer-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      color: var(--text);
+      background: none;
+      border: none;
+      cursor: pointer;
     }
     .drawer-item {
       display: block;
@@ -434,10 +531,165 @@ import { TransparentImageDirective } from '../../shared/transparent-image.direct
       opacity: 0.6;
       cursor: default;
     }
+    /* customer-details modal (pay-now, first-time customer) */
+    .cust-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: rgba(18, 27, 46, 0.35);
+    }
+    .cust-modal {
+      width: 100%;
+      max-width: 22rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding: 1.25rem;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1rem 2rem rgba(18, 27, 46, 0.25);
+    }
+    .cust-modal-title {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--text);
+    }
+    .cust-modal-sub {
+      margin: 0 0 0.25rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .cust-input {
+      width: 100%;
+      padding: 0.7rem 0.8rem;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .cust-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .cust-phone-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .cust-prefix {
+      flex: 0 0 5.5rem;
+    }
+    .cust-err {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--danger);
+    }
+    .cust-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .cust-cancel,
+    .cust-continue {
+      flex: 1;
+      padding: 0.7rem;
+      font: inherit;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .cust-cancel {
+      color: var(--text);
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+    .cust-continue {
+      color: #fff;
+      background: var(--primary);
+      border: 1px solid var(--primary);
+    }
+    .cust-continue:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    /* order history (Orders drawer view) */
+    .orders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      text-align: left;
+    }
+    .ord-card {
+      padding: 0.85rem 1rem;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .ord-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .ord-no {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .ord-status {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--page-bg);
+    }
+    .ord-status.st-ordered { color: #1d4ed8; background: rgba(52, 84, 209, 0.12); }
+    .ord-status.st-ready { color: #1f7a3d; background: rgba(40, 167, 69, 0.14); }
+    .ord-status.st-delivered { color: var(--muted); background: var(--page-bg); }
+    .ord-status.st-canceled,
+    .ord-status.st-cancelled { color: var(--danger); background: rgba(220, 53, 69, 0.12); }
+    .ord-when {
+      margin-top: 0.15rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .ord-items {
+      margin: 0.6rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .ord-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .ord-line-amt {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+    }
+    .ord-total {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
   `,
 })
 export class CustomerOrderPointPage implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly service = inject(CustomerOrderPointService);
   private readonly opId = this.route.snapshot.paramMap.get('opId') ?? '';
 
@@ -453,6 +705,29 @@ export class CustomerOrderPointPage implements OnDestroy {
   readonly cart = signal<Record<string, number>>({});
   readonly placing = signal(false);
   readonly placed = signal(false);
+
+  // customer identity for the pay-now (Netopia) flow
+  private readonly CUSTOMER_KEY = 'yammer.customerId';
+  private readonly EVENT_KEY = 'yammer.eventId';
+  readonly prefixes = ['+40', '+44', '+1', '+49', '+33', '+39', '+34', '+31', '+30', '+48', '+359', '+36'];
+  readonly customerFormOpen = signal(false);
+  readonly custStep = signal<'phone' | 'details'>('phone');
+  readonly custPrefix = signal('+40');
+  readonly custPhone = signal('');
+  readonly custFirstName = signal('');
+  readonly custLastName = signal('');
+  readonly custEmail = signal('');
+  readonly custError = signal<string | null>(null);
+  readonly custLooking = signal(false);
+
+  // which view the drawer selected; "orders" requires a known customer + event
+  readonly activeView = signal<'menu' | 'orders'>('menu');
+  readonly customerId = signal<string | null>(null);
+  // event the customer is at — inferred from the scanned order point and persisted
+  readonly eventId = signal<string | null>(null);
+  readonly hasOrdersTab = computed(() => !!this.customerId() && !!this.eventId());
+  readonly custOrders = signal<CustomerOrder[]>([]);
+  readonly ordersLoading = signal(false);
 
   // top-level categories, surfaced as quick-nav chips that scroll to each section
   readonly topCategories = computed<MenuNode[]>(() =>
@@ -494,17 +769,44 @@ export class CustomerOrderPointPage implements OnDestroy {
     );
   });
 
+  private readonly cartKey = `yammer.cart.${this.opId}`;
+
   constructor() {
     // The customer page is full-white (no admin gray peeking through on mobile overscroll).
     document.body.style.background = '#fff';
+    this.customerId.set(localStorage.getItem(this.CUSTOMER_KEY));
+    this.eventId.set(localStorage.getItem(this.EVENT_KEY));
+
+    // The view (menu / orders) comes from the route, so a refresh stays on the same view.
+    this.activeView.set(this.route.snapshot.data['view'] === 'orders' ? 'orders' : 'menu');
+
+    // Persist the cart per order point so toggling views / refreshing keeps it.
+    const savedCart = sessionStorage.getItem(this.cartKey);
+    if (savedCart) {
+      try {
+        this.cart.set(JSON.parse(savedCart));
+      } catch {
+        /* ignore corrupt cart */
+      }
+    }
+    effect(() => sessionStorage.setItem(this.cartKey, JSON.stringify(this.cart())));
+
     if (!this.opId) {
       this.error.set('Invalid link.');
       this.loading.set(false);
       return;
     }
+    if (this.activeView() === 'orders') {
+      this.loadCustomerOrders();
+    }
     this.service.getOrderPoint(this.opId).subscribe({
       next: (op) => {
         this.op.set(op);
+        // Infer + persist the event from the scanned order point (for the Orders history scope).
+        if (op.eventId) {
+          this.eventId.set(op.eventId);
+          localStorage.setItem(this.EVENT_KEY, op.eventId);
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -542,9 +844,31 @@ export class CustomerOrderPointPage implements OnDestroy {
   closeMenu(): void {
     this.menuOpen.set(false);
   }
-  /** Only menu item for now — shows the menu (the default content). */
-  selectOrder(): void {
+  showMenu(): void {
     this.closeMenu();
+    this.router.navigate(['/customer/order-point', this.opId]);
+  }
+  showOrders(): void {
+    this.closeMenu();
+    this.router.navigate(['/customer/order-point', this.opId, 'orders']);
+  }
+  private loadCustomerOrders(): void {
+    const customerId = this.customerId();
+    const eventId = this.eventId();
+    if (!customerId || !eventId) return;
+    this.ordersLoading.set(true);
+    this.service.customerOrders(customerId, eventId).subscribe({
+      next: (orders) => {
+        this.custOrders.set(orders);
+        this.ordersLoading.set(false);
+      },
+      error: () => this.ordersLoading.set(false),
+    });
+  }
+
+  /** Relative time: "x min ago" / "x hours ago" / "dd.MM.YYYY". */
+  relativeTime(iso: string): string {
+    return timeAgo(iso);
   }
 
   qty(id: string): number {
@@ -566,14 +890,94 @@ export class CustomerOrderPointPage implements OnDestroy {
 
   placeOrder(): void {
     if (this.placing() || this.cartCount() === 0) return;
+    const o = this.op();
+    // Pay-now and we don't yet know this customer → look them up / collect details before the gateway.
+    if (o && !o.payLater && !localStorage.getItem(this.CUSTOMER_KEY)) {
+      this.openCustomerForm();
+      return;
+    }
+    // Returning pay-now customer → send the stored id; pay-later sends nothing.
+    const storedId = localStorage.getItem(this.CUSTOMER_KEY);
+    const customer = o && !o.payLater && storedId ? { id: storedId } : undefined;
+    this.submitOrder(customer);
+  }
+
+  private openCustomerForm(): void {
+    this.custStep.set('phone');
+    this.custPhone.set('');
+    this.custFirstName.set('');
+    this.custLastName.set('');
+    this.custEmail.set('');
+    this.custError.set(null);
+    this.customerFormOpen.set(true);
+  }
+
+  closeCustomerForm(): void {
+    this.customerFormOpen.set(false);
+  }
+
+  /** Step 1: look the customer up by prefix + phone. Found → pay; not found → ask for details. */
+  submitPhone(): void {
+    const phone = this.custPhone().trim();
+    if (!phone) {
+      this.custError.set('Please enter your phone number.');
+      return;
+    }
+    this.custError.set(null);
+    this.custLooking.set(true);
+    this.service.lookupCustomer(this.custPrefix(), phone).subscribe({
+      next: (res) => {
+        this.custLooking.set(false);
+        if (res.customerId) {
+          localStorage.setItem(this.CUSTOMER_KEY, res.customerId);
+          this.customerId.set(res.customerId);
+          this.customerFormOpen.set(false);
+          this.submitOrder({ id: res.customerId });
+        } else {
+          this.custStep.set('details'); // unknown customer → collect name + email
+        }
+      },
+      error: () => {
+        this.custLooking.set(false);
+        this.custError.set('Could not check your number. Please try again.');
+      },
+    });
+  }
+
+  /** Step 2: a first-time customer supplies name + email, then continues to payment. */
+  submitDetails(): void {
+    const firstName = this.custFirstName().trim();
+    const lastName = this.custLastName().trim();
+    const email = this.custEmail().trim();
+    if (!firstName || !lastName || !email) {
+      this.custError.set('Please fill in all fields.');
+      return;
+    }
+    this.customerFormOpen.set(false);
+    this.submitOrder({
+      prefix: this.custPrefix(),
+      phone: this.custPhone().trim(),
+      firstName,
+      lastName,
+      email,
+    });
+  }
+
+  private submitOrder(customer?: CustomerInfo): void {
     const items = Object.entries(this.cart()).map(([menuItemId, quantity]) => ({ menuItemId, quantity }));
     const returnUrl = `${window.location.origin}/customer/order-point/${this.opId}/payment-return`;
     this.placing.set(true);
     this.error.set(null);
-    this.service.placeOrder(this.opId, items, returnUrl).subscribe({
+    this.service.placeOrder(this.opId, items, returnUrl, customer).subscribe({
       next: (result) => {
+        if (result.customerId) {
+          localStorage.setItem(this.CUSTOMER_KEY, result.customerId);
+          this.customerId.set(result.customerId);
+        }
         if (result.paymentUrl) {
-          // Pay-now: hand off to the gateway. Don't clear placing — we're navigating away.
+          // Pay-now: order handed to the gateway — clear the (persisted) cart, then navigate away.
+          this.cart.set({});
+          sessionStorage.removeItem(this.cartKey);
           window.location.href = result.paymentUrl;
           return;
         }

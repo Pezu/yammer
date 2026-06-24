@@ -9,10 +9,12 @@ import com.yammer.dto.OnlinePaymentStatusResponse;
 import com.yammer.dto.netopia.NetopiaIpnRequest;
 import com.yammer.dto.netopia.NetopiaIpnResponse;
 import com.yammer.dto.netopia.NetopiaStartResponse;
+import com.yammer.entity.CustomerEntity;
 import com.yammer.entity.LocationEntity;
 import com.yammer.entity.OnlinePaymentEntity;
 import com.yammer.entity.OnlinePaymentStatus;
 import com.yammer.entity.OrderPointEntity;
+import com.yammer.repository.CustomerRepository;
 import com.yammer.repository.LocationRepository;
 import com.yammer.repository.OnlinePaymentRepository;
 import com.yammer.repository.OrderPointRepository;
@@ -51,6 +53,7 @@ public class OnlinePaymentService {
     private final OnlinePaymentRepository onlinePaymentRepository;
     private final OrderPointRepository orderPointRepository;
     private final LocationRepository locationRepository;
+    private final CustomerRepository customerRepository;
     private final OrderService orderService;
     private final NetopiaPaymentService netopiaPaymentService;
     private final NetopiaProperties props;
@@ -78,18 +81,28 @@ public class OnlinePaymentService {
         List<ResolvedLine> lines = orderService.resolveCustomerOrderLines(op, request.items());
         BigDecimal amount = orderService.totalOf(lines);
 
+        // Resolve the customer (returning → by id; first-time → create/reuse by phone) for billing.
+        CustomerEntity customer = resolveCustomer(request.customer());
+
         OnlinePaymentEntity intent = new OnlinePaymentEntity();
         intent.setOrderPointId(op.getId());
         intent.setEventId(op.getEventId());
+        intent.setCustomerId(customer != null ? customer.getId() : null);
         intent.setAmount(amount);
         intent.setItems(writeItems(lines));
         intent.setStatus(OnlinePaymentStatus.PENDING);
         intent.setCreatedAt(LocalDateTime.now());
         OnlinePaymentEntity saved = onlinePaymentRepository.save(intent);
 
+        String firstName = customer != null ? customer.getFirstName() : "Guest";
+        String lastName = customer != null ? customer.getLastName() : "Customer";
+        String email = customer == null ? null : customer.getEmail();
+        String phone = customer == null ? null
+                : ((customer.getPrefix() == null ? "" : customer.getPrefix())
+                        + (customer.getPhone() == null ? "" : customer.getPhone()));
         String redirectUrl = appendRef(request.returnUrl(), saved.getId());
         NetopiaStartResponse response = netopiaPaymentService.startPayment(
-                saved.getId().toString(), amount.doubleValue(), "Guest", "Customer", redirectUrl);
+                saved.getId().toString(), amount.doubleValue(), firstName, lastName, email, phone, redirectUrl);
         String paymentUrl = response == null || response.payment() == null
                 ? null : response.payment().paymentURL();
         if (paymentUrl == null) {
@@ -99,7 +112,55 @@ public class OnlinePaymentService {
             saved.setNtpId(response.payment().ntpID());
             saved.setUpdatedAt(LocalDateTime.now());
         }
-        return CustomerOrderResponse.redirect(saved.getId(), paymentUrl);
+        return CustomerOrderResponse.redirect(
+                saved.getId(), paymentUrl, customer != null ? customer.getId() : null);
+    }
+
+    /**
+     * Resolves the customer for a pay-now order: by id when a returning customer is known, otherwise
+     * create or reuse one keyed by phone from the supplied name. Returns null when no identity was
+     * provided (anonymous → generic billing name).
+     */
+    private CustomerEntity resolveCustomer(CustomerOrderRequest.Customer c) {
+        if (c == null) {
+            return null;
+        }
+        if (c.id() != null) {
+            return customerRepository.findById(c.id()).orElse(null);
+        }
+        String first = c.firstName() == null ? "" : c.firstName().trim();
+        String last = c.lastName() == null ? "" : c.lastName().trim();
+        String email = c.email() == null ? "" : c.email().trim();
+        String prefix = c.prefix() == null ? "" : c.prefix().trim();
+        String phone = c.phone() == null ? "" : c.phone().trim();
+        if (first.isEmpty() && last.isEmpty()) {
+            return null;
+        }
+        if (!phone.isEmpty()) {
+            CustomerEntity existing = customerRepository.findFirstByPrefixAndPhone(prefix, phone).orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+        }
+        CustomerEntity created = new CustomerEntity();
+        created.setFirstName(first.isEmpty() ? "Guest" : first);
+        created.setLastName(last.isEmpty() ? "Customer" : last);
+        created.setEmail(email.isEmpty() ? null : email);
+        created.setPrefix(prefix.isEmpty() ? null : prefix);
+        created.setPhone(phone.isEmpty() ? null : phone);
+        return customerRepository.save(created);
+    }
+
+    /** Look up a customer id by prefix + phone for the pay-now flow; null when not found. */
+    @Transactional(readOnly = true)
+    public UUID lookupCustomerId(String prefix, String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        return customerRepository
+                .findFirstByPrefixAndPhone(prefix == null ? "" : prefix.trim(), phone.trim())
+                .map(CustomerEntity::getId)
+                .orElse(null);
     }
 
     /**
@@ -172,7 +233,7 @@ public class OnlinePaymentService {
         List<ResolvedLine> lines = readItems(intent.getItems());
 
         OnlineOrderResult result = orderService.createPaidOnlineOrder(
-                op, location, lines, ntpId != null ? ntpId : intent.getNtpId());
+                op, location, lines, ntpId != null ? ntpId : intent.getNtpId(), intent.getCustomerId());
 
         intent.setStatus(OnlinePaymentStatus.PAID);
         intent.setOrderId(result.orderId());

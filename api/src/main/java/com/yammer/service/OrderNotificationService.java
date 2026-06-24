@@ -47,11 +47,14 @@ public class OrderNotificationService {
     private void notify(OrderEntity order, String type) {
         try {
             OrderPointEntity table = orderPointRepository.findById(order.getOrderPointId()).orElse(null);
-            if (table == null || table.getServiceOrderPointId() == null) {
-                return; // no service point configured → nobody to notify
+            if (table == null) {
+                return;
             }
-            OrderPointEntity servicePoint =
-                    orderPointRepository.findById(table.getServiceOrderPointId()).orElse(null);
+            // A table routes to its service point; a bar/station with no routing serves itself.
+            UUID servicePointId = table.getServiceOrderPointId() != null
+                    ? table.getServiceOrderPointId()
+                    : table.getId();
+            OrderPointEntity servicePoint = orderPointRepository.findById(servicePointId).orElse(null);
             if (servicePoint == null) {
                 return;
             }

@@ -27,6 +27,11 @@ public class CustomerEntity {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
+    /** International dial prefix, e.g. {@code +40}. */
+    @Column
+    private String prefix;
+
+    /** Phone number without the prefix. */
     @Column
     private String phone;
 

@@ -32,6 +32,10 @@ public class OrderEntity {
     @Column(name = "event_id")
     private UUID eventId;
 
+    /** The customer who placed it (self-service pay-now orders); null otherwise. */
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     @Column(name = "created_by")
     private String createdBy;
 

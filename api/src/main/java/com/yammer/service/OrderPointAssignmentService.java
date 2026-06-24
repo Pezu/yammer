@@ -185,8 +185,10 @@ public class OrderPointAssignmentService {
     }
 
     /**
-     * Service kanban board for the current user: undelivered orders placed on order points whose
-     * service point (order_point.service_order_point_id) is one this user is assigned to.
+     * Service kanban board for the current user: undelivered orders from the order points whose
+     * service point (order_point.service_order_point_id) is a station this user is assigned to —
+     * plus orders placed directly on the stations themselves. A bar/station with no downstream
+     * service point implicitly serves its own orders (no self-routing config needed).
      */
     @Transactional(readOnly = true)
     public List<OrderResponse> serviceBoard() {
@@ -199,13 +201,14 @@ public class OrderPointAssignmentService {
                 .map(OrderPointEntity::getId)
                 .collect(Collectors.toSet());
 
-        // The order points (tables) routed to those service stations.
-        List<OrderPointEntity> sources = orderPointRepository.findByServiceOrderPointIdIn(servicePointIds);
-        if (sources.isEmpty()) {
-            return List.of();
+        // Sources = tables routed to those stations + the stations themselves (implied self-serve).
+        Map<UUID, String> names = new LinkedHashMap<>();
+        for (OrderPointEntity sp : myServicePoints) {
+            names.put(sp.getId(), sp.getName());
         }
-        Map<UUID, String> names = sources.stream()
-                .collect(Collectors.toMap(OrderPointEntity::getId, OrderPointEntity::getName));
+        for (OrderPointEntity src : orderPointRepository.findByServiceOrderPointIdIn(servicePointIds)) {
+            names.put(src.getId(), src.getName());
+        }
 
         List<OrderEntity> orders = orderRepository.findByOrderPointIdInAndStatusInOrderByCreatedAtDesc(
                 names.keySet(), OrderService.BOARD_STATUSES);

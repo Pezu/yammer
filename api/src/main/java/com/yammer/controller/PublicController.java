@@ -1,10 +1,13 @@
 package com.yammer.controller;
 
+import com.yammer.dto.CustomerLookupRequest;
+import com.yammer.dto.CustomerLookupResponse;
 import com.yammer.dto.CustomerOrderPointResponse;
 import com.yammer.dto.CustomerOrderRequest;
 import com.yammer.dto.CustomerOrderResponse;
 import com.yammer.dto.MenuItemNode;
 import com.yammer.dto.OnlinePaymentStatusResponse;
+import com.yammer.dto.PublicOrderResponse;
 import com.yammer.dto.netopia.NetopiaIpnRequest;
 import com.yammer.dto.netopia.NetopiaIpnResponse;
 import com.yammer.entity.EventEntity;
@@ -64,7 +67,7 @@ public class PublicController {
                 ? List.of()
                 : menuService.getTreeUnchecked(op.getMenuId());
         return new CustomerOrderPointResponse(
-                op.getId(), op.getName(), op.getEventId(), eventName, clientId, menu);
+                op.getId(), op.getName(), op.getEventId(), eventName, clientId, op.isPayLater(), menu);
     }
 
     /**
@@ -81,6 +84,20 @@ public class PublicController {
             return CustomerOrderResponse.placed(orderService.placeCustomerOrder(opId, request));
         }
         return onlinePaymentService.start(opId, request);
+    }
+
+    /** Look up a customer by dial prefix + phone (pay-now flow): returns the id if known, else null. */
+    @PostMapping("/customers/lookup")
+    public CustomerLookupResponse lookupCustomer(@RequestBody CustomerLookupRequest request) {
+        return new CustomerLookupResponse(
+                onlinePaymentService.lookupCustomerId(request.prefix(), request.phone()));
+    }
+
+    /** A customer's order history at one event (self-service "Orders" view). */
+    @GetMapping("/customers/{customerId}/orders")
+    public List<PublicOrderResponse> customerOrders(
+            @PathVariable UUID customerId, @RequestParam UUID eventId) {
+        return orderService.customerOrders(customerId, eventId);
     }
 
     /** Status of an online payment intent — polled by the customer return page after the gateway. */

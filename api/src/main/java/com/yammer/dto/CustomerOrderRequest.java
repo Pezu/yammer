@@ -12,8 +12,17 @@ import java.util.UUID;
  * order point the client also sends {@code returnUrl} — where the gateway redirects the browser
  * after payment (the server appends the payment reference).
  */
-public record CustomerOrderRequest(@NotEmpty List<Line> items, String returnUrl) {
+public record CustomerOrderRequest(@NotEmpty List<Line> items, String returnUrl, Customer customer) {
 
     public record Line(@NotNull UUID menuItemId, @Min(1) int quantity) {
+    }
+
+    /**
+     * Optional customer identity for the pay-now flow. A returning customer sends {@code id};
+     * a first-time one sends prefix + phone + name + email (the server creates/reuses a customer
+     * keyed on prefix+phone and returns its id).
+     */
+    public record Customer(
+            UUID id, String firstName, String lastName, String email, String prefix, String phone) {
     }
 }

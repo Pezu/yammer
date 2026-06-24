@@ -9,6 +9,7 @@ import com.yammer.dto.OrderResponse;
 import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
+import com.yammer.dto.PublicOrderResponse;
 import com.yammer.event.OrderChangedEvent;
 import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.entity.FiscalStatus;
@@ -35,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -170,7 +172,7 @@ public class OrderService {
                 .orElseThrow(() -> notFound(orderPointId));
         List<ResolvedLine> lines = resolveCustomerOrderLines(op, request.items());
 
-        OrderEntity savedOrder = saveOrderWithItems(op, location, lines, "ORDERED", null);
+        OrderEntity savedOrder = saveOrderWithItems(op, location, lines, "ORDERED", null, null);
         eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
         return savedOrder.getId();
     }
@@ -181,7 +183,8 @@ public class OrderService {
      * the confirmed-IPN counterpart of {@link #placeCustomerOrder} for pay-now order points.
      */
     public OnlineOrderResult createPaidOnlineOrder(
-            OrderPointEntity op, LocationEntity location, List<ResolvedLine> lines, String ntpId) {
+            OrderPointEntity op, LocationEntity location, List<ResolvedLine> lines,
+            String ntpId, UUID customerId) {
         BigDecimal amount = totalOf(lines);
 
         PaymentEntity payment = new PaymentEntity();
@@ -195,7 +198,8 @@ public class OrderService {
         payment.setExternalRef(ntpId);
         PaymentEntity savedPayment = paymentRepository.save(payment);
 
-        OrderEntity savedOrder = saveOrderWithItems(op, location, lines, "ORDERED", savedPayment.getId());
+        OrderEntity savedOrder =
+                saveOrderWithItems(op, location, lines, "ORDERED", savedPayment.getId(), customerId);
 
         eventPublisher.publishEvent(new OrderChangedEvent(savedOrder, "ORDER_CREATED"));
         // fiscalize via the durable outbox once this transaction commits (same as a card payment)
@@ -203,17 +207,62 @@ public class OrderService {
         return new OnlineOrderResult(savedOrder.getId(), savedPayment.getId());
     }
 
+    /** A customer's order history at one event, newest first (public QR order-history view). */
+    @Transactional(readOnly = true)
+    public List<PublicOrderResponse> customerOrders(UUID customerId, UUID eventId) {
+        if (customerId == null || eventId == null) {
+            return List.of();
+        }
+        List<OrderEntity> orders =
+                orderRepository.findByCustomerIdAndEventIdOrderByCreatedAtDesc(customerId, eventId);
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<OrderItemEntity>> itemsByOrder = orderItemRepository
+                .findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
+                .collect(Collectors.groupingBy(OrderItemEntity::getOrderId));
+        // Group by status (READY → ORDERED → DELIVERED → other), newest first within each.
+        // The source list is already createdAt-desc and the sort is stable, so time order holds.
+        return orders.stream()
+                .sorted(Comparator.comparingInt(o -> customerOrderStatusRank(o.getStatus())))
+                .map(o -> {
+            List<OrderItemEntity> items = itemsByOrder.getOrDefault(o.getId(), List.of());
+            BigDecimal total = items.stream()
+                    .map(i -> (i.getPrice() == null ? BigDecimal.ZERO : i.getPrice())
+                            .multiply(BigDecimal.valueOf(i.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, RoundingMode.HALF_UP);
+            List<PublicOrderResponse.Item> lines = items.stream()
+                    .map(i -> new PublicOrderResponse.Item(i.getName(), i.getQuantity(), i.getPrice()))
+                    .toList();
+            return new PublicOrderResponse(
+                    o.getId(), o.getOrderNo(), o.getStatus(), o.getCreatedAt(), total, lines);
+        }).toList();
+    }
+
+    /** Display order for the customer order history: READY, then ORDERED, then DELIVERED, then rest. */
+    private static int customerOrderStatusRank(String status) {
+        return switch (status == null ? "" : status) {
+            case "READY" -> 0;
+            case "ORDERED" -> 1;
+            case "DELIVERED" -> 2;
+            default -> 3; // CANCELED / unknown last
+        };
+    }
+
     /**
      * Persists an order and its line items. When {@code paymentId} is non-null every line is stamped
-     * with it (fully settled); otherwise lines are left unpaid.
+     * with it (fully settled); otherwise lines are left unpaid. {@code customerId} attributes the
+     * order to a customer (self-service pay-now) or null.
      */
     private OrderEntity saveOrderWithItems(
             OrderPointEntity op, LocationEntity location, List<ResolvedLine> lines,
-            String status, UUID paymentId) {
+            String status, UUID paymentId, UUID customerId) {
         OrderEntity order = new OrderEntity();
         order.setOrderNo(orderRepository.maxOrderNoForClient(location.getClientId()) + 1);
         order.setOrderPointId(op.getId());
         order.setEventId(op.getEventId());
+        order.setCustomerId(customerId);
         order.setCreatedBy("Customer");
         order.setCreatedAt(LocalDateTime.now());
         order.setStatus(status);

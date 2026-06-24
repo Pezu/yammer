@@ -8,13 +8,13 @@ import java.util.UUID;
  * exists yet — the customer is redirected to {@code paymentUrl} and the order is created once the
  * gateway confirms; {@code reference} is the online-payment id the return page polls for status.
  */
-public record CustomerOrderResponse(UUID orderId, String paymentUrl, UUID reference) {
+public record CustomerOrderResponse(UUID orderId, String paymentUrl, UUID reference, UUID customerId) {
 
     public static CustomerOrderResponse placed(UUID orderId) {
-        return new CustomerOrderResponse(orderId, null, null);
+        return new CustomerOrderResponse(orderId, null, null, null);
     }
 
-    public static CustomerOrderResponse redirect(UUID reference, String paymentUrl) {
-        return new CustomerOrderResponse(null, paymentUrl, reference);
+    public static CustomerOrderResponse redirect(UUID reference, String paymentUrl, UUID customerId) {
+        return new CustomerOrderResponse(null, paymentUrl, reference, customerId);
     }
 }

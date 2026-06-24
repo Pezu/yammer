@@ -1,6 +1,7 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { timeAgo } from '../../shared/relative-time';
 import { environment } from '../../../environments/environment';
 import { AppLogo } from '../../shared/logo.component';
 import { OrderStatus, ServiceOrder, ServiceOrderService } from './service-order.service';
@@ -156,8 +157,9 @@ export class ServicePage implements OnDestroy {
     this.wakeLock = null;
   }
 
+  /** Relative time, same format as the customer order view. */
   time(iso: string): string {
-    return iso.length >= 16 ? iso.substring(11, 16) : iso;
+    return timeAgo(iso);
   }
 
   // --- status transitions -------------------------------------------------

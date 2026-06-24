@@ -157,6 +157,15 @@ export const routes: Routes = [
   },
   {
     path: 'customer/order-point/:opId',
+    data: { view: 'menu' },
+    loadComponent: () =>
+      import('./features/customer/customer-order-point-page').then(
+        (m) => m.CustomerOrderPointPage,
+      ),
+  },
+  {
+    path: 'customer/order-point/:opId/orders',
+    data: { view: 'orders' },
     loadComponent: () =>
       import('./features/customer/customer-order-point-page').then(
         (m) => m.CustomerOrderPointPage,

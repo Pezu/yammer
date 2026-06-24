@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ActiveOrder, WaiterOrderPointService } from '../tables/waiter-order-point.service';
 
 type Tab = 'ORDERED' | 'READY';
@@ -229,12 +230,17 @@ type Tab = 'ORDERED' | 'READY';
 })
 export class WaiterOrdersPage {
   private readonly service = inject(WaiterOrderPointService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly orders = signal<ActiveOrder[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly busy = signal<Set<string>>(new Set());
-  readonly tab = signal<Tab>('READY');
+  // tab persisted in the URL (?tab=) so a refresh stays on the same status
+  readonly tab = signal<Tab>(
+    this.route.snapshot.queryParamMap.get('tab') === 'ORDERED' ? 'ORDERED' : 'READY',
+  );
   readonly comboOpen = signal(false);
 
   constructor() {
@@ -253,6 +259,12 @@ export class WaiterOrdersPage {
     this.comboOpen.set(false);
     if (this.tab() === tab) return;
     this.tab.set(tab);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
     this.load();
   }
 

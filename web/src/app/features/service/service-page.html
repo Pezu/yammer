@@ -37,40 +37,41 @@
               [class.dim]="dragging() === o.id"
               (pointerdown)="onPointerDown(o, $event)"
             >
-              <div class="card-head">
-                <span class="head-left">
-                  <span class="op">{{ o.orderPointName }}</span>
-                  @if (o.createdBy) {
-                    <span class="waiter">{{ o.createdBy }}</span>
+              <div class="card-info">
+                <div class="card-head">
+                  <span class="head-left">
+                    <span class="ord-no">#{{ o.orderNo }}</span>
+                    <span class="op">{{ o.orderPointName }}</span>
+                    @if (o.createdBy) {
+                      <span class="waiter">{{ o.createdBy }}</span>
+                    }
+                  </span>
+                  <span class="time">{{ time(o.createdAt) }}</span>
+                </div>
+
+                <ul class="items">
+                  @for (it of o.items; track it.id) {
+                    <li>
+                      <span class="qty">{{ it.quantity }}×</span>
+                      <span class="iname" [innerHTML]="it.name"></span>
+                    </li>
                   }
-                </span>
-                <span class="time">{{ time(o.createdAt) }}</span>
+                </ul>
               </div>
 
-              <ul class="items">
-                @for (it of o.items; track it.id) {
-                  <li>
-                    <span class="qty">{{ it.quantity }}×</span>
-                    <span class="iname" [innerHTML]="it.name"></span>
-                  </li>
+              <div class="actions">
+                @if (o.status === 'ORDERED') {
+                  <button type="button" class="act fwd ok" (click)="ready(o)" title="Mark ready">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                } @else if (o.status === 'READY') {
+                  <button type="button" class="act back" (click)="back(o)" title="Move back">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <button type="button" class="act done" (click)="deliver(o)" title="Delivered">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </button>
                 }
-              </ul>
-
-              <div class="card-foot">
-                <div class="actions">
-                  @if (o.status === 'ORDERED') {
-                    <button type="button" class="act fwd ok" (click)="ready(o)" title="Mark ready">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                    </button>
-                  } @else if (o.status === 'READY') {
-                    <button type="button" class="act back" (click)="back(o)" title="Move back">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <button type="button" class="act done" (click)="deliver(o)" title="Delivered">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </button>
-                  }
-                </div>
               </div>
             </article>
           }

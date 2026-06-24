@@ -50,6 +50,9 @@ public interface OrderRepository
 
     List<OrderEntity> findByOrderPointIdOrderByCreatedAtAsc(UUID orderPointId);
 
+    /** A customer's orders at one event, newest first — for the self-service order history. */
+    List<OrderEntity> findByCustomerIdAndEventIdOrderByCreatedAtDesc(UUID customerId, UUID eventId);
+
     /**
      * Orders for the given points restricted to a set of statuses (newest first). Lets the
      * service/waiter boards fetch only ORDERED/READY rows instead of loading full history and

@@ -16,6 +16,7 @@ export interface ServiceOrderItem {
 
 export interface ServiceOrder {
   id: string;
+  orderNo: number;
   orderPointId: string;
   orderPointName: string;
   createdBy: string | null;
