@@ -70,16 +70,16 @@ public class WebPushService {
         return pushService != null;
     }
 
-    /** Push a notification to every subscription of {@code username}; prune ones the service rejects. */
+    /** Push a JSON payload to every subscription of {@code username}; prune ones the service rejects. */
     @Transactional
-    public void sendToUser(String username, String title, String body, String url) {
+    public void sendToUser(String username, Map<String, Object> data) {
         if (pushService == null || username == null) {
             log.info("Web push skipped (enabled={}, user={})", pushService != null, username);
             return;
         }
         final String payload;
         try {
-            payload = objectMapper.writeValueAsString(Map.of("title", title, "body", body, "url", url));
+            payload = objectMapper.writeValueAsString(data);
         } catch (Exception e) {
             return;
         }
@@ -101,14 +101,19 @@ public class WebPushService {
         }
     }
 
+    private static final String ORDERS_TAG = "waiter-orders";
+
     /**
-     * When an order at a pay-later order point is marked READY, notify every waiter assigned to that
-     * order point (Configuration → Assign), so any assigned waiter can deliver it.
+     * Push to every waiter assigned (Configuration → Assign) to a pay-later order point when one of
+     * its orders changes: READY adds a stacked "order ready" notification; DELIVERED sends a remove
+     * message so the same order's line drops out of that stack on every assigned device.
      */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onOrderChanged(OrderChangedEvent event) {
-        if (!"ORDER_READY".equals(event.type())) {
+        boolean ready = "ORDER_READY".equals(event.type());
+        boolean delivered = "ORDER_DELIVERED".equals(event.type());
+        if (!ready && !delivered) {
             return;
         }
         OrderEntity order = event.order();
@@ -116,25 +121,43 @@ public class WebPushService {
         if (op == null || !op.isPayLater()) {
             return; // only pay-later order points notify their assigned waiters
         }
+        List<String> usernames = assignedWaiters(op);
+        if (usernames.isEmpty()) {
+            return;
+        }
+        Map<String, Object> payload = ready
+                ? Map.of(
+                        "type", "ready",
+                        "tag", ORDERS_TAG,
+                        "orderNo", order.getOrderNo(),
+                        "title", "Order ready",
+                        "body", "Order #" + order.getOrderNo() + " at " + op.getName() + " is ready.",
+                        "url", "/waiter/orders")
+                : Map.of(
+                        "type", "remove",
+                        "tag", ORDERS_TAG,
+                        "orderNo", order.getOrderNo(),
+                        "url", "/waiter/orders");
+        log.info("{} #{} at {} → {} assigned waiters {}",
+                event.type(), order.getOrderNo(), op.getName(), ready ? "notifying" : "clearing for", usernames);
+        for (String username : usernames) {
+            sendToUser(username, payload);
+        }
+    }
+
+    /** Usernames of all waiters assigned to the order point's parent group at its location. */
+    private List<String> assignedWaiters(OrderPointEntity op) {
         String parent = OrderPointAssignmentService.parentOf(op.getName());
         List<OrderPointAssignmentEntity> assignments =
                 assignmentRepository.findByLocationIdAndParentName(op.getLocationId(), parent);
         if (assignments.isEmpty()) {
-            log.info("ORDER_READY #{} at {} — no waiters assigned", order.getOrderNo(), op.getName());
-            return;
+            return List.of();
         }
         Set<UUID> userIds = assignments.stream()
                 .map(OrderPointAssignmentEntity::getUserId)
                 .collect(Collectors.toSet());
-        List<String> usernames = userRepository.findAllById(userIds).stream()
+        return userRepository.findAllById(userIds).stream()
                 .map(UserEntity::getUsername)
                 .toList();
-        log.info("ORDER_READY #{} at {} → notifying assigned waiters {}",
-                order.getOrderNo(), op.getName(), usernames);
-        String title = "Order ready";
-        String body = "Order #" + order.getOrderNo() + " at " + op.getName() + " is ready.";
-        for (String username : usernames) {
-            sendToUser(username, title, body, "/waiter/orders");
-        }
     }
 }

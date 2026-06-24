@@ -12,31 +12,43 @@ self.addEventListener('push', (event) => {
     data = { body: event.data ? event.data.text() : '' };
   }
 
-  // WhatsApp-style stacking: pushes sharing a `tag` collapse into one notification. We read the
-  // lines already shown for that tag, append this one, and re-show a single combined notification.
+  // WhatsApp-style stacking: pushes sharing a `tag` collapse into one notification, keyed by
+  // orderNo. A 'ready' push appends/updates that order's line; a 'remove' push (sent when the
+  // order is delivered) drops its line — and closes the notification once nothing's left.
   const tag = data.tag || 'waiter-orders';
   const url = data.url || '/waiter';
-  const line = data.body || '';
+  const orderNo = data.orderNo;
+  const remove = data.type === 'remove';
 
   event.waitUntil(
     self.registration.getNotifications({ tag }).then((existing) => {
-      let lines = [];
+      let items = [];
       for (const n of existing) {
-        if (n.data && Array.isArray(n.data.lines)) {
-          lines = lines.concat(n.data.lines);
+        if (n.data && Array.isArray(n.data.items)) {
+          items = items.concat(n.data.items);
         }
       }
-      if (line) lines.push(line);
-      lines = lines.slice(-MAX_LINES);
+      // Drop any existing entry for this order (dedupe on re-ready, or remove on delivered).
+      if (orderNo != null) {
+        items = items.filter((it) => it.orderNo !== orderNo);
+      }
+      if (!remove) {
+        items.push({ orderNo, line: data.body || '' });
+      }
+      items = items.slice(-MAX_LINES);
 
-      const title = lines.length > 1 ? `${lines.length} orders ready` : data.title || 'Yammer';
+      if (items.length === 0) {
+        for (const n of existing) n.close(); // delivered the last one — clear the stack
+        return;
+      }
+      const title = items.length > 1 ? `${items.length} orders ready` : data.title || 'Order ready';
       return self.registration.showNotification(title, {
-        body: lines.join('\n'),
+        body: items.map((it) => it.line).join('\n'),
         icon: '/assets/images/logo-abbr.png',
         badge: '/assets/images/logo-abbr.png',
         tag, // same tag → OS replaces the previous notification instead of adding a new one
-        renotify: true, // still buzz/alert on each new message
-        data: { url, lines },
+        renotify: !remove, // buzz on a new order, stay quiet when one is just cleared
+        data: { url, items },
       });
     }),
   );
