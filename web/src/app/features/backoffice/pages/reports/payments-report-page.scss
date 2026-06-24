@@ -1,0 +1,266 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.page-header {
+  flex: none;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.page-header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+/* event filter combo — same as the dashboard / orders report */
+.event-combo {
+  position: relative;
+}
+.event-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 200px;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.event-trigger.placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+.event-trigger .caret {
+  color: var(--muted);
+  flex: none;
+}
+.event-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+.event-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 21;
+  min-width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 0.5rem 1.5rem rgba(18, 27, 46, 0.15);
+  overflow: hidden;
+}
+.event-search {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.event-search input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.event-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.event-list {
+  margin: 0;
+  padding: 0.25rem;
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+}
+.event-empty {
+  padding: 0.6rem 0.65rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.event-option {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.event-option:hover {
+  background: var(--page-bg);
+}
+.event-option.active {
+  color: var(--primary);
+  background: rgba(52, 84, 209, 0.08);
+  font-weight: 600;
+}
+
+/* outside padding (gutter) around the panel — bottom matches the sides; fills remaining height */
+.page-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 1.5rem 2rem 2rem;
+}
+
+/* bordered widget panel, like the dashboard — stretches to the bottom of the page */
+.widget {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tab-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0 0;
+}
+/* the table scrolls inside the widget; the pager stays pinned at the bottom */
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.state {
+  margin: 1.5rem 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* table — inside padding from the cell padding (1.25rem), like the dashboard grid */
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.grid th,
+.grid td {
+  padding: 0.55rem 1.25rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.grid th {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+/* keep headers visible while the body scrolls */
+.grid thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.grid td.num,
+.grid th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.grid .filter-row th {
+  padding: 4px 8px;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.fiscal.failed {
+  color: var(--danger);
+  font-weight: 600;
+}
+.retry-btn {
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.retry-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.retry-btn.spinning svg {
+  animation: retry-spin 0.8s linear infinite;
+}
+@keyframes retry-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pager {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.range {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.pager-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pager-btns .page {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.pager-btns button {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pager-btns button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

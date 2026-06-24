@@ -196,6 +196,21 @@
   }
 }
 
+/* the notifications toggle is a <button> but should look like a drawer link */
+button.drawer-link {
+  width: 100%;
+  font-family: inherit;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
 .drawer-logout {
   display: flex;
   align-items: center;

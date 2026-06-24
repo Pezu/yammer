@@ -12,6 +12,7 @@ import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 import { AppLogo } from '../../shared/logo.component';
+import { WaiterPushService } from './waiter-push.service';
 
 @Component({
   selector: 'app-waiter-layout',
@@ -24,6 +25,7 @@ export class WaiterLayout implements OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly toast = inject(ToastService);
+  readonly push = inject(WaiterPushService);
 
   /** Title of the current page, shown centered in the topbar (from each route's `title`). */
   readonly pageTitle = signal('');
@@ -44,6 +46,18 @@ export class WaiterLayout implements OnDestroy {
         takeUntilDestroyed(),
       )
       .subscribe(() => this.pageTitle.set(this.currentTitle()));
+    this.push.refresh();
+  }
+
+  /** Enable/disable OS push notifications for this device (asks permission on enable). */
+  async toggleNotifications(): Promise<void> {
+    if (this.push.subscribed()) {
+      await this.push.disable();
+      this.toast.show('Notifications off');
+      return;
+    }
+    const ok = await this.push.enable();
+    this.toast.show(ok ? 'Notifications enabled' : 'Could not enable notifications');
   }
 
   /** The deepest activated child route's `title` (snapshot may be absent mid-activation). */

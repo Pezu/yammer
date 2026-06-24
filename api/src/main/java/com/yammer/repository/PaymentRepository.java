@@ -9,10 +9,21 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PaymentRepository extends JpaRepository<PaymentEntity, UUID> {
+public interface PaymentRepository
+        extends JpaRepository<PaymentEntity, UUID>, JpaSpecificationExecutor<PaymentEntity> {
+
+    /** Distinct payment methods present for an event — for the payments-report filter combo. */
+    @Query("select distinct p.method from PaymentEntity p where p.eventId = :eventId")
+    List<PaymentMethod> distinctMethodsByEvent(@Param("eventId") UUID eventId);
+
+    /** Distinct users (createdBy) present for an event. */
+    @Query("select distinct p.createdBy from PaymentEntity p "
+            + "where p.eventId = :eventId and p.createdBy is not null")
+    List<String> distinctUsersByEvent(@Param("eventId") UUID eventId);
 
     List<PaymentEntity> findByOrderPointIdOrderByCreatedAtDesc(UUID orderPointId);
 

@@ -349,6 +349,9 @@ public class OrderService {
         OrderEntity saved = orderRepository.save(order);
         if ("DELIVERED".equals(next)) {
             eventPublisher.publishEvent(new OrderChangedEvent(saved, "ORDER_DELIVERED"));
+        } else if ("READY".equals(next)) {
+            // notify the waiter who placed it (Web Push to the waiter PWA)
+            eventPublisher.publishEvent(new OrderChangedEvent(saved, "ORDER_READY"));
         }
         List<OrderItemEntity> items = orderItemRepository.findByOrderIdIn(List.of(saved.getId()));
         return OrderResponse.from(saved, items, op.getName());

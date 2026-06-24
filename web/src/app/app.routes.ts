@@ -90,6 +90,13 @@ export const routes: Routes = [
                 (m) => m.OrdersReportPage,
               ),
           },
+          {
+            path: 'payments',
+            loadComponent: () =>
+              import('./features/backoffice/pages/reports/payments-report-page').then(
+                (m) => m.PaymentsReportPage,
+              ),
+          },
           { path: '', redirectTo: 'orders', pathMatch: 'full' },
         ],
       },

@@ -12,6 +12,8 @@ import com.yammer.dto.SalesIntervalRow;
 import com.yammer.dto.SalesSummaryResponse;
 import com.yammer.dto.TableReportRow;
 import com.yammer.dto.WaiterReportRow;
+import com.yammer.dto.PaymentFilterOptions;
+import com.yammer.dto.PaymentReportRow;
 import com.yammer.dto.WaiterTableRow;
 import com.yammer.service.OrderService;
 import com.yammer.service.SalesReportService;
@@ -118,6 +120,27 @@ public class OrderController {
     @PreAuthorize(REPORTS)
     public List<WaiterTableRow> waiterTablesReport(@RequestParam(required = false) UUID eventId) {
         return salesReportService.waiterTables(eventId);
+    }
+
+    /** One page of the event's payments (newest first), filtered server-side. */
+    @GetMapping("/payments-report/page")
+    @PreAuthorize(REPORTS)
+    public PagedResponse<PaymentReportRow> paymentsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) UUID eventId,
+            @RequestParam(required = false) String method,
+            @RequestParam(required = false) UUID orderPointId,
+            @RequestParam(required = false) String createdBy,
+            @RequestParam(required = false) String fiscalStatus) {
+        return salesReportService.paymentsPaged(page, size, eventId, method, orderPointId, createdBy, fiscalStatus);
+    }
+
+    /** Distinct filter values (method / order point / user / fiscal) for the payments report. */
+    @GetMapping("/payments-filter-options")
+    @PreAuthorize(REPORTS)
+    public PaymentFilterOptions paymentFilterOptions(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.paymentFilterOptions(eventId);
     }
 
     /** Move an order to a new kanban status. */

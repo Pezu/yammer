@@ -67,6 +67,33 @@ export interface ProductReportRow {
   quantity: number;
 }
 
+export interface PaymentReportRow {
+  id: string;
+  createdAt: string;
+  orderPoint: string;
+  method: string;
+  amount: number;
+  tip: number;
+  fiscalStatus: string;
+  receiptNumber: string | null;
+  createdBy: string | null;
+}
+
+export interface PaymentFilters {
+  eventId?: string | null;
+  method?: string | null;
+  orderPointId?: string | null;
+  createdBy?: string | null;
+  fiscalStatus?: string | null;
+}
+
+export interface PaymentFilterOptions {
+  methods: string[];
+  orderPoints: { id: string; name: string }[];
+  users: string[];
+  fiscalStatuses: string[];
+}
+
 export interface SalesIntervalRow {
   interval: string;
   amountOrdered: number;
@@ -155,6 +182,38 @@ export class OrderReportService {
     return this.http.get<ProductReportRow[]>(`${this.baseUrl}/products-report`, {
       params: this.eventParams(eventId),
     });
+  }
+
+  /** One page of payments (newest first), filtered server-side. */
+  paymentsPaged(
+    page: number,
+    size: number,
+    filters: PaymentFilters = {},
+  ): Observable<PagedResponse<PaymentReportRow>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filters.eventId) params = params.set('eventId', filters.eventId);
+    if (filters.method) params = params.set('method', filters.method);
+    if (filters.orderPointId) params = params.set('orderPointId', filters.orderPointId);
+    if (filters.createdBy) params = params.set('createdBy', filters.createdBy);
+    if (filters.fiscalStatus) params = params.set('fiscalStatus', filters.fiscalStatus);
+    return this.http.get<PagedResponse<PaymentReportRow>>(`${this.baseUrl}/payments-report/page`, {
+      params,
+    });
+  }
+
+  /** Distinct filter values (method / order point / user / fiscal) for the payments report. */
+  paymentFilterOptions(eventId?: string | null): Observable<PaymentFilterOptions> {
+    return this.http.get<PaymentFilterOptions>(`${this.baseUrl}/payments-filter-options`, {
+      params: this.eventParams(eventId),
+    });
+  }
+
+  /** Re-queue fiscalization for a failed payment. */
+  retryFiscal(paymentId: string): Observable<unknown> {
+    return this.http.post(
+      `${environment.apiUrl}/order-point-assignments/payments/${paymentId}/retry-fiscal`,
+      {},
+    );
   }
 
   sales(eventId?: string | null): Observable<SalesIntervalRow[]> {

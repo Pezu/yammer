@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
@@ -33,6 +34,9 @@ public class BridgeAuthHandshakeInterceptor implements HandshakeInterceptor {
     @Value("${bridge.api-key:}")
     private String apiKey;
 
+    /** Warn about the blank-key dev fallback only once, not on every (re)handshake. */
+    private final AtomicBoolean blankKeyWarned = new AtomicBoolean(false);
+
     private final Environment environment;
 
     public BridgeAuthHandshakeInterceptor(Environment environment) {
@@ -47,7 +51,9 @@ public class BridgeAuthHandshakeInterceptor implements HandshakeInterceptor {
             Map<String, Object> attributes) {
         if (apiKey == null || apiKey.isBlank()) {
             if (isDevProfile()) {
-                log.warn("bridge.api-key is blank — accepting bridge handshake without auth (dev profile only).");
+                if (blankKeyWarned.compareAndSet(false, true)) {
+                    log.warn("bridge.api-key is blank — accepting bridge handshakes without auth (dev profile only).");
+                }
                 return true;
             }
             log.error("bridge.api-key is blank in a non-dev profile — rejecting bridge handshake. Set BRIDGE_API_KEY.");

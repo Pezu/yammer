@@ -15,7 +15,7 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # dialect is auto-detected from the JDBC connection — don't set it explicitly.
         format_sql: false
         default_schema: yammer
         # Batch multi-row saveAll / per-line writes into fewer round-trips.
@@ -66,6 +66,13 @@ gcs:
 # Disabled by default; supply real credentials + enable per environment. Never commit live keys.
 # notify-url must be a PUBLICLY reachable URL of this app's /public/payments/netopia/notify
 # (use an ngrok/tunnel in dev). The browser redirect URL is sent per-request by the client.
+# Web Push (VAPID) for the waiter PWA. Blank keys → push disabled. Generate a pair with
+# `npx web-push generate-vapid-keys`; the private key is a secret (env / Secret Manager).
+webpush:
+  public-key: ${WEBPUSH_PUBLIC_KEY:}
+  private-key: ${WEBPUSH_PRIVATE_KEY:}
+  subject: ${WEBPUSH_SUBJECT:mailto:admin@yammer.app}
+
 netopia:
   enabled: ${NETOPIA_ENABLED:false}
   api-key: ${NETOPIA_API_KEY:}
