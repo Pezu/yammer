@@ -48,6 +48,12 @@ jwt:
 bridge:
   api-key: ${BRIDGE_API_KEY:}
 
+# Customer web app base URL — used to build the QR-code landing links (events → Export QR).
+# Override per environment (prod: set APP_CUSTOMER_BASE_URL=https://servioapp.ro).
+# The `local` dev profile overrides this with the dev machine's LAN IP.
+app:
+  customer-base-url: ${APP_CUSTOMER_BASE_URL:http://localhost:4200}
+
 # Google Cloud Storage for media (client logos, future menu-item images).
 # endpoint blank -> real GCS via Application Default Credentials (GCP/Cloud Run).
 # For local dev use the `local` profile, which points at the fake-gcs-server emulator.
