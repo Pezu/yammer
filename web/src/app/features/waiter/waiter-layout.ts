@@ -86,8 +86,11 @@ export class WaiterLayout implements OnDestroy {
     this.menuOpen.set(false);
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
     this.menuOpen.set(false);
+    // Tear down the push subscription first — /push/unsubscribe is authenticated, and we must
+    // not leave this device receiving the logged-out user's notifications.
+    await this.push.disable();
     this.auth.logout();
     this.router.navigateByUrl('/login');
   }
