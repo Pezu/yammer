@@ -20,13 +20,16 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
  * Unauthenticated, customer-facing endpoints (reached by scanning an order point's QR). Kept under
  * {@code /public/**}, which {@code SecurityConfig} permits without a token.
  */
+@Slf4j
 @RestController
 @RequestMapping("/public")
 @RequiredArgsConstructor
@@ -90,7 +94,17 @@ public class PublicController {
      * paid (or failed) here, never on the browser return.
      */
     @PostMapping("/payments/netopia/notify")
-    public NetopiaIpnResponse netopiaNotify(@RequestBody NetopiaIpnRequest request) {
+    public NetopiaIpnResponse netopiaNotify(
+            @RequestBody NetopiaIpnRequest request,
+            @RequestHeader(value = "Verification-token", required = false) String verificationToken,
+            @RequestHeader MultiValueMap<String, String> headers) {
+        // TEMP: log the raw IPN so we can design caller verification (Netopia signs a JWT in the
+        // `Verification-token` header — RSA/SHA512, sub = base64(sha512(body)), iss=NETOPIA Payments).
+        log.info("Netopia IPN: orderID={} status={} amount={} | Verification-token={} | headers={}",
+                request.order() == null ? null : request.order().orderID(),
+                request.payment() == null ? null : request.payment().status(),
+                request.order() == null ? null : request.order().amount(),
+                verificationToken, headers);
         return onlinePaymentService.handleIpn(request);
     }
 
