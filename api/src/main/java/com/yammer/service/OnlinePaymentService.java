@@ -129,8 +129,10 @@ public class OnlinePaymentService {
         }
 
         Integer status = request.payment().status();
+        // Netopia's IPN doesn't always echo the amount; only reject when it does AND it mismatches.
+        // (The amount Netopia charged is the one we sent at start, so absence is not a failure.)
         Double paidAmount = request.order().amount();
-        if (paidAmount == null || Math.abs(paidAmount - intent.getAmount().doubleValue()) > 0.01) {
+        if (paidAmount != null && Math.abs(paidAmount - intent.getAmount().doubleValue()) > 0.01) {
             log.warn("IPN amount mismatch for {}: paid={}, expected={}",
                     reference, paidAmount, intent.getAmount());
             markFailed(intent);
