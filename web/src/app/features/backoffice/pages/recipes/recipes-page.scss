@@ -3,7 +3,10 @@
 :host {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /* fill the backoffice content area (viewport minus the 64px top bar) so both
+     tables can stretch to the bottom, regardless of parent height resolution */
+  height: calc(100dvh - 64px);
+  min-height: calc(100dvh - 64px);
 }
 
 .header-actions {
