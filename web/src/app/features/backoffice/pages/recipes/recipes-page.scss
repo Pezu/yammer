@@ -86,17 +86,33 @@
   background: rgba(52, 84, 209, 0.09);
 }
 
+/* components table: controls fill the whole cell */
+.recipe-components th,
+.recipe-components td {
+  padding: 4px 6px;
+}
+.recipe-components th:first-child,
+.recipe-components td:first-child {
+  padding-left: 6px;
+}
+.recipe-components app-filter-combo {
+  display: block;
+  width: 100%;
+}
+
 /* inline-edit inputs in the components table */
 .f-input {
+  display: block;
   width: 100%;
   min-width: 0;
-  padding: 3px 5px;
+  padding: 4px 6px;
   font: inherit;
   font-size: 0.78rem;
   color: var(--text);
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 4px;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
