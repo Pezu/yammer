@@ -11,7 +11,7 @@ import {
 import { TransparentImageDirective } from '../../shared/transparent-image.directive';
 import { timeAgo } from '../../shared/relative-time';
 import { RouterLink } from '@angular/router';
-import { LEGAL_LINKS } from './legal-page';
+import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
 
 /**
  * Landing/ordering page a customer reaches by scanning an order point's QR code
@@ -20,7 +20,7 @@ import { LEGAL_LINKS } from './legal-page';
  */
 @Component({
   selector: 'app-customer-order-point-page',
-  imports: [DecimalPipe, NgTemplateOutlet, TransparentImageDirective, RouterLink],
+  imports: [DecimalPipe, NgTemplateOutlet, TransparentImageDirective, RouterLink, SiteFooter],
   template: `
     <header class="topbar">
       <div class="brand">
@@ -116,28 +116,11 @@ import { LEGAL_LINKS } from './legal-page';
         </footer>
       }
 
-      @if (op()) {
-        <footer class="site-footer">
-          <div class="pay">
-            <span class="pay-label">Plată securizată prin</span>
-            <!-- NETOPIA logo (Identitate vizuală, POS 165091, horizontal, light bg). Embedded directly
-                 because the vendor script runs on DOMContentLoaded, which has already fired in the SPA. -->
-            <a class="netopia" href="https://netopia-payments.com/" target="_blank" rel="noopener">
-              <img src="https://mny.ro/np-black-0.svg" alt="NETOPIA Payments" title="NETOPIA Payments" />
-            </a>
-            <span class="dot">·</span>
-            <a class="anpc-link" href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC SAL</a>
-            <a class="anpc-link" href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ANPC SOL</a>
-          </div>
-          <nav class="foot-legal">
-            @for (link of legalLinks; track link.slug) {
-              <a [routerLink]="['/legal', link.slug]">{{ link.label }}</a>
-            }
-          </nav>
-          <div class="copy">© RENDEZVOUS EVENTS S.R.L. — CUI 41973877</div>
-        </footer>
-      }
     </main>
+
+    @if (op()) {
+      <app-site-footer />
+    }
 
     @if (customerFormOpen()) {
       <div class="cust-modal-overlay" (click)="closeCustomerForm()">
@@ -361,8 +344,6 @@ import { LEGAL_LINKS } from './legal-page';
       padding: 2rem 1.25rem 1.5rem;
       text-align: center;
       flex: 1;
-      display: flex;
-      flex-direction: column;
     }
     .state {
       margin: 3rem 0;
@@ -554,63 +535,6 @@ import { LEGAL_LINKS } from './legal-page';
       background: #fff;
       border-top: 1px solid var(--border);
       box-shadow: 0 -0.5rem 1rem rgba(18, 27, 46, 0.08);
-    }
-    .site-footer {
-      margin: auto -1.25rem 0;
-      padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom));
-      background: #ffffff;
-      border-top: 1px solid var(--border);
-      text-align: center;
-    }
-    .site-footer .pay {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 0.3rem 0.45rem;
-    }
-    .site-footer .pay-label {
-      font-size: 0.62rem;
-      color: var(--muted);
-    }
-    .site-footer .netopia {
-      display: inline-flex;
-    }
-    .site-footer .netopia img {
-      width: auto;
-      height: 15px;
-      max-width: 120px;
-    }
-    .site-footer .dot {
-      color: var(--border);
-    }
-    .site-footer .anpc-link {
-      font-size: 0.62rem;
-      font-weight: 600;
-      color: var(--primary);
-      text-decoration: none;
-    }
-    .site-footer .foot-legal {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.05rem 0.55rem;
-      margin-top: 0.3rem;
-      padding-top: 0.3rem;
-      border-top: 1px solid var(--border);
-    }
-    .site-footer .foot-legal a {
-      font-size: 0.6rem;
-      color: var(--muted);
-      text-decoration: none;
-    }
-    .site-footer .foot-legal a:hover {
-      color: var(--primary);
-    }
-    .site-footer .copy {
-      margin-top: 0.25rem;
-      font-size: 0.56rem;
-      color: var(--muted);
     }
     .cart-info {
       display: flex;

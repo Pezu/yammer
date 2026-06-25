@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
+import { SiteFooter } from '../../shared/site-footer.component';
 
 /**
  * Public legal/policy pages required for the Netopia (card payments) production account:
@@ -13,6 +14,7 @@ import { map } from 'rxjs/operators';
  */
 @Component({
   selector: 'app-legal-page',
+  imports: [SiteFooter],
   template: `
     <header class="topbar">
       <button type="button" class="back" (click)="goBack()" aria-label="Înapoi">
@@ -29,14 +31,19 @@ import { map } from 'rxjs/operators';
         <p class="state">Pagina nu a fost găsită.</p>
       }
     </main>
+    <app-site-footer />
   `,
   styles: [
     `
       :host {
-        display: block;
+        display: flex;
+        flex-direction: column;
         min-height: 100vh;
         min-height: 100dvh;
         background: var(--page-bg);
+      }
+      .legal {
+        flex: 1;
       }
       .topbar {
         position: sticky;
@@ -121,16 +128,6 @@ export class LegalPage {
     }
   }
 }
-
-/** Ordered list used to render the drawer's legal section (slug + label). */
-export const LEGAL_LINKS: { slug: string; label: string }[] = [
-  { slug: 'termeni', label: 'Termeni și condiții' },
-  { slug: 'confidentialitate', label: 'Politica de confidențialitate' },
-  { slug: 'livrare', label: 'Politica de livrare' },
-  { slug: 'anulare', label: 'Politica de anulare și retur' },
-  { slug: 'gdpr', label: 'Politica GDPR' },
-  { slug: 'contact', label: 'Date de contact' },
-];
 
 interface LegalDoc {
   title: string;

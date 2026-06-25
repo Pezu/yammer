@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/auth.service';
 import { AppLogo } from '../../../shared/logo.component';
+import { SiteFooter } from '../../../shared/site-footer.component';
 
 /** Landing route per role; the first matching role from the JWT wins. */
 const ROLE_HOME: Record<string, string> = {
@@ -18,7 +19,7 @@ const DEFAULT_HOME = '/backoffice';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, AppLogo],
+  imports: [ReactiveFormsModule, AppLogo, SiteFooter],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
