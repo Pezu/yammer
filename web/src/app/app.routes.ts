@@ -189,6 +189,9 @@ export const routes: Routes = [
     path: 'legal/:doc',
     loadComponent: () => import('./features/customer/legal-page').then((m) => m.LegalPage),
   },
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
-  { path: '**', redirectTo: 'login' },
+  {
+    path: '',
+    loadComponent: () => import('./features/customer/landing-page').then((m) => m.LandingPage),
+  },
+  { path: '**', redirectTo: '' },
 ];

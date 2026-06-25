@@ -3,6 +3,7 @@ package com.yammer.controller;
 import com.yammer.dto.CustomerLookupRequest;
 import com.yammer.dto.CustomerLookupResponse;
 import com.yammer.dto.CustomerOrderPointResponse;
+import com.yammer.dto.LandingResponse;
 import com.yammer.dto.CustomerOrderRequest;
 import com.yammer.dto.CustomerOrderResponse;
 import com.yammer.dto.MenuItemNode;
@@ -20,6 +21,7 @@ import com.yammer.service.OrderService;
 import com.yammer.service.StorageService;
 import com.yammer.service.StorageService.StoredObject;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,35 @@ public class PublicController {
     private final OrderService orderService;
     private final OnlinePaymentService onlinePaymentService;
     private final StorageService storageService;
+
+    /**
+     * Where the public root should redirect a customer: the first non-pay-later order point of the
+     * currently active event (an event whose date range contains today; falls back to the most recent
+     * event, then to any order point of it). 404 if there are no events / order points.
+     */
+    @GetMapping("/landing")
+    public LandingResponse landing() {
+        LocalDate today = LocalDate.now();
+        List<EventEntity> events = eventRepository.findAllByOrderByStartDateDesc();
+        EventEntity event = events.stream()
+                .filter(e -> e.getStartDate() != null
+                        && !today.isBefore(e.getStartDate())
+                        && (e.getEndDate() == null || !today.isAfter(e.getEndDate())))
+                .findFirst()
+                .orElse(events.isEmpty() ? null : events.get(0));
+        if (event == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No active event");
+        }
+        List<OrderPointEntity> ops = orderPointRepository.findByEventIdOrderByName(event.getId());
+        OrderPointEntity op = ops.stream()
+                .filter(o -> !o.isPayLater())
+                .findFirst()
+                .orElse(ops.isEmpty() ? null : ops.get(0));
+        if (op == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No order point for the active event");
+        }
+        return new LandingResponse(op.getId());
+    }
 
     /** The order point a customer landed on: its event and its default menu (both from the order point). */
     @GetMapping("/order-points/{opId}")
