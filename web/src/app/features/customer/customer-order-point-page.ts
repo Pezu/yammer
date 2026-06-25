@@ -115,6 +115,26 @@ import { LEGAL_LINKS } from './legal-page';
           </button>
         </footer>
       }
+
+      @if (op()) {
+        <footer class="site-footer">
+          <div class="pay">
+            <span class="pay-label">Plată online securizată cu cardul prin</span>
+            <!-- NETOPIA: paste the snippet generated from Identitate vizuală (background #FFFFFF) here -->
+            <a class="netopia" href="https://netopia-payments.com" target="_blank" rel="noopener">NETOPIA Payments</a>
+          </div>
+          <div class="anpc">
+            <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC – SAL</a>
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ANPC – SOL</a>
+          </div>
+          <nav class="foot-legal">
+            @for (link of legalLinks; track link.slug) {
+              <a [routerLink]="['/legal', link.slug]">{{ link.label }}</a>
+            }
+          </nav>
+          <div class="copy">© RENDEZVOUS EVENTS S.R.L. — CUI 41973877</div>
+        </footer>
+      }
     </main>
 
     @if (customerFormOpen()) {
@@ -526,6 +546,62 @@ import { LEGAL_LINKS } from './legal-page';
       background: #fff;
       border-top: 1px solid var(--border);
       box-shadow: 0 -0.5rem 1rem rgba(18, 27, 46, 0.08);
+    }
+    .site-footer {
+      margin: 2rem -1rem 0;
+      padding: 1.5rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .site-footer .pay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .site-footer .pay-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .site-footer .netopia {
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .site-footer .anpc {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0 0.5rem;
+    }
+    .site-footer .anpc a {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .site-footer .foot-legal {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.35rem 0.9rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .site-footer .foot-legal a {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .site-footer .foot-legal a:hover {
+      color: var(--primary);
+    }
+    .site-footer .copy {
+      margin-top: 0.75rem;
+      font-size: 0.72rem;
+      color: var(--muted);
     }
     .cart-info {
       display: flex;
