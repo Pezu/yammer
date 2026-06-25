@@ -22,31 +22,8 @@
   color: var(--muted);
 }
 
-.recipe-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.recipe-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 0.25rem;
-  border-bottom: 1px solid var(--border);
-
-  &:last-child {
-    border-bottom: none;
-  }
-}
-
-.recipe-name {
-  min-width: 0;
-}
-
-.recipe-menu {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: var(--muted);
+/* First table occupies the left half of the body; the right half is reserved
+   for the second table (to be defined). */
+.combined-table {
+  width: 50%;
 }

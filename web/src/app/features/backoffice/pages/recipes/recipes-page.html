@@ -87,19 +87,27 @@
   } @else if (loading()) {
     <div class="select-prompt">Loading…</div>
   } @else {
-    <div class="card">
+    <div class="card combined-table">
       <div class="card-body">
         @if (items().length === 0) {
           <p class="muted">No combined products for this selection.</p>
         } @else {
-          <ul class="recipe-list">
-            @for (it of items(); track it.id) {
-              <li class="recipe-row">
-                <span class="recipe-name" [innerHTML]="it.name"></span>
-                <span class="recipe-menu">{{ it.menuName }}</span>
-              </li>
-            }
-          </ul>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Menu</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (it of items(); track it.id) {
+                <tr>
+                  <td [innerHTML]="it.name"></td>
+                  <td class="muted">{{ it.menuName }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         }
       </div>
     </div>
