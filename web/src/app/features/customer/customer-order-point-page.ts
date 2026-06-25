@@ -234,8 +234,10 @@ import { LEGAL_LINKS } from './legal-page';
   `,
   styles: `
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
       min-height: 100vh;
+      min-height: 100dvh;
       background: #fff;
     }
     .topbar {
@@ -354,10 +356,14 @@ import { LEGAL_LINKS } from './legal-page';
       color: var(--primary);
     }
     .cust {
+      width: 100%;
       max-width: 30rem;
       margin: 0 auto;
       padding: 2rem 1.25rem 1.5rem;
       text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     .state {
       margin: 3rem 0;
@@ -551,7 +557,7 @@ import { LEGAL_LINKS } from './legal-page';
       box-shadow: 0 -0.5rem 1rem rgba(18, 27, 46, 0.08);
     }
     .site-footer {
-      margin: 1rem -1.25rem 0;
+      margin: auto -1.25rem 0;
       padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
       background: #ffffff;
       border-top: 1px solid var(--border);
