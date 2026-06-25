@@ -235,18 +235,38 @@
   justify-content: flex-end;
 }
 
-.combined-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-right: 0.4rem;
-  font-size: 0.72rem;
-  color: var(--muted);
+/* Combined flag — same look as the order-points checkboxes. */
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 21px;
+  height: 21px;
+  margin: 0 0.3rem 0 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 0;
+  background: #fff;
   cursor: pointer;
-  user-select: none;
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
 
-  input {
-    cursor: pointer;
+  &::after {
+    content: '';
+    width: 12px;
+    height: 7px;
+    border-left: 2px solid #16a34a;
+    border-bottom: 2px solid #16a34a;
+    transform: rotate(-45deg) translateY(-1px);
+    opacity: 0;
+  }
+
+  &:checked::after {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(22, 163, 74, 0.4);
+    outline-offset: 1px;
   }
 }
 
