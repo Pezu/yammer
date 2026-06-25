@@ -117,7 +117,7 @@ import { LEGAL_LINKS } from './legal-page';
       }
 
       @if (op()) {
-        <footer class="site-footer" [class.with-cart]="cartCount() > 0 && activeView() === 'menu'">
+        <footer class="site-footer">
           <div class="pay">
             <span class="pay-label">Plată online securizată cu cardul prin</span>
             <!-- NETOPIA logo (Identitate vizuală, POS 165091, horizontal, light bg). Embedded directly
@@ -562,10 +562,6 @@ import { LEGAL_LINKS } from './legal-page';
       background: #ffffff;
       border-top: 1px solid var(--border);
       text-align: center;
-    }
-    /* leave room for the floating cart bar so it doesn't cover the footer */
-    .site-footer.with-cart {
-      padding-bottom: calc(4rem + env(safe-area-inset-bottom));
     }
     .site-footer .pay {
       display: flex;
