@@ -166,6 +166,11 @@ public class MenuService {
                 .toList();
     }
 
+    /** Throw 404 unless the caller may access the menu (used by RecipeService for component CRUD). */
+    public void assertAccessibleMenu(UUID menuId) {
+        requireAccessibleMenu(menuId);
+    }
+
     private MenuEntity requireAccessibleMenu(UUID menuId) {
         MenuEntity menu = menuRepository.findById(menuId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu not found: " + menuId));

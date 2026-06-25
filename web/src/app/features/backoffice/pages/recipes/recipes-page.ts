@@ -3,7 +3,7 @@ import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { Event, EventService } from '../events/event.service';
-import { RecipeItem, RecipeService } from './recipe.service';
+import { RecipeComponent, RecipeItem, RecipeService } from './recipe.service';
 
 /**
  * Recipes (Rețetar): pick client (SUPER only) → location → event using the same combo selectors as
@@ -27,6 +27,10 @@ export class RecipesPage {
   readonly error = signal<string | null>(null);
   readonly loading = signal(false);
   readonly items = signal<RecipeItem[]>([]);
+
+  // --- selected combined product + its recipe components ---
+  readonly selectedItem = signal<RecipeItem | null>(null);
+  readonly components = signal<RecipeComponent[]>([]);
 
   // --- client combo (SUPER only) ---
   readonly clients = signal<Client[]>([]);
@@ -168,6 +172,8 @@ export class RecipesPage {
   private loadRecipes(): void {
     if (!this.locationId()) return;
     this.loading.set(true);
+    this.selectedItem.set(null);
+    this.components.set([]);
     this.recipeService.list(this.locationId(), this.eventId()).subscribe({
       next: (items) => {
         this.items.set(items);
@@ -179,5 +185,63 @@ export class RecipesPage {
         this.error.set('Failed to load recipes.');
       },
     });
+  }
+
+  // --- recipe components (second table) ---
+  selectItem(item: RecipeItem): void {
+    this.selectedItem.set(item);
+    this.components.set([]);
+    this.recipeService.listComponents(item.id).subscribe({
+      next: (cs) => this.components.set(cs),
+      error: () => this.error.set('Failed to load recipe.'),
+    });
+  }
+
+  addComponent(): void {
+    const item = this.selectedItem();
+    if (!item) return;
+    this.recipeService
+      .createComponent(item.id, { name: '', quantity: null, unit: null, percentage: null })
+      .subscribe({
+        next: (c) => this.components.update((cs) => [...cs, c]),
+        error: () => this.error.set('Failed to add component.'),
+      });
+  }
+
+  /** Persist a row after an inline edit. */
+  saveComponent(c: RecipeComponent): void {
+    this.recipeService
+      .updateComponent(c.id, {
+        name: c.name,
+        quantity: c.quantity,
+        unit: c.unit,
+        percentage: c.percentage,
+      })
+      .subscribe({ error: () => this.error.set('Failed to save component.') });
+  }
+
+  deleteComponent(c: RecipeComponent): void {
+    this.recipeService.deleteComponent(c.id).subscribe({
+      next: () => this.components.update((cs) => cs.filter((x) => x.id !== c.id)),
+      error: () => this.error.set('Failed to delete component.'),
+    });
+  }
+
+  // inline-edit field setters (mutate the row, then persist)
+  setName(c: RecipeComponent, v: string): void {
+    c.name = v;
+    this.saveComponent(c);
+  }
+  setQuantity(c: RecipeComponent, v: string): void {
+    c.quantity = v === '' ? null : Number(v);
+    this.saveComponent(c);
+  }
+  setUnit(c: RecipeComponent, v: string): void {
+    c.unit = v || null;
+    this.saveComponent(c);
+  }
+  setPercentage(c: RecipeComponent, v: string): void {
+    c.percentage = v === '' ? null : Number(v);
+    this.saveComponent(c);
   }
 }
