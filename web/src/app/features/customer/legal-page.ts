@@ -139,7 +139,7 @@ interface LegalDoc {
 
 const COMPANY = `
   <p>
-    <strong>[NUME COMPANIE] S.R.L.</strong><br />
+    <strong>RENDEZVOUS EVENTS S.R.L.</strong><br />
     CUI: 41973877 &nbsp;|&nbsp; Cod TVA: RO41973877<br />
     Nr. Reg. Com.: J2019003544080<br />
     Sediu social: Strada Basarabia, Nr. 12, Et. Parter, Ap. 4, Brașov, Județ Brașov, România<br />
@@ -157,10 +157,10 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
       <h2>Obiect de activitate</h2>
       <p>Cod CAEN principal: 9329 — Alte activități recreative și distractive n.c.a.</p>
       <h2>Program</h2>
-      <p>[PROGRAM DE LUCRU — ex. Luni–Duminică, 10:00–23:00]</p>
+      <p>Luni–Duminică, 00:00–23:55</p>
       <h2>Plăți online</h2>
       <p>
-        Plățile cu cardul sunt procesate prin <strong>NETOPIA Payments</strong>. [NUME COMPANIE]
+        Plățile cu cardul sunt procesate prin <strong>NETOPIA Payments</strong>. RENDEZVOUS EVENTS
         nu stochează datele cardului dumneavoastră; acestea sunt procesate în mod securizat de
         către procesatorul de plăți, conform standardului PCI-DSS.
       </p>
@@ -171,7 +171,7 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
     html: `
       <p>
         Acești termeni și condiții reglementează utilizarea platformei de comandă online operate de
-        [NUME COMPANIE] S.R.L. Prin plasarea unei comenzi, confirmați că ați citit și acceptat
+        RENDEZVOUS EVENTS S.R.L. Prin plasarea unei comenzi, confirmați că ați citit și acceptat
         prezentele condiții.
       </p>
       <h2>1. Comerciant</h2>
@@ -219,7 +219,7 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
     title: 'Politica de confidențialitate',
     html: `
       <p>
-        [NUME COMPANIE] S.R.L. respectă confidențialitatea datelor dumneavoastră. Această politică
+        RENDEZVOUS EVENTS S.R.L. respectă confidențialitatea datelor dumneavoastră. Această politică
         explică ce date colectăm, în ce scop și cum le protejăm.
       </p>
       <h2>Date colectate</h2>
