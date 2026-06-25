@@ -119,16 +119,15 @@ import { LEGAL_LINKS } from './legal-page';
       @if (op()) {
         <footer class="site-footer">
           <div class="pay">
-            <span class="pay-label">Plată online securizată cu cardul prin</span>
+            <span class="pay-label">Plată securizată prin</span>
             <!-- NETOPIA logo (Identitate vizuală, POS 165091, horizontal, light bg). Embedded directly
                  because the vendor script runs on DOMContentLoaded, which has already fired in the SPA. -->
             <a class="netopia" href="https://netopia-payments.com/" target="_blank" rel="noopener">
               <img src="https://mny.ro/np-black-0.svg" alt="NETOPIA Payments" title="NETOPIA Payments" />
             </a>
-          </div>
-          <div class="anpc">
-            <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC – SAL</a>
-            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ANPC – SOL</a>
+            <span class="dot">·</span>
+            <a class="anpc-link" href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC SAL</a>
+            <a class="anpc-link" href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ANPC SOL</a>
           </div>
           <nav class="foot-legal">
             @for (link of legalLinks; track link.slug) {
@@ -565,9 +564,10 @@ import { LEGAL_LINKS } from './legal-page';
     }
     .site-footer .pay {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      gap: 0.4rem;
+      gap: 0.3rem 0.45rem;
     }
     .site-footer .pay-label {
       font-size: 0.62rem;
@@ -578,16 +578,13 @@ import { LEGAL_LINKS } from './legal-page';
     }
     .site-footer .netopia img {
       width: auto;
-      height: 16px;
-      max-width: 130px;
+      height: 15px;
+      max-width: 120px;
     }
-    .site-footer .anpc {
-      display: flex;
-      justify-content: center;
-      gap: 0.75rem;
-      margin: 0.4rem 0;
+    .site-footer .dot {
+      color: var(--border);
     }
-    .site-footer .anpc a {
+    .site-footer .anpc-link {
       font-size: 0.62rem;
       font-weight: 600;
       color: var(--primary);
@@ -597,9 +594,9 @@ import { LEGAL_LINKS } from './legal-page';
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 0.1rem 0.6rem;
-      margin-top: 0.4rem;
-      padding-top: 0.4rem;
+      gap: 0.05rem 0.55rem;
+      margin-top: 0.3rem;
+      padding-top: 0.3rem;
       border-top: 1px solid var(--border);
     }
     .site-footer .foot-legal a {
@@ -611,8 +608,8 @@ import { LEGAL_LINKS } from './legal-page';
       color: var(--primary);
     }
     .site-footer .copy {
-      margin-top: 0.4rem;
-      font-size: 0.58rem;
+      margin-top: 0.25rem;
+      font-size: 0.56rem;
       color: var(--muted);
     }
     .cart-info {
