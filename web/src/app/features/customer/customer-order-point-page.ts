@@ -558,23 +558,23 @@ import { LEGAL_LINKS } from './legal-page';
     }
     .site-footer {
       margin: auto -1.25rem 0;
-      padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+      padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom));
       background: #ffffff;
       border-top: 1px solid var(--border);
       text-align: center;
     }
     /* leave room for the floating cart bar so it doesn't cover the footer */
     .site-footer.with-cart {
-      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom));
     }
     .site-footer .pay {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
     .site-footer .pay-label {
-      font-size: 0.72rem;
+      font-size: 0.62rem;
       color: var(--muted);
     }
     .site-footer .netopia {
@@ -582,8 +582,8 @@ import { LEGAL_LINKS } from './legal-page';
     }
     .site-footer .netopia img {
       width: auto;
-      height: 20px;
-      max-width: 150px;
+      height: 16px;
+      max-width: 130px;
     }
     .site-footer .anpc {
       display: flex;
