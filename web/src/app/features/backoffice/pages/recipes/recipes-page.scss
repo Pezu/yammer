@@ -16,20 +16,17 @@
   gap: 0.5rem;
 }
 
-/* Match the reports/orders table look (bordered card, outer padding, compact cells). */
+/* Use the Configuration-page table look from crud-table (full-bleed gridded table,
+   borderless card). Just lay it out full-height + 50/50 here. */
 .page-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 2rem;
+  padding: 1rem;
 }
 
 .card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  /* visible so the autocomplete dropdown isn't clipped */
-  overflow: visible;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -39,12 +36,6 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-}
-
-.table thead th,
-.table tbody td {
-  font-size: 0.8rem;
-  padding: 0.3rem 0.5rem;
 }
 
 .card-header {
