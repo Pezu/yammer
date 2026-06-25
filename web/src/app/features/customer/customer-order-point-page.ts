@@ -588,11 +588,11 @@ import { LEGAL_LINKS } from './legal-page';
     .site-footer .anpc {
       display: flex;
       justify-content: center;
-      gap: 0.85rem;
-      margin: 0.5rem 0;
+      gap: 0.75rem;
+      margin: 0.4rem 0;
     }
     .site-footer .anpc a {
-      font-size: 0.72rem;
+      font-size: 0.62rem;
       font-weight: 600;
       color: var(--primary);
       text-decoration: none;
@@ -601,13 +601,13 @@ import { LEGAL_LINKS } from './legal-page';
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 0.2rem 0.7rem;
-      margin-top: 0.5rem;
-      padding-top: 0.5rem;
+      gap: 0.1rem 0.6rem;
+      margin-top: 0.4rem;
+      padding-top: 0.4rem;
       border-top: 1px solid var(--border);
     }
     .site-footer .foot-legal a {
-      font-size: 0.7rem;
+      font-size: 0.6rem;
       color: var(--muted);
       text-decoration: none;
     }
@@ -615,8 +615,8 @@ import { LEGAL_LINKS } from './legal-page';
       color: var(--primary);
     }
     .site-footer .copy {
-      margin-top: 0.5rem;
-      font-size: 0.68rem;
+      margin-top: 0.4rem;
+      font-size: 0.58rem;
       color: var(--muted);
     }
     .cart-info {
