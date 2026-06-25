@@ -140,8 +140,9 @@ interface LegalDoc {
 const COMPANY = `
   <p>
     <strong>[NUME COMPANIE] S.R.L.</strong><br />
-    CUI: [CUI] &nbsp;|&nbsp; Nr. Reg. Com.: [J__/____/____]<br />
-    Sediu: [ADRESĂ COMPLETĂ], România<br />
+    CUI: 41973877 &nbsp;|&nbsp; Cod TVA: RO41973877<br />
+    Nr. Reg. Com.: J2019003544080<br />
+    Sediu social: Strada Basarabia, Nr. 12, Et. Parter, Ap. 4, Brașov, Județ Brașov, România<br />
     Telefon: <a href="tel:[TELEFON]">[TELEFON]</a><br />
     E-mail: <a href="mailto:[EMAIL]">[EMAIL]</a>
   </p>
@@ -153,6 +154,8 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
     html: `
       <p>Datele de identificare și de contact ale comerciantului:</p>
       ${COMPANY}
+      <h2>Obiect de activitate</h2>
+      <p>Cod CAEN principal: 9329 — Alte activități recreative și distractive n.c.a.</p>
       <h2>Program</h2>
       <p>[PROGRAM DE LUCRU — ex. Luni–Duminică, 10:00–23:00]</p>
       <h2>Plăți online</h2>
@@ -176,8 +179,8 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
       <h2>2. Produse și prețuri</h2>
       <p>
         Produsele disponibile, descrierile și prețurile sunt afișate în meniul aferent fiecărui punct
-        de comandă (masă). Toate prețurile sunt exprimate în <strong>lei (RON)</strong> și includ TVA,
-        acolo unde este cazul. Ne rezervăm dreptul de a modifica meniul și prețurile în orice moment.
+        de comandă (masă). Toate prețurile sunt exprimate în <strong>lei (RON)</strong> și includ TVA.
+        Ne rezervăm dreptul de a modifica meniul și prețurile în orice moment.
       </p>
       <h2>3. Plasarea comenzii</h2>
       <p>
