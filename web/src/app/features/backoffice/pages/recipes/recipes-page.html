@@ -1,11 +1,60 @@
 <header class="page-header">
   <h1>Recipes</h1>
+  <div class="selectors">
+    @if (isSuper()) {
+      <select class="sel" [value]="clientId()" (change)="selectClient($any($event.target).value)">
+        <option value="">Select client…</option>
+        @for (c of clients(); track c.id) {
+          <option [value]="c.id">{{ c.name }}</option>
+        }
+      </select>
+    }
+    @if (clientChosen()) {
+      <select class="sel" [value]="locationId()" (change)="selectLocation($any($event.target).value)">
+        <option value="">Select location…</option>
+        @for (l of locations(); track l.id) {
+          <option [value]="l.id">{{ l.name }}</option>
+        }
+      </select>
+    }
+    @if (locationId()) {
+      <select class="sel" [value]="eventId()" (change)="selectEvent($any($event.target).value)">
+        <option value="">All events</option>
+        @for (e of events(); track e.id) {
+          <option [value]="e.id">{{ e.name }}</option>
+        }
+      </select>
+    }
+  </div>
 </header>
 
 <section class="page-body">
-  <div class="card">
-    <div class="card-body">
-      <p class="placeholder">Recipes management coming soon.</p>
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+
+  @if (!clientChosen()) {
+    <div class="select-prompt">Select a client to begin.</div>
+  } @else if (!locationId()) {
+    <div class="select-prompt">Select a location to begin.</div>
+  } @else if (loading()) {
+    <div class="select-prompt">Loading…</div>
+  } @else {
+    <div class="card">
+      <div class="card-body">
+        @if (items().length === 0) {
+          <p class="muted">No combined products for this selection.</p>
+        } @else {
+          <ul class="recipe-list">
+            @for (it of items(); track it.id) {
+              <li class="recipe-row">
+                <span class="recipe-name" [innerHTML]="it.name"></span>
+                <span class="recipe-menu">{{ it.menuName }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
     </div>
-  </div>
+  }
 </section>

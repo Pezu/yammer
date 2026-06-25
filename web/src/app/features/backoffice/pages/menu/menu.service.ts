@@ -18,6 +18,7 @@ export interface MenuNode {
   price: number | null;
   vatTypeId: string | null;
   imageObject: string | null;
+  combined: boolean;
   children: MenuNode[];
 }
 

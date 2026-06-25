@@ -133,6 +133,7 @@ public class MenuService {
             entity.setPrice(node.orderable() ? node.price() : null);
             entity.setVatTypeId(node.orderable() ? node.vatTypeId() : null);
             entity.setImageObject(node.imageObject());
+            entity.setCombined(node.orderable() && node.combined());
             entity.setSortOrder(order++);
             UUID id = menuItemRepository.save(entity).getId();
             kept.add(id);
@@ -160,6 +161,7 @@ public class MenuService {
                         e.getPrice(),
                         e.getVatTypeId(),
                         e.getImageObject(),
+                        e.isCombined(),
                         toNodes(byParent.get(e.getId()), byParent)))
                 .toList();
     }

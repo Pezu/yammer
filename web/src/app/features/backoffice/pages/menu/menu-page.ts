@@ -17,6 +17,7 @@ interface TreeNode {
   price: number | null;
   vatTypeId: string | null;
   imageObject: string | null;
+  combined: boolean;
   children: TreeNode[];
   expanded: boolean;
 }
@@ -511,6 +512,11 @@ export class MenuPage {
     this.bump();
     this.scheduleSave();
   }
+  toggleCombined(node: TreeNode): void {
+    node.combined = !node.combined;
+    this.bump();
+    this.scheduleSave();
+  }
   saveItem(): void {
     if (!this.hasName()) {
       return;
@@ -632,6 +638,7 @@ export class MenuPage {
       price: orderable ? 0 : null,
       vatTypeId: null,
       imageObject: null,
+      combined: false,
       children: [],
       expanded: true,
     };
@@ -655,6 +662,7 @@ export class MenuPage {
         price: n.price,
         vatTypeId: n.vatTypeId ?? null,
         imageObject: n.imageObject ?? null,
+        combined: n.combined ?? false,
         children: this.toTree(n.children ?? []),
         expanded: true,
       }))
@@ -668,6 +676,7 @@ export class MenuPage {
       price: n.orderable ? n.price : null,
       vatTypeId: n.orderable ? n.vatTypeId : null,
       imageObject: n.imageObject,
+      combined: n.orderable ? n.combined : false,
       children: this.toMenuNodes(n.children),
     }));
   }

@@ -45,4 +45,8 @@ public class MenuItemEntity {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    /** Product flagged as "combined" — surfaced in the Recipes (Rețetar) aggregation. */
+    @Column(nullable = false)
+    private boolean combined;
 }

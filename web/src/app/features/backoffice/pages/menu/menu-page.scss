@@ -235,6 +235,21 @@
   justify-content: flex-end;
 }
 
+.combined-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    cursor: pointer;
+  }
+}
+
 .row-actions {
   display: flex;
   align-items: center;
