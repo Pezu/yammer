@@ -31,26 +31,27 @@
   flex-direction: column;
   min-height: 0;
 }
-/* the table area scrolls; both cards stretch to the bottom of the page */
+/* cards stretch to the bottom of the page */
 .card-body {
   flex: 1;
   min-height: 0;
+}
+/* left table scrolls; right table stays visible so the product combo's dropdown
+   isn't clipped (it would be by overflow:auto) */
+.combined-card .card-body {
   overflow: auto;
+}
+.components-card .card-body {
+  overflow: visible;
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
-}
-.card-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
 }
 
 .select-prompt {

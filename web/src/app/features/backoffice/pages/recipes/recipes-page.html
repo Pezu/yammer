@@ -90,7 +90,7 @@
     <div class="recipes-grid">
       <!-- first table: combined products -->
       <div class="recipes-col">
-        <div class="card">
+        <div class="card combined-card">
           <div class="card-body">
             @if (items().length === 0) {
               <p class="muted">No combined products for this selection.</p>
@@ -119,9 +119,8 @@
       <!-- second table: recipe components of the selected product (CRUD) -->
       <div class="recipes-col">
         @if (selectedItem(); as sel) {
-          <div class="card">
+          <div class="card components-card">
             <div class="card-header">
-              <h6 class="card-title" [innerHTML]="sel.name"></h6>
               <button type="button" class="add-btn" (click)="addComponent()" title="Add component" aria-label="Add component">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               </button>
