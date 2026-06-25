@@ -117,7 +117,7 @@ import { LEGAL_LINKS } from './legal-page';
       }
 
       @if (op()) {
-        <footer class="site-footer">
+        <footer class="site-footer" [class.with-cart]="cartCount() > 0 && activeView() === 'menu'">
           <div class="pay">
             <span class="pay-label">Plată online securizată cu cardul prin</span>
             <!-- NETOPIA logo (Identitate vizuală, POS 165091, horizontal, light bg). Embedded directly
@@ -356,7 +356,7 @@ import { LEGAL_LINKS } from './legal-page';
     .cust {
       max-width: 30rem;
       margin: 0 auto;
-      padding: 2rem 1.25rem 6rem;
+      padding: 2rem 1.25rem 1.5rem;
       text-align: center;
     }
     .state {
@@ -551,20 +551,24 @@ import { LEGAL_LINKS } from './legal-page';
       box-shadow: 0 -0.5rem 1rem rgba(18, 27, 46, 0.08);
     }
     .site-footer {
-      margin: 2rem -1rem 0;
-      padding: 1.5rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+      margin: 1rem -1.25rem 0;
+      padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
       background: #ffffff;
       border-top: 1px solid var(--border);
       text-align: center;
     }
+    /* leave room for the floating cart bar so it doesn't cover the footer */
+    .site-footer.with-cart {
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
     .site-footer .pay {
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
     }
     .site-footer .pay-label {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: var(--muted);
     }
     .site-footer .netopia {
@@ -572,17 +576,17 @@ import { LEGAL_LINKS } from './legal-page';
     }
     .site-footer .netopia img {
       width: auto;
-      height: 26px;
-      max-width: 180px;
+      height: 20px;
+      max-width: 150px;
     }
     .site-footer .anpc {
       display: flex;
       justify-content: center;
-      gap: 1rem;
-      margin: 1rem 0 0.5rem;
+      gap: 0.85rem;
+      margin: 0.5rem 0;
     }
     .site-footer .anpc a {
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 600;
       color: var(--primary);
       text-decoration: none;
@@ -591,13 +595,13 @@ import { LEGAL_LINKS } from './legal-page';
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 0.35rem 0.9rem;
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
+      gap: 0.2rem 0.7rem;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
       border-top: 1px solid var(--border);
     }
     .site-footer .foot-legal a {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--muted);
       text-decoration: none;
     }
@@ -605,8 +609,8 @@ import { LEGAL_LINKS } from './legal-page';
       color: var(--primary);
     }
     .site-footer .copy {
-      margin-top: 0.75rem;
-      font-size: 0.72rem;
+      margin-top: 0.5rem;
+      font-size: 0.68rem;
       color: var(--muted);
     }
     .cart-info {
