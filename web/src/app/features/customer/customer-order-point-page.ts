@@ -70,9 +70,9 @@ import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
                 <div class="ord-card">
                   <div class="ord-head">
                     <span class="ord-no">Order #{{ ord.orderNo }}</span>
+                    <span class="ord-when">{{ relativeTime(ord.createdAt) }}</span>
                     <span class="ord-status" [class]="'st-' + ord.status.toLowerCase()">{{ ord.status }}</span>
                   </div>
-                  <div class="ord-when">{{ relativeTime(ord.createdAt) }}</div>
                   <div class="ord-items">
                     @for (it of ord.items; track $index) {
                       <div class="ord-line">
@@ -678,18 +678,18 @@ import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      padding: 0.2rem 0.55rem;
-      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid currentColor;
       color: var(--muted);
-      background: var(--page-bg);
+      background: none;
     }
-    .ord-status.st-ordered { color: #1d4ed8; background: rgba(52, 84, 209, 0.12); }
-    .ord-status.st-ready { color: #1f7a3d; background: rgba(40, 167, 69, 0.14); }
-    .ord-status.st-delivered { color: var(--muted); background: var(--page-bg); }
+    .ord-status.st-ordered { color: #1d4ed8; }
+    .ord-status.st-ready { color: #1f7a3d; }
+    .ord-status.st-delivered { color: var(--muted); }
     .ord-status.st-canceled,
-    .ord-status.st-cancelled { color: var(--danger); background: rgba(220, 53, 69, 0.12); }
+    .ord-status.st-cancelled { color: var(--danger); }
     .ord-when {
-      margin-top: 0.15rem;
       font-size: 0.78rem;
       color: var(--muted);
     }
