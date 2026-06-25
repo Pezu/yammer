@@ -43,6 +43,11 @@ export const routes: Routes = [
           import('./features/backoffice/pages/menu/menu-page').then((m) => m.MenuPage),
       },
       {
+        path: 'recipes',
+        loadComponent: () =>
+          import('./features/backoffice/pages/recipes/recipes-page').then((m) => m.RecipesPage),
+      },
+      {
         path: 'order-points',
         loadComponent: () =>
           import('./features/backoffice/pages/order-points/order-points-page').then(

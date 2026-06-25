@@ -1,0 +1,10 @@
+@use '../../../../shared/styles/crud-table';
+
+:host {
+  display: block;
+}
+
+.placeholder {
+  margin: 0;
+  color: var(--muted);
+}
