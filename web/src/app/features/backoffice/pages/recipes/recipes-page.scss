@@ -4,21 +4,11 @@
   display: block;
 }
 
-.selectors {
+.header-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
-}
-
-.sel {
-  padding: 0.45rem 0.6rem;
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--text);
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
 }
 
 .select-prompt {

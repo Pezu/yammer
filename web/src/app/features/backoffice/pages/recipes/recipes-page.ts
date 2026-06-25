@@ -6,8 +6,8 @@ import { Event, EventService } from '../events/event.service';
 import { RecipeItem, RecipeService } from './recipe.service';
 
 /**
- * Recipes (Rețetar): pick client (SUPER only) → location → event, then list every product flagged
- * "Combined" across all of that location/event's menus.
+ * Recipes (Rețetar): pick client (SUPER only) → location → event using the same combo selectors as
+ * the Menu page, then list every product flagged "Combined" across that location/event's menus.
  */
 @Component({
   selector: 'app-recipes-page',
@@ -22,69 +22,147 @@ export class RecipesPage {
   private readonly recipeService = inject(RecipeService);
 
   readonly isSuper = this.auth.isSuper;
+  readonly ownClientId = computed(() => (this.isSuper() ? '' : this.auth.clientId() ?? ''));
 
-  readonly clients = signal<Client[]>([]);
-  readonly locations = signal<Location[]>([]);
-  readonly events = signal<Event[]>([]);
+  readonly error = signal<string | null>(null);
+  readonly loading = signal(false);
   readonly items = signal<RecipeItem[]>([]);
 
+  // --- client combo (SUPER only) ---
+  readonly clients = signal<Client[]>([]);
   readonly clientId = signal<string>('');
-  readonly locationId = signal<string>('');
-  readonly eventId = signal<string>('');
-
-  readonly loading = signal(false);
-  readonly error = signal<string | null>(null);
-
+  readonly clientComboOpen = signal(false);
+  readonly clientSearch = signal('');
+  readonly clientOptions = computed(() => {
+    const q = this.clientSearch().trim().toLowerCase();
+    return (q ? this.clients().filter((c) => c.name.toLowerCase().includes(q)) : this.clients()).slice(0, 5);
+  });
+  readonly clientName = computed(
+    () => this.clients().find((c) => c.id === this.clientId())?.name ?? 'Select a client…',
+  );
   readonly clientChosen = computed(() => (this.isSuper() ? !!this.clientId() : true));
+
+  // --- location combo ---
+  readonly locations = signal<Location[]>([]);
+  readonly locationId = signal<string>('');
+  readonly locationComboOpen = signal(false);
+  readonly locationSearch = signal('');
+  readonly locationOptions = computed(() => {
+    const q = this.locationSearch().trim().toLowerCase();
+    return (q ? this.locations().filter((l) => l.name.toLowerCase().includes(q)) : this.locations()).slice(0, 5);
+  });
+  readonly locationName = computed(
+    () => this.locations().find((l) => l.id === this.locationId())?.name ?? 'Select a location…',
+  );
+
+  // --- event combo ---
+  readonly events = signal<Event[]>([]);
+  readonly eventId = signal<string>('');
+  readonly eventComboOpen = signal(false);
+  readonly eventSearch = signal('');
+  readonly eventOptions = computed(() => {
+    const q = this.eventSearch().trim().toLowerCase();
+    return (q ? this.events().filter((e) => e.name.toLowerCase().includes(q)) : this.events()).slice(0, 5);
+  });
+  readonly eventName = computed(
+    () => this.events().find((e) => e.id === this.eventId())?.name ?? 'Select an event…',
+  );
 
   constructor() {
     if (this.isSuper()) {
       this.clientService.list().subscribe({
-        next: (cs) => this.clients.set(cs),
+        next: (clients) => {
+          this.clients.set(clients);
+          if (clients.length === 1) {
+            this.selectClient(clients[0].id);
+          }
+        },
         error: () => this.error.set('Failed to load clients.'),
       });
     } else {
-      this.loadLocations(this.auth.clientId() ?? '');
+      this.loadLocations(this.ownClientId());
     }
   }
 
+  // --- client ---
+  toggleClientCombo(): void {
+    this.clientSearch.set('');
+    this.clientComboOpen.update((o) => !o);
+  }
+  closeClientCombo(): void {
+    this.clientComboOpen.set(false);
+  }
   selectClient(id: string): void {
     this.clientId.set(id);
-    this.resetFrom('location');
+    this.clientComboOpen.set(false);
+    this.resetLocation();
     this.loadLocations(id);
   }
-
-  selectLocation(id: string): void {
-    this.locationId.set(id);
-    this.resetFrom('event');
-    if (!id) return;
-    this.loadEvents(id);
-    this.loadRecipes();
-  }
-
-  selectEvent(id: string): void {
-    this.eventId.set(id);
-    this.loadRecipes();
-  }
-
   private loadLocations(clientId: string): void {
-    if (!clientId) return;
+    if (!clientId) {
+      this.locations.set([]);
+      return;
+    }
     this.locationService.list(clientId).subscribe({
-      next: (ls) => this.locations.set(ls),
+      next: (locations) => {
+        this.locations.set(locations);
+        if (locations.length === 1) {
+          this.selectLocation(locations[0].id);
+        }
+      },
       error: () => this.error.set('Failed to load locations.'),
     });
   }
+  private resetLocation(): void {
+    this.locationId.set('');
+    this.locations.set([]);
+    this.resetEvent();
+  }
 
+  // --- location ---
+  toggleLocationCombo(): void {
+    this.locationSearch.set('');
+    this.locationComboOpen.update((o) => !o);
+  }
+  closeLocationCombo(): void {
+    this.locationComboOpen.set(false);
+  }
+  selectLocation(id: string): void {
+    this.locationId.set(id);
+    this.locationComboOpen.set(false);
+    this.resetEvent();
+    this.loadEvents(id);
+    this.loadRecipes();
+  }
   private loadEvents(locationId: string): void {
     this.eventService.list(locationId).subscribe({
-      next: (es) => {
-        this.events.set(es);
-        if (es.length === 1) {
-          this.selectEvent(es[0].id);
+      next: (events) => {
+        this.events.set(events);
+        if (events.length === 1) {
+          this.selectEvent(events[0].id);
         }
       },
       error: () => this.error.set('Failed to load events.'),
     });
+  }
+  private resetEvent(): void {
+    this.eventId.set('');
+    this.events.set([]);
+    this.items.set([]);
+  }
+
+  // --- event ---
+  toggleEventCombo(): void {
+    this.eventSearch.set('');
+    this.eventComboOpen.update((o) => !o);
+  }
+  closeEventCombo(): void {
+    this.eventComboOpen.set(false);
+  }
+  selectEvent(id: string): void {
+    this.eventId.set(id);
+    this.eventComboOpen.set(false);
+    this.loadRecipes();
   }
 
   private loadRecipes(): void {
@@ -101,16 +179,5 @@ export class RecipesPage {
         this.error.set('Failed to load recipes.');
       },
     });
-  }
-
-  /** Clear everything downstream of the given level. */
-  private resetFrom(level: 'location' | 'event'): void {
-    if (level === 'location') {
-      this.locationId.set('');
-      this.locations.set([]);
-    }
-    this.eventId.set('');
-    this.events.set([]);
-    this.items.set([]);
   }
 }
