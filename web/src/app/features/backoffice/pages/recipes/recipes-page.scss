@@ -72,6 +72,12 @@
   flex-direction: column;
 }
 
+/* same row height on both tables (left uses padded cells, right uses absolute
+   inline-edit fields which otherwise collapse the row) */
+.table tbody td {
+  height: 42px;
+}
+
 .table tbody tr.clickable {
   cursor: pointer;
 }
