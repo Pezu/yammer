@@ -83,13 +83,14 @@ export const LEGAL_LINKS: { slug: string; label: string }[] = [
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 0.05rem 0.55rem;
-        margin-top: 0.3rem;
-        padding-top: 0.3rem;
+        gap: 0 0.5rem;
+        margin-top: 0.2rem;
+        padding-top: 0.2rem;
         border-top: 1px solid var(--border);
       }
       .foot-legal a {
-        font-size: 0.6rem;
+        font-size: 0.52rem;
+        line-height: 1.4;
         color: var(--muted);
         text-decoration: none;
       }
@@ -97,8 +98,8 @@ export const LEGAL_LINKS: { slug: string; label: string }[] = [
         color: var(--primary);
       }
       .copy {
-        margin-top: 0.25rem;
-        font-size: 0.56rem;
+        margin-top: 0.16rem;
+        font-size: 0.48rem;
         color: var(--muted);
       }
     `,
