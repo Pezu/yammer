@@ -143,7 +143,7 @@ const COMPANY = `
     CUI: 41973877 &nbsp;|&nbsp; Cod TVA: RO41973877<br />
     Nr. Reg. Com.: J2019003544080<br />
     Sediu social: Strada Basarabia, Nr. 12, Et. Parter, Ap. 4, Brașov, Județ Brașov, România<br />
-    Telefon: <a href="tel:[TELEFON]">[TELEFON]</a><br />
+    Telefon: <a href="tel:0748869869">0748 869 869</a><br />
     E-mail: <a href="mailto:[EMAIL]">[EMAIL]</a>
   </p>
 `;
@@ -284,7 +284,7 @@ const LEGAL_DOCS: Record<string, LegalDoc> = {
       <h2>Anularea comenzii</h2>
       <p>
         O comandă poate fi anulată doar înainte de a începe prepararea acesteia. Pentru anulare,
-        adresați-vă personalului unității sau contactați-ne la <a href="tel:[TELEFON]">[TELEFON]</a>.
+        adresați-vă personalului unității sau contactați-ne la <a href="tel:0748869869">0748 869 869</a>.
       </p>
       <h2>Retur și rambursare</h2>
       <p>
