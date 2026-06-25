@@ -35,6 +35,7 @@ import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -236,7 +237,8 @@ public class OrderService {
                     .map(i -> new PublicOrderResponse.Item(i.getName(), i.getQuantity(), i.getPrice()))
                     .toList();
             return new PublicOrderResponse(
-                    o.getId(), o.getOrderNo(), o.getStatus(), o.getCreatedAt(), total, lines);
+                    o.getId(), o.getOrderNo(), o.getStatus(),
+                    o.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant(), total, lines);
         }).toList();
     }
 

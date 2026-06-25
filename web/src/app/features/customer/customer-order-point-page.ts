@@ -76,7 +76,7 @@ import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
                   <div class="ord-items">
                     @for (it of ord.items; track $index) {
                       <div class="ord-line">
-                        <span class="ord-line-name">{{ it.quantity }}× {{ it.name }}</span>
+                        <span class="ord-line-name">{{ it.quantity }}× <span [innerHTML]="it.name"></span></span>
                         <span class="ord-line-amt">{{ (it.price || 0) * it.quantity | number: '1.2-2' }}</span>
                       </div>
                     }

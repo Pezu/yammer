@@ -1,7 +1,7 @@
 package com.yammer.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,7 +10,7 @@ public record PublicOrderResponse(
         UUID id,
         long orderNo,
         String status,
-        LocalDateTime createdAt,
+        Instant createdAt,
         BigDecimal total,
         List<Item> items) {
 
