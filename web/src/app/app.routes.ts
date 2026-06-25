@@ -185,6 +185,10 @@ export const routes: Routes = [
         (m) => m.PaymentReturnPage,
       ),
   },
+  {
+    path: 'legal/:doc',
+    loadComponent: () => import('./features/customer/legal-page').then((m) => m.LegalPage),
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' },
 ];

@@ -10,6 +10,8 @@ import {
 } from './customer-order-point.service';
 import { TransparentImageDirective } from '../../shared/transparent-image.directive';
 import { timeAgo } from '../../shared/relative-time';
+import { RouterLink } from '@angular/router';
+import { LEGAL_LINKS } from './legal-page';
 
 /**
  * Landing/ordering page a customer reaches by scanning an order point's QR code
@@ -18,7 +20,7 @@ import { timeAgo } from '../../shared/relative-time';
  */
 @Component({
   selector: 'app-customer-order-point-page',
-  imports: [DecimalPipe, NgTemplateOutlet, TransparentImageDirective],
+  imports: [DecimalPipe, NgTemplateOutlet, TransparentImageDirective, RouterLink],
   template: `
     <header class="topbar">
       <div class="brand">
@@ -39,6 +41,11 @@ import { timeAgo } from '../../shared/relative-time';
         @if (hasOrdersTab()) {
           <button type="button" class="drawer-item" [class.active]="activeView() === 'orders'" (click)="showOrders()">Orders</button>
         }
+        <div class="drawer-legal">
+          @for (link of legalLinks; track link.slug) {
+            <a class="drawer-legal-item" [routerLink]="['/legal', link.slug]" (click)="closeMenu()">{{ link.label }}</a>
+          }
+        </div>
       </nav>
     }
 
@@ -266,11 +273,14 @@ import { timeAgo } from '../../shared/relative-time';
       right: 0;
       bottom: 0;
       z-index: 21;
+      display: flex;
+      flex-direction: column;
       width: 240px;
       max-width: 80vw;
       padding: 4rem 0.75rem 1rem;
       background: #fff;
       box-shadow: -0.5rem 0 1.5rem rgba(18, 27, 46, 0.15);
+      overflow-y: auto;
     }
     .drawer-close {
       position: absolute;
@@ -303,6 +313,21 @@ import { timeAgo } from '../../shared/relative-time';
     .drawer-item:hover,
     .drawer-item.active {
       background: var(--page-bg);
+      color: var(--primary);
+    }
+    .drawer-legal {
+      margin-top: auto;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .drawer-legal-item {
+      display: block;
+      padding: 0.55rem 1rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .drawer-legal-item:hover {
       color: var(--primary);
     }
     .cust {
@@ -700,6 +725,7 @@ export class CustomerOrderPointPage implements OnDestroy {
   // app bar / drawer
   readonly menuOpen = signal(false);
   readonly logoFailed = signal(false);
+  readonly legalLinks = LEGAL_LINKS;
 
   // cart: product id -> quantity
   readonly cart = signal<Record<string, number>>({});
