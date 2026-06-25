@@ -118,17 +118,34 @@ built in CI — it runs on-prem; build it locally with `cd bridge && mvn -DskipT
 
 ## 9. Custom domain + clients (optional but recommended)
 
-Map `api.servioapp.ro` to the api service (then add the DNS records it prints):
+The prod domain is `rendezvous-app.ro`: the apex serves the web app, `api.` serves the API.
+
+First **verify domain ownership** (one-time, required before an apex mapping) in
+[Search Console](https://search.google.com/search-console) — add the TXT record it gives you
+at the registrar. Then map both hosts (add the DNS records each command prints):
 
 ```
+# apex → web app (A/AAAA records)
+gcloud run domain-mappings create --service=yammer-web \
+  --domain=rendezvous-app.ro --region=$REGION --project=$PROJECT
+
+# api subdomain → API (CNAME → ghs.googlehosted.com)
 gcloud run domain-mappings create --service=yammer-api \
-  --domain=api.servioapp.ro --region=$REGION --project=$PROJECT
+  --domain=api.rendezvous-app.ro --region=$REGION --project=$PROJECT
 ```
 
-Point the web app's API base URL at `https://api.servioapp.ro` (or the `yammer-api`
-run.app URL), and run the bridge on-prem with:
+The web app reaches the API through nginx (proxies `/api` → the `yammer-api` run.app URL),
+so it does **not** depend on the custom API domain. The `api.` host exists for the on-prem
+bridge, which connects with:
 
 ```
-BRIDGE_SERVER_URL=wss://api.servioapp.ro/ws/bridge
+BRIDGE_SERVER_URL=wss://api.rendezvous-app.ro/ws/bridge
 BRIDGE_API_KEY=<value of the bridge-api-key secret>
+```
+
+Once cutover is confirmed, drop the old mappings:
+
+```
+gcloud beta run domain-mappings delete --domain=servioapp.ro     --region=$REGION --project=$PROJECT
+gcloud beta run domain-mappings delete --domain=api.servioapp.ro --region=$REGION --project=$PROJECT
 ```
