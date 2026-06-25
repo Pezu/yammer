@@ -76,7 +76,7 @@ import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
                   <div class="ord-items">
                     @for (it of ord.items; track $index) {
                       <div class="ord-line">
-                        <span class="ord-line-name">{{ it.quantity }}× <span [innerHTML]="it.name"></span></span>
+                        <span class="ord-line-name">{{ it.quantity }}× {{ itemTitle(it.name) }}</span>
                         <span class="ord-line-amt">{{ (it.price || 0) * it.quantity | number: '1.2-2' }}</span>
                       </div>
                     }
@@ -703,8 +703,11 @@ import { LEGAL_LINKS, SiteFooter } from '../../shared/site-footer.component';
       display: flex;
       justify-content: space-between;
       gap: 0.75rem;
-      font-size: 0.9rem;
+      font-size: 0.78rem;
       color: var(--text);
+    }
+    .ord-line-name {
+      text-align: left;
     }
     .ord-line-amt {
       font-variant-numeric: tabular-nums;
@@ -904,6 +907,26 @@ export class CustomerOrderPointPage implements OnDestroy {
   /** Relative time: "x min ago" / "x hours ago" / "dd.MM.YYYY". */
   relativeTime(iso: string): string {
     return timeAgo(iso);
+  }
+
+  /**
+   * Product title for the compact orders list: the rich-text name minus its description (the small
+   * `<font size="1">` block and anything after the first line), returned as plain text.
+   */
+  itemTitle(html: string): string {
+    if (!html) return '';
+    const cleaned = html
+      .replace(/<font[^>]*size=["']?1["']?[^>]*>[\s\S]*?<\/font>/gi, '')
+      .replace(/<small\b[^>]*>[\s\S]*?<\/small>/gi, '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li)>/gi, '\n');
+    const el = document.createElement('div');
+    el.innerHTML = cleaned;
+    const text = (el.textContent ?? '').replace(/ /g, ' ');
+    return text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0] ?? '';
   }
 
   qty(id: string): number {
