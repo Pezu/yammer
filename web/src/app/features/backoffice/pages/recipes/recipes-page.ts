@@ -3,7 +3,7 @@ import { AuthService } from '../../../../core/auth.service';
 import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { Event, EventService } from '../events/event.service';
-import { RecipeComponent, RecipeItem, RecipeService } from './recipe.service';
+import { RecipeComponent, RecipeComponentInput, RecipeItem, RecipeService } from './recipe.service';
 import { ComboOption, FilterCombo } from '../reports/filter-combo';
 
 /**
@@ -33,6 +33,15 @@ export class RecipesPage {
   // --- selected combined product + its recipe components ---
   readonly selectedItem = signal<RecipeItem | null>(null);
   readonly components = signal<RecipeComponent[]>([]);
+
+  // trailing empty row; saved automatically once every field is filled
+  private static readonly EMPTY_DRAFT: RecipeComponentInput = {
+    componentItemId: null,
+    quantity: null,
+    unit: null,
+    percentage: null,
+  };
+  readonly draft = signal<RecipeComponentInput>({ ...RecipesPage.EMPTY_DRAFT });
 
   // non-combined products to reference, as autocomplete combo options (HTML names → plain text)
   readonly productOptionItems = signal<RecipeItem[]>([]);
@@ -203,21 +212,44 @@ export class RecipesPage {
   selectItem(item: RecipeItem): void {
     this.selectedItem.set(item);
     this.components.set([]);
+    this.draft.set({ ...RecipesPage.EMPTY_DRAFT });
     this.recipeService.listComponents(item.id).subscribe({
       next: (cs) => this.components.set(cs),
       error: () => this.error.set('Failed to load recipe.'),
     });
   }
 
-  addComponent(): void {
+  // --- trailing draft row: persisted only once every field is filled ---
+  setDraftComponent(productId: string): void {
+    this.draft.update((d) => ({ ...d, componentItemId: productId || null }));
+    this.maybeSaveDraft();
+  }
+  setDraftQuantity(v: string): void {
+    this.draft.update((d) => ({ ...d, quantity: v === '' ? null : Number(v) }));
+    this.maybeSaveDraft();
+  }
+  setDraftUnit(v: string): void {
+    this.draft.update((d) => ({ ...d, unit: v || null }));
+    this.maybeSaveDraft();
+  }
+  setDraftPercentage(v: string): void {
+    this.draft.update((d) => ({ ...d, percentage: v === '' ? null : Number(v) }));
+    this.maybeSaveDraft();
+  }
+
+  private maybeSaveDraft(): void {
     const item = this.selectedItem();
-    if (!item) return;
-    this.recipeService
-      .createComponent(item.id, { componentItemId: null, quantity: null, unit: null, percentage: null })
-      .subscribe({
-        next: (c) => this.components.update((cs) => [...cs, c]),
-        error: () => this.error.set('Failed to add component.'),
-      });
+    const d = this.draft();
+    const complete =
+      !!d.componentItemId && d.quantity !== null && !!d.unit && d.percentage !== null;
+    if (!item || !complete) {
+      return;
+    }
+    this.draft.set({ ...RecipesPage.EMPTY_DRAFT }); // clear immediately so a fresh empty row shows
+    this.recipeService.createComponent(item.id, d).subscribe({
+      next: (c) => this.components.update((cs) => [...cs, c]),
+      error: () => this.error.set('Failed to add component.'),
+    });
   }
 
   /** Persist a row after an inline edit. */
