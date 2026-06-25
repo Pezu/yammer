@@ -33,6 +33,13 @@ public class RecipeController {
         return recipeService.combinedItems(locationId, eventId);
     }
 
+    /** Non-combined products a recipe component can reference (autocomplete options). */
+    @GetMapping("/product-options")
+    public List<RecipeItem> productOptions(
+            @RequestParam UUID locationId, @RequestParam(required = false) UUID eventId) {
+        return recipeService.componentOptions(locationId, eventId);
+    }
+
     // --- recipe components for one combined product ---
 
     @GetMapping("/components")

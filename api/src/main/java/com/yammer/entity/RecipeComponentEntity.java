@@ -26,8 +26,12 @@ public class RecipeComponentEntity {
     @Column(name = "menu_item_id", nullable = false)
     private UUID menuItemId;
 
-    @Column(nullable = false)
-    private String name = "";
+    /** The referenced (non-combined) product this recipe row is made of. */
+    @Column(name = "component_item_id")
+    private UUID componentItemId;
+
+    /** Display snapshot of the referenced product's name (source of truth is componentItemId). */
+    private String name;
 
     private BigDecimal quantity;
 

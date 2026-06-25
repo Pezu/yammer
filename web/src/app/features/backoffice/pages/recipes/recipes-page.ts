@@ -4,6 +4,7 @@ import { Client, ClientService } from '../clients/client.service';
 import { Location, LocationService } from '../locations/location.service';
 import { Event, EventService } from '../events/event.service';
 import { RecipeComponent, RecipeItem, RecipeService } from './recipe.service';
+import { ComboOption, FilterCombo } from '../reports/filter-combo';
 
 /**
  * Recipes (Rețetar): pick client (SUPER only) → location → event using the same combo selectors as
@@ -11,6 +12,7 @@ import { RecipeComponent, RecipeItem, RecipeService } from './recipe.service';
  */
 @Component({
   selector: 'app-recipes-page',
+  imports: [FilterCombo],
   templateUrl: './recipes-page.html',
   styleUrl: './recipes-page.scss',
 })
@@ -31,6 +33,12 @@ export class RecipesPage {
   // --- selected combined product + its recipe components ---
   readonly selectedItem = signal<RecipeItem | null>(null);
   readonly components = signal<RecipeComponent[]>([]);
+
+  // non-combined products to reference, as autocomplete combo options (HTML names → plain text)
+  readonly productOptionItems = signal<RecipeItem[]>([]);
+  readonly productOptions = computed<ComboOption[]>(() =>
+    this.productOptionItems().map((p) => ({ value: p.id, label: this.plainText(p.name) })),
+  );
 
   // --- client combo (SUPER only) ---
   readonly clients = signal<Client[]>([]);
@@ -185,6 +193,10 @@ export class RecipesPage {
         this.error.set('Failed to load recipes.');
       },
     });
+    this.recipeService.productOptions(this.locationId(), this.eventId()).subscribe({
+      next: (opts) => this.productOptionItems.set(opts),
+      error: () => this.productOptionItems.set([]),
+    });
   }
 
   // --- recipe components (second table) ---
@@ -201,7 +213,7 @@ export class RecipesPage {
     const item = this.selectedItem();
     if (!item) return;
     this.recipeService
-      .createComponent(item.id, { name: '', quantity: null, unit: null, percentage: null })
+      .createComponent(item.id, { componentItemId: null, quantity: null, unit: null, percentage: null })
       .subscribe({
         next: (c) => this.components.update((cs) => [...cs, c]),
         error: () => this.error.set('Failed to add component.'),
@@ -212,7 +224,7 @@ export class RecipesPage {
   saveComponent(c: RecipeComponent): void {
     this.recipeService
       .updateComponent(c.id, {
-        name: c.name,
+        componentItemId: c.componentItemId,
         quantity: c.quantity,
         unit: c.unit,
         percentage: c.percentage,
@@ -228,8 +240,8 @@ export class RecipesPage {
   }
 
   // inline-edit field setters (mutate the row, then persist)
-  setName(c: RecipeComponent, v: string): void {
-    c.name = v;
+  setComponent(c: RecipeComponent, productId: string): void {
+    c.componentItemId = productId || null;
     this.saveComponent(c);
   }
   setQuantity(c: RecipeComponent, v: string): void {
@@ -243,5 +255,12 @@ export class RecipesPage {
   setPercentage(c: RecipeComponent, v: string): void {
     c.percentage = v === '' ? null : Number(v);
     this.saveComponent(c);
+  }
+
+  /** Strip the rich-text product name down to plain text for combo labels. */
+  private plainText(html: string): string {
+    const el = document.createElement('div');
+    el.innerHTML = html ?? '';
+    return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
   }
 }

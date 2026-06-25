@@ -26,6 +26,23 @@ bridge:
 app:
   customer-base-url: http://192.168.1.135:4200
 
+# Web Push VAPID keys for local testing (dev-only pair; generate your own per environment).
+webpush:
+  public-key: BDqLvLDQLBd9Jh1YI0bVGzMLi0mZ_Kbgc_gJMYeX9v_Nq8jkO-rCq65BxhqowZ_rsXupcepWwE4CMIeSoLLuSoM
+  private-key: 0XqZcFgQDZTfkgaQRUClbw3_V1Dkkw8AbPwg-Pt2gsg
+
+# Netopia online payments (SANDBOX) for local testing. The notify-url is an ngrok tunnel to the
+# local API (port 8080), so Netopia's server-to-server IPN can reach localhost. Start the tunnel:
+#   docker run -d --name yammer-ngrok --add-host=host.docker.internal:host-gateway \
+#     -e NGROK_AUTHTOKEN=<token> ngrok/ngrok:latest \
+#     http --url=overprominently-hemodynamic-veronica.ngrok-free.dev host.docker.internal:8080
+netopia:
+  enabled: true
+  api-key: GMaWOObfdYQBlUWcuZFVnEqw-5DOTm6s7iOz5FFbdh0TYH23CJPEeKFx284g
+  pos-signature: 37ZT-B3X1-VZOC-GOIK-2RXP
+  base-url: https://secure.sandbox.netopia-payments.com
+  notify-url: https://overprominently-hemodynamic-veronica.ngrok-free.dev/public/payments/netopia/notify
+
 # Local Postgres (matches the docker-compose db).
 spring:
   datasource:

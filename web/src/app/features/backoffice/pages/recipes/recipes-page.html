@@ -140,7 +140,10 @@
                 <tbody>
                   @for (c of components(); track c.id) {
                     <tr>
-                      <td><input class="f-input" [value]="c.name" (change)="setName(c, $any($event.target).value)" /></td>
+                      <td>
+                        <app-filter-combo [value]="c.componentItemId ?? ''" [options]="productOptions()"
+                          [searchable]="true" allLabel="— none —" (changed)="setComponent(c, $event)" />
+                      </td>
                       <td class="num-col"><input class="f-input num" type="number" [value]="c.quantity" (change)="setQuantity(c, $any($event.target).value)" /></td>
                       <td class="unit-col"><input class="f-input" [value]="c.unit" (change)="setUnit(c, $any($event.target).value)" /></td>
                       <td class="num-col"><input class="f-input num" type="number" [value]="c.percentage" (change)="setPercentage(c, $any($event.target).value)" /></td>

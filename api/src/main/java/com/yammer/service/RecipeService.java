@@ -29,6 +29,15 @@ public class RecipeService {
 
     /** All combined products from every menu of the location (+ optional event). */
     public List<RecipeItem> combinedItems(UUID locationId, UUID eventId) {
+        return productsFor(locationId, eventId, true);
+    }
+
+    /** All non-combined products — the options a recipe component can reference. */
+    public List<RecipeItem> componentOptions(UUID locationId, UUID eventId) {
+        return productsFor(locationId, eventId, false);
+    }
+
+    private List<RecipeItem> productsFor(UUID locationId, UUID eventId, boolean combined) {
         // listByLocation performs the tenant/location access check.
         List<MenuResponse> menus = menuService.listByLocation(locationId, eventId);
         if (menus.isEmpty()) {
@@ -41,7 +50,7 @@ public class RecipeService {
         return menuItemRepository
                 .findByMenuIdInAndOrderableTrueOrderByName(menuNames.keySet())
                 .stream()
-                .filter(MenuItemEntity::isCombined)
+                .filter(i -> i.isCombined() == combined)
                 .map(i -> new RecipeItem(i.getId(), i.getName(), i.getMenuId(), menuNames.get(i.getMenuId())))
                 .toList();
     }
@@ -83,7 +92,11 @@ public class RecipeService {
     }
 
     private void apply(RecipeComponentEntity e, RecipeComponentRequest r) {
-        e.setName(r.name() == null ? "" : r.name().trim());
+        e.setComponentItemId(r.componentItemId());
+        // snapshot the referenced product's name for display
+        e.setName(r.componentItemId() == null
+                ? null
+                : menuItemRepository.findById(r.componentItemId()).map(MenuItemEntity::getName).orElse(null));
         e.setQuantity(r.quantity());
         e.setUnit(r.unit() == null || r.unit().isBlank() ? null : r.unit().trim());
         e.setPercentage(r.percentage());

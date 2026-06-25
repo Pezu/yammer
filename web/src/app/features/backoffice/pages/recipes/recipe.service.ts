@@ -11,16 +11,17 @@ export interface RecipeItem {
   menuName: string;
 }
 
-/** One component row of a combined product's recipe. */
+/** One component row of a combined product's recipe — references a non-combined product. */
 export interface RecipeComponent {
   id: string;
-  name: string;
+  componentItemId: string | null;
+  name: string | null;
   quantity: number | null;
   unit: string | null;
   percentage: number | null;
 }
 
-export type RecipeComponentInput = Omit<RecipeComponent, 'id'>;
+export type RecipeComponentInput = Omit<RecipeComponent, 'id' | 'name'>;
 
 @Injectable({ providedIn: 'root' })
 export class RecipeService {
@@ -28,11 +29,21 @@ export class RecipeService {
   private readonly baseUrl = `${environment.apiUrl}/recipes`;
 
   list(locationId: string, eventId: string): Observable<RecipeItem[]> {
+    return this.http.get<RecipeItem[]>(this.baseUrl, { params: this.scope(locationId, eventId) });
+  }
+
+  productOptions(locationId: string, eventId: string): Observable<RecipeItem[]> {
+    return this.http.get<RecipeItem[]>(`${this.baseUrl}/product-options`, {
+      params: this.scope(locationId, eventId),
+    });
+  }
+
+  private scope(locationId: string, eventId: string): HttpParams {
     let params = new HttpParams().set('locationId', locationId);
     if (eventId) {
       params = params.set('eventId', eventId);
     }
-    return this.http.get<RecipeItem[]>(this.baseUrl, { params });
+    return params;
   }
 
   listComponents(menuItemId: string): Observable<RecipeComponent[]> {
