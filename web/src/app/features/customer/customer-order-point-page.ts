@@ -1,4 +1,13 @@
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -120,8 +129,8 @@ import { LEGAL_LINKS } from './legal-page';
         <footer class="site-footer">
           <div class="pay">
             <span class="pay-label">Plată online securizată cu cardul prin</span>
-            <!-- NETOPIA: paste the snippet generated from Identitate vizuală (background #FFFFFF) here -->
-            <a class="netopia" href="https://netopia-payments.com" target="_blank" rel="noopener">NETOPIA Payments</a>
+            <!-- NETOPIA logo: the badge script (mny.ro/npId.js) is injected here at runtime. -->
+            <div #netopiaSlot class="netopia"></div>
           </div>
           <div class="anpc">
             <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC – SAL</a>
@@ -803,6 +812,11 @@ export class CustomerOrderPointPage implements OnDestroy {
   readonly logoFailed = signal(false);
   readonly legalLinks = LEGAL_LINKS;
 
+  // NETOPIA payment-logo badge (Identitate vizuală). The vendor script injects the logo right
+  // after itself, so we append it into this slot once the footer renders.
+  private readonly netopiaSlot = viewChild<ElementRef<HTMLDivElement>>('netopiaSlot');
+  private netopiaInjected = false;
+
   // cart: product id -> quantity
   readonly cart = signal<Record<string, number>>({});
   readonly placing = signal(false);
@@ -892,6 +906,21 @@ export class CustomerOrderPointPage implements OnDestroy {
       }
     }
     effect(() => sessionStorage.setItem(this.cartKey, JSON.stringify(this.cart())));
+
+    // Inject the NETOPIA logo badge once its footer slot exists.
+    effect(() => {
+      const slot = this.netopiaSlot();
+      if (!slot || this.netopiaInjected) {
+        return;
+      }
+      this.netopiaInjected = true;
+      const s = document.createElement('script');
+      s.src = 'https://mny.ro/npId.js?p=165091';
+      s.type = 'text/javascript';
+      s.setAttribute('data-version', 'orizontal');
+      s.setAttribute('data-contrast-color', '#ffffff');
+      slot.nativeElement.appendChild(s);
+    });
 
     if (!this.opId) {
       this.error.set('Invalid link.');
