@@ -1,13 +1,4 @@
-import {
-  Component,
-  ElementRef,
-  OnDestroy,
-  computed,
-  effect,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -129,8 +120,11 @@ import { LEGAL_LINKS } from './legal-page';
         <footer class="site-footer">
           <div class="pay">
             <span class="pay-label">Plată online securizată cu cardul prin</span>
-            <!-- NETOPIA logo: the badge script (mny.ro/npId.js) is injected here at runtime. -->
-            <div #netopiaSlot class="netopia"></div>
+            <!-- NETOPIA logo (Identitate vizuală, POS 165091, horizontal, light bg). Embedded directly
+                 because the vendor script runs on DOMContentLoaded, which has already fired in the SPA. -->
+            <a class="netopia" href="https://netopia-payments.com/" target="_blank" rel="noopener">
+              <img src="https://mny.ro/np-black-0.svg" alt="NETOPIA Payments" title="NETOPIA Payments" />
+            </a>
           </div>
           <div class="anpc">
             <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener">ANPC – SAL</a>
@@ -574,9 +568,12 @@ import { LEGAL_LINKS } from './legal-page';
       color: var(--muted);
     }
     .site-footer .netopia {
-      font-weight: 700;
-      color: var(--text);
-      text-decoration: none;
+      display: inline-flex;
+    }
+    .site-footer .netopia img {
+      width: auto;
+      height: 26px;
+      max-width: 180px;
     }
     .site-footer .anpc {
       display: flex;
@@ -812,11 +809,6 @@ export class CustomerOrderPointPage implements OnDestroy {
   readonly logoFailed = signal(false);
   readonly legalLinks = LEGAL_LINKS;
 
-  // NETOPIA payment-logo badge (Identitate vizuală). The vendor script injects the logo right
-  // after itself, so we append it into this slot once the footer renders.
-  private readonly netopiaSlot = viewChild<ElementRef<HTMLDivElement>>('netopiaSlot');
-  private netopiaInjected = false;
-
   // cart: product id -> quantity
   readonly cart = signal<Record<string, number>>({});
   readonly placing = signal(false);
@@ -906,21 +898,6 @@ export class CustomerOrderPointPage implements OnDestroy {
       }
     }
     effect(() => sessionStorage.setItem(this.cartKey, JSON.stringify(this.cart())));
-
-    // Inject the NETOPIA logo badge once its footer slot exists.
-    effect(() => {
-      const slot = this.netopiaSlot();
-      if (!slot || this.netopiaInjected) {
-        return;
-      }
-      this.netopiaInjected = true;
-      const s = document.createElement('script');
-      s.src = 'https://mny.ro/npId.js?p=165091';
-      s.type = 'text/javascript';
-      s.setAttribute('data-version', 'orizontal');
-      s.setAttribute('data-contrast-color', '#ffffff');
-      slot.nativeElement.appendChild(s);
-    });
 
     if (!this.opId) {
       this.error.set('Invalid link.');
