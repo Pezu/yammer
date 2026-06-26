@@ -92,7 +92,7 @@ public class EscPosThermalService {
             BigDecimal total = payload.total();
             if (total != null && total.signum() > 0) {
                 writeLine(out, "");
-                writeLine(out, "Bacsis:");
+                writeLine(out, "Tips:");
                 for (int pct : new int[] {10, 12, 15}) {
                     BigDecimal tip = total.multiply(BigDecimal.valueOf(pct))
                             .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);

@@ -280,7 +280,7 @@ public class BridgeService {
         BigDecimal tip = payment.getTip();
         if (tip != null && tip.signum() > 0) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("name", "Bacsis");
+            m.put("name", "Tips");
             m.put("quantity", 1);
             m.put("unitPrice", tip);
             m.put("vat", BigDecimal.ZERO);
