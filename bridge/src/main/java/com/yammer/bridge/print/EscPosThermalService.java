@@ -95,15 +95,15 @@ public class EscPosThermalService {
             writeLine(out, twoCols("TOTAL", money(payload.total())));
             out.write(BOLD_OFF);
 
-            // ── tip options — smaller font, two columns; the customer ticks one by pen ──
+            // ── tip options — smaller font, one per line; the customer ticks one by pen ──
             writeLine(out, "");
             out.write(FONT_B);
             writeLine(out, "Tips:");
-            int col = FONT_B_WIDTH / 2;
-            writeLine(out, twoLeft("[ ] 10%", "[ ] 12%", col));
+            writeLine(out, "[ ] 10%");
+            writeLine(out, "[ ] 12%");
+            writeLine(out, "[ ] 15%");
             String suma = "[ ] Suma: ";
-            suma = suma + "_".repeat(Math.max(0, col - suma.length()));
-            writeLine(out, twoLeft("[ ] 15%", suma, col));
+            writeLine(out, suma + "_".repeat(Math.max(0, FONT_B_WIDTH - suma.length())));
             out.write(FONT_A);
 
             out.write(ALIGN_CENTER);
@@ -231,16 +231,6 @@ public class EscPosThermalService {
     /** Left text + right text padded to LINE_WIDTH (right-aligns the amount). */
     private String twoCols(String left, String right) {
         return twoCols(left, right, LINE_WIDTH);
-    }
-
-    /** Two left-aligned columns: {@code a} padded to {@code colWidth}, then {@code b}. */
-    private String twoLeft(String a, String b, int colWidth) {
-        a = transliterate(a);
-        b = transliterate(b);
-        if (a.length() < colWidth) {
-            a = a + " ".repeat(colWidth - a.length());
-        }
-        return a + b;
     }
 
     /** Left text + right text padded to {@code width} chars (right-aligns the amount). */
