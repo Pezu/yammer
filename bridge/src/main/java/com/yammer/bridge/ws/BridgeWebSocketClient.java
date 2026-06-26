@@ -10,8 +10,6 @@ import com.yammer.bridge.dto.ReceiptResult;
 import com.yammer.bridge.print.PrintQueueManager;
 import com.yammer.bridge.print.Qty;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
@@ -93,10 +91,10 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     }
 
     private URI buildUri() {
-        String base = props.serverUrl();
-        String key = props.apiKey() == null ? "" : URLEncoder.encode(props.apiKey(), StandardCharsets.UTF_8);
-        String sep = base.contains("?") ? "&" : "?";
-        return URI.create(base + sep + "key=" + key);
+        // The API key is sent via the X-Bridge-Key header (see headers above), not as a query
+        // param — a query value would be percent-encoded (e.g. '/' → %2F) and the backend reads
+        // the raw param without decoding, which breaks keys containing '/' or '='.
+        return URI.create(props.serverUrl());
     }
 
     @Override

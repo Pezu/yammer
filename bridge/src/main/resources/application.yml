@@ -13,9 +13,10 @@ server:
 # bridge.api-key MUST match the key the backend accepts for bridge sessions.
 # ============================================================
 bridge:
-  # Connects to the production API by default; override BRIDGE_SERVER_URL for local dev
-  # (e.g. ws://localhost:8080/ws/bridge — also set in the `local` profile).
-  server-url: ${BRIDGE_SERVER_URL:wss://api.rendezvous-app.ro/ws/bridge}
+  # Connects to the production API by default. Use the Cloud Run *.run.app URL, NOT the custom
+  # domain (api.rendezvous-app.ro) — Cloud Run domain mappings don't support WebSocket upgrades.
+  # Override BRIDGE_SERVER_URL for local dev (ws://localhost:8080/ws/bridge — see the `local` profile).
+  server-url: ${BRIDGE_SERVER_URL:wss://yammer-api-3xyvse7h5a-ew.a.run.app/ws/bridge}
   api-key: ${BRIDGE_API_KEY:change-me}
   reconnect-delay-seconds: ${BRIDGE_RECONNECT_DELAY_SECONDS:10}
   print-timeout-seconds: ${BRIDGE_PRINT_TIMEOUT_SECONDS:30}
