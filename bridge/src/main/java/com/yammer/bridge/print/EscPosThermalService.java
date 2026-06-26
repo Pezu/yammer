@@ -55,28 +55,13 @@ public class EscPosThermalService {
 
             out.write(ALIGN_CENTER);
 
-            // ── company header ──
-            InfoReceiptRequest.Company company = payload.company();
-            if (company != null) {
-                out.write(BOLD_ON);
-                out.write(DOUBLE_ON);
-                writeLine(out, safe(company.name()));
-                out.write(DOUBLE_OFF);
-                out.write(BOLD_OFF);
-                if (company.cui() != null && !company.cui().isBlank()) {
-                    writeLine(out, "CUI " + company.cui());
-                }
-                if (company.regCom() != null && !company.regCom().isBlank()) {
-                    writeLine(out, "Reg. Com. " + company.regCom());
-                }
-                if (company.address() != null && !company.address().isBlank()) {
-                    writeLine(out, company.address());
-                }
-                if (company.phone() != null && !company.phone().isBlank()) {
-                    writeLine(out, "Tel: " + company.phone());
-                }
-                writeLine(out, sep());
-            }
+            // ── company header (name only) ──
+            out.write(BOLD_ON);
+            out.write(DOUBLE_ON);
+            writeLine(out, "RENDEZVOUS");
+            out.write(DOUBLE_OFF);
+            out.write(BOLD_OFF);
+            writeLine(out, sep());
 
             out.write(BOLD_ON);
             writeLine(out, "PROFORMA");
@@ -121,7 +106,13 @@ public class EscPosThermalService {
 
             out.write(ALIGN_CENTER);
             writeLine(out, "");
+            writeLine(out, "");
+            writeLine(out, "");
+            out.write(BOLD_ON);
+            out.write(DOUBLE_ON);
             writeLine(out, "Va multumim!");
+            out.write(DOUBLE_OFF);
+            out.write(BOLD_OFF);
 
             out.write(FEED_LINES);
             out.write(FEED_AND_CUT);
