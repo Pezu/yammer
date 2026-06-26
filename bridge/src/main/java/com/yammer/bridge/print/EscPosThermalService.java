@@ -55,13 +55,40 @@ public class EscPosThermalService {
             out.write(INIT);
 
             out.write(ALIGN_CENTER);
-            out.write(DOUBLE_ON);
-            writeLine(out, payload.table() != null ? payload.table() : "");
-            out.write(DOUBLE_OFF);
+
+            // ── company header ──
+            InfoReceiptRequest.Company company = payload.company();
+            if (company != null) {
+                out.write(BOLD_ON);
+                out.write(DOUBLE_ON);
+                writeLine(out, safe(company.name()));
+                out.write(DOUBLE_OFF);
+                out.write(BOLD_OFF);
+                if (company.cui() != null && !company.cui().isBlank()) {
+                    writeLine(out, "CUI " + company.cui());
+                }
+                if (company.regCom() != null && !company.regCom().isBlank()) {
+                    writeLine(out, "Reg. Com. " + company.regCom());
+                }
+                if (company.address() != null && !company.address().isBlank()) {
+                    writeLine(out, company.address());
+                }
+                if (company.phone() != null && !company.phone().isBlank()) {
+                    writeLine(out, "Tel: " + company.phone());
+                }
+                writeLine(out, sep());
+            }
+
             out.write(BOLD_ON);
             writeLine(out, "PROFORMA");
             out.write(BOLD_OFF);
             writeLine(out, "NU ESTE BON FISCAL");
+            if (payload.table() != null && !payload.table().isBlank()) {
+                writeLine(out, "Punct: " + payload.table());
+            }
+            if (payload.waiter() != null && !payload.waiter().isBlank()) {
+                writeLine(out, "Ospatar: " + payload.waiter());
+            }
             List<Integer> orderNos = payload.orderNos();
             if (orderNos != null && !orderNos.isEmpty()) {
                 writeLine(out, "Comenzi: " + orderNos.stream()
@@ -82,6 +109,18 @@ public class EscPosThermalService {
             out.write(BOLD_ON);
             writeLine(out, twoCols("TOTAL", money(payload.total())));
             out.write(BOLD_OFF);
+
+            // ── suggested tip (bacsis) — same options as the waiter modal ──
+            BigDecimal total = payload.total();
+            if (total != null && total.signum() > 0) {
+                writeLine(out, "");
+                writeLine(out, "Bacsis sugerat:");
+                for (int pct : new int[] {10, 12, 15}) {
+                    BigDecimal tip = total.multiply(BigDecimal.valueOf(pct))
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    writeLine(out, twoCols("  " + pct + "%", money(tip)));
+                }
+            }
 
             out.write(ALIGN_CENTER);
             writeLine(out, "");

@@ -54,6 +54,14 @@ bridge:
 app:
   customer-base-url: ${APP_CUSTOMER_BASE_URL:http://localhost:4200}
 
+# Merchant identity printed on the proforma header (defaults to RENDEZVOUS EVENTS).
+company:
+  name: ${COMPANY_NAME:RENDEZVOUS EVENTS S.R.L.}
+  cui: ${COMPANY_CUI:RO41973877}
+  reg-com: ${COMPANY_REG_COM:J2019003544080}
+  address: ${COMPANY_ADDRESS:Str. Basarabia 12, Brasov}
+  phone: ${COMPANY_PHONE:0748 869 869}
+
 # Google Cloud Storage for media (client logos, future menu-item images).
 # endpoint blank -> real GCS via Application Default Credentials (GCP/Cloud Run).
 # For local dev use the `local` profile, which points at the fake-gcs-server emulator.

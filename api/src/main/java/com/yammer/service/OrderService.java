@@ -607,7 +607,8 @@ public class OrderService {
                 .sorted()
                 .toList();
 
-        bridgeService.sendInfo(op, orderNoList, lines, total);
+        String waiter = currentUser.require().username();
+        bridgeService.sendInfo(op, waiter, orderNoList, lines, total);
     }
 
     private static BridgeService.InfoLine toInfoLine(OrderItemEntity it) {

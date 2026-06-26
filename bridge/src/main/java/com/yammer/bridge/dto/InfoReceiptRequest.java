@@ -9,6 +9,8 @@ import java.util.List;
  * @param requestId correlation id echoed back in the result
  * @param printerIp LAN IP of the target thermal printer
  * @param table     table / order-point label printed as the header
+ * @param waiter    the waiter who issued the proforma
+ * @param company   merchant identity printed in the header
  * @param orderNos  order numbers included on the bill
  * @param lines     bill lines
  * @param total     grand total
@@ -17,10 +19,16 @@ public record InfoReceiptRequest(
         String requestId,
         String printerIp,
         String table,
+        String waiter,
+        Company company,
         List<Integer> orderNos,
         List<Line> lines,
         BigDecimal total) {
 
     public record Line(String name, Integer quantity, BigDecimal unitPrice, BigDecimal lineTotal) {
+    }
+
+    /** Merchant identity printed in the proforma header. */
+    public record Company(String name, String cui, String regCom, String address, String phone) {
     }
 }

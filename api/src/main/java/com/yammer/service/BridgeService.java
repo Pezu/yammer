@@ -6,6 +6,7 @@ import com.yammer.entity.FiscalStatus;
 import com.yammer.entity.IntegrationEntity;
 import com.yammer.entity.MenuItemEntity;
 import com.yammer.entity.OrderItemEntity;
+import com.yammer.config.CompanyProperties;
 import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
@@ -78,6 +79,7 @@ public class BridgeService {
     private final MenuItemRepository menuItemRepository;
     private final VatTypeRepository vatTypeRepository;
     private final PlatformTransactionManager transactionManager;
+    private final CompanyProperties companyProperties;
 
     /** Runs the short load+stamp+persist step in its own tx so WS sends happen AFTER commit. */
     private TransactionTemplate txTemplate;
@@ -97,7 +99,8 @@ public class BridgeService {
     // ─── proforma (non-fiscal, best-effort) ──────────────────────────────────
 
     /** Push the non-fiscal proforma to the order point's thermal printer (only if a bridge is live). */
-    public void sendInfo(OrderPointEntity op, List<Integer> orderNos, List<InfoLine> lines, BigDecimal total) {
+    public void sendInfo(
+            OrderPointEntity op, String waiter, List<Integer> orderNos, List<InfoLine> lines, BigDecimal total) {
         if (!handler.isConnected()) {
             log.warn("No bridge connected — proforma for '{}' not sent (re-press when online).", op.getName());
             return;
@@ -108,11 +111,20 @@ public class BridgeService {
                     op.getName());
             return;
         }
+        Map<String, Object> company = new LinkedHashMap<>();
+        company.put("name", companyProperties.getName());
+        company.put("cui", companyProperties.getCui());
+        company.put("regCom", companyProperties.getRegCom());
+        company.put("address", companyProperties.getAddress());
+        company.put("phone", companyProperties.getPhone());
+
         Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("type", "INFO_RECEIPT");
         msg.put("requestId", UUID.randomUUID().toString());
         msg.put("printerIp", printerIp);
         msg.put("table", op.getName());
+        msg.put("waiter", waiter);
+        msg.put("company", company);
         msg.put("orderNos", orderNos);
         msg.put("lines", lines.stream().map(l -> {
             Map<String, Object> m = new LinkedHashMap<>();
