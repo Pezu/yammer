@@ -267,13 +267,23 @@ public class BridgeService {
             return null;
         }
 
-        List<Map<String, Object>> lines = new ArrayList<>(items.size());
+        List<Map<String, Object>> lines = new ArrayList<>(items.size() + 1);
         for (OrderItemEntity it : items) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("name", plainName(it.getName()));
             m.put("quantity", it.getQuantity());
             m.put("unitPrice", it.getPrice() == null ? BigDecimal.ZERO : it.getPrice());
             m.put("vat", it.getMenuItemId() == null ? null : vatByMenuItem.get(it.getMenuItemId()));
+            lines.add(m);
+        }
+        // Tip (bacsis) as its own line in the VAT 0 category.
+        BigDecimal tip = payment.getTip();
+        if (tip != null && tip.signum() > 0) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("name", "Bacsis");
+            m.put("quantity", 1);
+            m.put("unitPrice", tip);
+            m.put("vat", BigDecimal.ZERO);
             lines.add(m);
         }
 
