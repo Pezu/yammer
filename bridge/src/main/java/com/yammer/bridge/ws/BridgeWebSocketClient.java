@@ -50,6 +50,9 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     private final ProcessedReceiptStore processedStore;
     private final StandardWebSocketClient client = new StandardWebSocketClient();
 
+    /** Receipts handed to the printer but not yet finished — closes the de-dup window during printing. */
+    private final java.util.Set<String> inFlight = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private volatile WebSocketSession session;
 
     // ─── connection lifecycle ────────────────────────────────────────────────
@@ -133,6 +136,13 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
             sendResult(cached.get());
             return;
         }
+        // Already printing this requestId (a duplicate frame arrived before the first finished) —
+        // drop it so the same receipt isn't printed twice. The first frame still sends the result.
+        if (!inFlight.add(request.requestId())) {
+            log.info("Receipt requestId={} already in flight — skipping duplicate frame.",
+                    request.requestId());
+            return;
+        }
 
         String kind = request.fiscal() ? "FISCAL" : "NON-FISCAL";
         String ip = request.fiscal() ? request.cashRegister() : request.printerIp();
@@ -149,9 +159,14 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
                     if (ReceiptResult.OK.equalsIgnoreCase(result.status())) {
                         processedStore.put(request.requestId(), result);
                     }
+                    // keep failed ones reservable so a later resend can retry the print
+                    inFlight.remove(request.requestId());
                     sendResult(result);
                 })
-                .exceptionally(ex -> logAsyncFailure(request.requestId(), ex));
+                .exceptionally(ex -> {
+                    inFlight.remove(request.requestId());
+                    return logAsyncFailure(request.requestId(), ex);
+                });
     }
 
     private void sendHello() {
