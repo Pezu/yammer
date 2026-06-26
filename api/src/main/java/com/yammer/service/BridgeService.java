@@ -270,7 +270,7 @@ public class BridgeService {
         List<Map<String, Object>> lines = new ArrayList<>(items.size());
         for (OrderItemEntity it : items) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("name", it.getName());
+            m.put("name", plainName(it.getName()));
             m.put("quantity", it.getQuantity());
             m.put("unitPrice", it.getPrice() == null ? BigDecimal.ZERO : it.getPrice());
             m.put("vat", it.getMenuItemId() == null ? null : vatByMenuItem.get(it.getMenuItemId()));
@@ -285,6 +285,35 @@ public class BridgeService {
         msg.put("cashRegister", cashRegisterIp);
         msg.put("lines", lines);
         return mapper.writeValueAsString(msg);
+    }
+
+    /**
+     * Product names are stored as rich text (HTML). Strip the markup — and the small-font
+     * description block — to the plain product title on a single line for the fiscal receipt.
+     */
+    static String plainName(String html) {
+        if (html == null) {
+            return "";
+        }
+        String s = html
+                .replaceAll("(?is)<font[^>]*size=[\"']?1[\"']?[^>]*>.*?</font>", "")
+                .replaceAll("(?is)<small\\b[^>]*>.*?</small>", "")
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</(p|div|li)>", "\n")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&#39;", "'")
+                .replace("&quot;", "\"");
+        for (String line : s.split("\n")) {
+            String t = line.trim().replaceAll("\\s+", " ");
+            if (!t.isEmpty()) {
+                return t;
+            }
+        }
+        return "";
     }
 
     // ─── result write-back (the ack) ─────────────────────────────────────────
