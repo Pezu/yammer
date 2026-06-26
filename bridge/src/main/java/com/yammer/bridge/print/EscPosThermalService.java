@@ -12,7 +12,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -89,12 +88,7 @@ public class EscPosThermalService {
             if (payload.waiter() != null && !payload.waiter().isBlank()) {
                 writeLine(out, "Ospatar: " + payload.waiter());
             }
-            List<Integer> orderNos = payload.orderNos();
-            if (orderNos != null && !orderNos.isEmpty()) {
-                writeLine(out, "Comenzi: " + orderNos.stream()
-                        .map(String::valueOf)
-                        .collect(Collectors.joining(", ")));
-            }
+            writeLine(out, "Comanda");
 
             out.write(ALIGN_LEFT);
             writeLine(out, sep());
