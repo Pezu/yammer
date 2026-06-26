@@ -27,6 +27,7 @@ public class EscPosThermalService {
     private static final int PORT = 9100;
     private static final int CONNECT_TIMEOUT_MS = 8_000;
     private static final int LINE_WIDTH = 48;
+    private static final int FONT_B_WIDTH = 64; // Font B fits more chars per 80mm line
 
     // ── ESC/POS control sequences ──
     private static final byte[] INIT = {0x1B, 0x40};
@@ -36,6 +37,9 @@ public class EscPosThermalService {
     private static final byte[] BOLD_OFF = {0x1B, 0x45, 0x00};
     private static final byte[] DOUBLE_ON = {0x1D, 0x21, 0x11};
     private static final byte[] DOUBLE_OFF = {0x1D, 0x21, 0x00};
+    private static final byte[] TALL_ON = {0x1D, 0x21, 0x01}; // double height only (bigger products)
+    private static final byte[] FONT_A = {0x1B, 0x4D, 0x00}; // standard font
+    private static final byte[] FONT_B = {0x1B, 0x4D, 0x01}; // smaller font (tips)
     // Print + feed 6 lines so the printed content clears the head before the cut,
     // otherwise it stays inside the printer and only the blank leader comes out.
     private static final byte[] FEED_LINES = {0x1B, 0x64, 0x06}; // ESC d 6
@@ -76,11 +80,14 @@ public class EscPosThermalService {
 
             out.write(ALIGN_LEFT);
             writeLine(out, sep());
+            // products printed taller (bigger) than the rest
             if (payload.lines() != null) {
+                out.write(TALL_ON);
                 for (InfoReceiptRequest.Line line : payload.lines()) {
                     int qty = line.quantity() != null ? line.quantity() : 0;
                     writeLine(out, twoCols(qty + "x " + plain(line.name()), money(line.lineTotal())));
                 }
+                out.write(DOUBLE_OFF);
             }
             writeLine(out, sep());
 
@@ -88,22 +95,26 @@ public class EscPosThermalService {
             writeLine(out, twoCols("TOTAL", money(payload.total())));
             out.write(BOLD_OFF);
 
-            // ── tip (bacsis) options — the customer ticks one by pen ──
+            // ── tip options — smaller font; the customer ticks one by pen ──
             BigDecimal total = payload.total();
             if (total != null && total.signum() > 0) {
                 writeLine(out, "");
+                out.write(FONT_B);
                 writeLine(out, "Tips:");
                 for (int pct : new int[] {10, 12, 15}) {
                     BigDecimal tip = total.multiply(BigDecimal.valueOf(pct))
                             .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    writeLine(out, twoCols("[ ] " + pct + "%", money(tip)));
+                    writeLine(out, twoCols("[ ] " + pct + "%", money(tip), FONT_B_WIDTH));
                 }
                 // free-form amount the customer writes in by hand
                 String sumaLabel = "[ ] Suma: ";
-                writeLine(out, sumaLabel + "_".repeat(Math.max(0, LINE_WIDTH - sumaLabel.length())));
+                writeLine(out, sumaLabel + "_".repeat(Math.max(0, FONT_B_WIDTH - sumaLabel.length())));
+                out.write(FONT_A);
             }
 
             out.write(ALIGN_CENTER);
+            writeLine(out, "");
+            writeLine(out, "");
             writeLine(out, "");
             writeLine(out, "");
             writeLine(out, "");
@@ -225,13 +236,18 @@ public class EscPosThermalService {
 
     /** Left text + right text padded to LINE_WIDTH (right-aligns the amount). */
     private String twoCols(String left, String right) {
+        return twoCols(left, right, LINE_WIDTH);
+    }
+
+    /** Left text + right text padded to {@code width} chars (right-aligns the amount). */
+    private String twoCols(String left, String right, int width) {
         left = transliterate(left);
         right = transliterate(right);
-        int pad = LINE_WIDTH - right.length();
+        int pad = width - right.length();
         if (left.length() > pad - 1) {
             left = left.substring(0, Math.max(0, pad - 1));
         }
-        int spaces = Math.max(1, LINE_WIDTH - left.length() - right.length());
+        int spaces = Math.max(1, width - left.length() - right.length());
         return left + " ".repeat(spaces) + right;
     }
 
