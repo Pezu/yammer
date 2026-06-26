@@ -101,7 +101,7 @@ public class EscPosThermalService {
             if (payload.lines() != null) {
                 for (InfoReceiptRequest.Line line : payload.lines()) {
                     int qty = line.quantity() != null ? line.quantity() : 0;
-                    writeLine(out, twoCols(qty + "x " + safe(line.name()), money(line.lineTotal())));
+                    writeLine(out, twoCols(qty + "x " + plain(line.name()), money(line.lineTotal())));
                 }
             }
             writeLine(out, sep());
@@ -176,7 +176,7 @@ public class EscPosThermalService {
                     BigDecimal unit = line.unitPrice() == null ? BigDecimal.ZERO : line.unitPrice();
                     BigDecimal lineTotal = unit.multiply(BigDecimal.valueOf(qty)).setScale(2, RoundingMode.HALF_UP);
                     total = total.add(lineTotal);
-                    writeLine(out, twoCols(Qty.label(qty) + "x " + safe(line.name()), money(lineTotal)));
+                    writeLine(out, twoCols(Qty.label(qty) + "x " + plain(line.name()), money(lineTotal)));
                 }
             }
             writeLine(out, sep());
@@ -259,6 +259,35 @@ public class EscPosThermalService {
 
     private String safe(String s) {
         return s == null ? "" : s;
+    }
+
+    /**
+     * Product names are stored as rich text (HTML). Strip the markup — and the small-font
+     * description block — down to the product title on a single plain line for the receipt.
+     */
+    private String plain(String html) {
+        if (html == null) {
+            return "";
+        }
+        String s = html
+                .replaceAll("(?is)<font[^>]*size=[\"']?1[\"']?[^>]*>.*?</font>", "")
+                .replaceAll("(?is)<small\\b[^>]*>.*?</small>", "")
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</(p|div|li)>", "\n")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&#39;", "'")
+                .replace("&quot;", "\"");
+        for (String line : s.split("\n")) {
+            String t = line.trim().replaceAll("\\s+", " ");
+            if (!t.isEmpty()) {
+                return t;
+            }
+        }
+        return "";
     }
 
     /** Map Romanian diacritics to ASCII; replace any other non-ASCII with '?'. */
