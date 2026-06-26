@@ -222,10 +222,10 @@
   color: var(--danger);
 }
 
-/* 3 tiles per row */
+/* 3 tiles per row — minmax(0,1fr) so a long name can't widen the column past the page */
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
 }
 
@@ -235,6 +235,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
+  min-width: 0;
   aspect-ratio: 1 / 1;
   padding: 0.5rem;
   overflow: hidden;
