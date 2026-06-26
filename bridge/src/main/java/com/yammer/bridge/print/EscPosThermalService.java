@@ -95,22 +95,16 @@ public class EscPosThermalService {
             writeLine(out, twoCols("TOTAL", money(payload.total())));
             out.write(BOLD_OFF);
 
-            // ── tip options — smaller font; the customer ticks one by pen ──
-            BigDecimal total = payload.total();
-            if (total != null && total.signum() > 0) {
-                writeLine(out, "");
-                out.write(FONT_B);
-                writeLine(out, "Tips:");
-                for (int pct : new int[] {10, 12, 15}) {
-                    BigDecimal tip = total.multiply(BigDecimal.valueOf(pct))
-                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    writeLine(out, twoCols("[ ] " + pct + "%", money(tip), FONT_B_WIDTH));
-                }
-                // free-form amount the customer writes in by hand
-                String sumaLabel = "[ ] Suma: ";
-                writeLine(out, sumaLabel + "_".repeat(Math.max(0, FONT_B_WIDTH - sumaLabel.length())));
-                out.write(FONT_A);
-            }
+            // ── tip options — smaller font, two columns; the customer ticks one by pen ──
+            writeLine(out, "");
+            out.write(FONT_B);
+            writeLine(out, "Tips:");
+            int col = FONT_B_WIDTH / 2;
+            writeLine(out, twoLeft("[ ] 10%", "[ ] 12%", col));
+            String suma = "[ ] Suma: ";
+            suma = suma + "_".repeat(Math.max(0, col - suma.length()));
+            writeLine(out, twoLeft("[ ] 15%", suma, col));
+            out.write(FONT_A);
 
             out.write(ALIGN_CENTER);
             writeLine(out, "");
@@ -237,6 +231,16 @@ public class EscPosThermalService {
     /** Left text + right text padded to LINE_WIDTH (right-aligns the amount). */
     private String twoCols(String left, String right) {
         return twoCols(left, right, LINE_WIDTH);
+    }
+
+    /** Two left-aligned columns: {@code a} padded to {@code colWidth}, then {@code b}. */
+    private String twoLeft(String a, String b, int colWidth) {
+        a = transliterate(a);
+        b = transliterate(b);
+        if (a.length() < colWidth) {
+            a = a + " ".repeat(colWidth - a.length());
+        }
+        return a + b;
     }
 
     /** Left text + right text padded to {@code width} chars (right-aligns the amount). */
