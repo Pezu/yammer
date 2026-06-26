@@ -110,16 +110,19 @@ public class EscPosThermalService {
             writeLine(out, twoCols("TOTAL", money(payload.total())));
             out.write(BOLD_OFF);
 
-            // ── suggested tip (bacsis) — same options as the waiter modal ──
+            // ── tip (bacsis) options — the customer ticks one by pen ──
             BigDecimal total = payload.total();
             if (total != null && total.signum() > 0) {
                 writeLine(out, "");
-                writeLine(out, "Bacsis sugerat:");
+                writeLine(out, "Bacsis:");
                 for (int pct : new int[] {10, 12, 15}) {
                     BigDecimal tip = total.multiply(BigDecimal.valueOf(pct))
                             .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    writeLine(out, twoCols("  " + pct + "%", money(tip)));
+                    writeLine(out, twoCols("[ ] " + pct + "%", money(tip)));
                 }
+                // free-form amount the customer writes in by hand
+                String sumaLabel = "[ ] Suma: ";
+                writeLine(out, sumaLabel + "_".repeat(Math.max(0, LINE_WIDTH - sumaLabel.length())));
             }
 
             out.write(ALIGN_CENTER);
