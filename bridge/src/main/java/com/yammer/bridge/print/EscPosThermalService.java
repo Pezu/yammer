@@ -73,7 +73,6 @@ public class EscPosThermalService {
             if (payload.waiter() != null && !payload.waiter().isBlank()) {
                 writeLine(out, "Ospatar: " + payload.waiter());
             }
-            writeLine(out, "Comanda");
 
             out.write(ALIGN_LEFT);
             writeLine(out, sep());
