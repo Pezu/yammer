@@ -122,7 +122,7 @@
   <app-pay-modal
     [amount]="total()"
     [protocol]="protocol()"
-    [methods]="acceptedMethods()"
+    [methods]="acceptedMethods"
     [submitting]="placing()"
     (confirmed)="onPay($event)"
     (cancelled)="closePayMethod()"

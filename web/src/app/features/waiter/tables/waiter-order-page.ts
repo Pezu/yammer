@@ -133,8 +133,11 @@ export class WaiterOrderPage {
   readonly immediate = computed(() => this.menu() != null && !this.menu()!.payLater);
   /** Whether this order point is a protocol (comp/house) point. */
   readonly protocol = computed(() => this.menu()?.protocol ?? false);
-  /** Accepted payment methods for the order point (empty = all). */
-  readonly acceptedMethods = computed(() => this.menu()?.paymentMethods ?? []);
+  /**
+   * Methods offered in the immediate pay modal. This flow only runs for non-pay-later
+   * (pay-now) points, which are card only.
+   */
+  readonly acceptedMethods = ['CARD'];
   readonly payMethodOpen = signal(false);
 
   constructor() {
