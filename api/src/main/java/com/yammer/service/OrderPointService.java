@@ -179,7 +179,11 @@ public class OrderPointService {
      * at the same location, carrying over the menu. Only pay-later points can be split.
      */
     public OrderPointResponse split(UUID id) {
-        OrderPointEntity source = requireAccessibleOrderPoint(id);
+        return splitEntity(requireAccessibleOrderPoint(id));
+    }
+
+    /** Split an already-resolved (access-checked) order point. Used by both the admin and waiter paths. */
+    public OrderPointResponse splitEntity(OrderPointEntity source) {
         if (!source.isPayLater()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pay-later order points can be split");
         }

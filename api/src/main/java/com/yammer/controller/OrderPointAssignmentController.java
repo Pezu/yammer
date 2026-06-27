@@ -2,7 +2,10 @@ package com.yammer.controller;
 
 import com.yammer.dto.AssignmentRequest;
 import com.yammer.dto.MyTableResponse;
+import com.yammer.dto.OrderPointResponse;
 import com.yammer.dto.OrderResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import com.yammer.dto.ParentAssignmentResponse;
 import com.yammer.dto.PaymentSummaryResponse;
 import com.yammer.dto.TableStatsResponse;
@@ -67,6 +70,13 @@ public class OrderPointAssignmentController {
     @PostMapping("/payments/{id}/retry-fiscal")
     public void retryFiscal(@PathVariable UUID id) {
         assignmentService.retryFiscal(id);
+    }
+
+    /** Split one of the caller's assigned tables into a new sibling (copies config; same parent). */
+    @PostMapping("/{id}/split")
+    @ResponseStatus(HttpStatus.CREATED)
+    public OrderPointResponse split(@PathVariable UUID id) {
+        return assignmentService.split(id);
     }
 
     @PutMapping

@@ -72,6 +72,14 @@ export class WaiterOrderPointService {
     return this.http.get<TableStats[]>(`${environment.apiUrl}/order-point-assignments/stats`);
   }
 
+  /** Split an assigned table into a new sibling (copies config; same parent). */
+  split(orderPointId: string): Observable<unknown> {
+    return this.http.post(
+      `${environment.apiUrl}/order-point-assignments/${orderPointId}/split`,
+      {},
+    );
+  }
+
   /** All payments at the waiter's tables for the Payments page. */
   paymentsSummary(): Observable<PaymentSummary[]> {
     return this.http.get<PaymentSummary[]>(

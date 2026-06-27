@@ -37,6 +37,7 @@
 }
 
 .tile {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,6 +51,32 @@
   border-radius: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+
+  .split-btn {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:active {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
 
   /* something to pay */
   &.unpaid {

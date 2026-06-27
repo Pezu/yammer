@@ -16,6 +16,12 @@
           [state]="{ name: op.name }"
         >
           <span class="name">{{ op.name }}</span>
+          @if (op.payLater) {
+            <button type="button" class="split-btn" [disabled]="splitting() === op.id"
+              (click)="split(op, $event)" title="Split table" aria-label="Split table">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"></line><line x1="18" y1="3" x2="18" y2="21"></line><polyline points="9 8 6 5 3 8"></polyline><polyline points="15 8 18 5 21 8"></polyline></svg>
+            </button>
+          }
         </a>
       }
     </div>

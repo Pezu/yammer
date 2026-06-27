@@ -58,6 +58,7 @@ public class OrderPointAssignmentService {
     private final PaymentRepository paymentRepository;
     private final CurrentUserProvider currentUser;
     private final AccessGuard accessGuard;
+    private final OrderPointService orderPointService;
     private final OrderResponseAssembler orderResponseAssembler;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -262,6 +263,21 @@ public class OrderPointAssignmentService {
         log.info("Manual fiscal re-issue for payment {} (method={})", paymentId, payment.getMethod());
         // Best-effort single send once this tx commits (only if a bridge is live; no auto-retry).
         eventPublisher.publishEvent(new PaymentCommittedEvent(paymentId));
+    }
+
+    /**
+     * Split a table the caller is assigned to into a new sibling, copying its configuration. The new
+     * sibling shares the same parent, so it is automatically visible to the same assigned waiters.
+     */
+    public OrderPointResponse split(UUID orderPointId) {
+        UserPrincipal me = currentUser.require();
+        OrderPointEntity op = orderPointRepository.findById(orderPointId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order point not found"));
+        boolean assigned = assignedOrderPoints(me).stream().anyMatch(o -> o.getId().equals(orderPointId));
+        if (!assigned) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this table");
+        }
+        return orderPointService.splitEntity(op);
     }
 
     /** The order points whose parent the given user is assigned to (name-ordered per location). */
