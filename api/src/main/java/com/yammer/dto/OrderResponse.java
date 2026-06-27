@@ -3,7 +3,8 @@ package com.yammer.dto;
 import com.yammer.entity.OrderEntity;
 import com.yammer.entity.OrderItemEntity;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,7 +15,7 @@ public record OrderResponse(
         String orderPointName,
         UUID eventId,
         String createdBy,
-        LocalDateTime createdAt,
+        Instant createdAt,
         String status,
         List<OrderItemResponse> items,
         BigDecimal total,
@@ -50,7 +51,7 @@ public record OrderResponse(
                 orderPointName,
                 order.getEventId(),
                 order.getCreatedBy(),
-                order.getCreatedAt(),
+                order.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant(),
                 order.getStatus(),
                 items.stream().map(OrderItemResponse::from).toList(),
                 total,
