@@ -455,7 +455,7 @@ export class OrderPointsPage {
     this.loading.set(true);
     this.orderPointService.list(this.locationId(), this.eventId()).subscribe({
       next: (points) => {
-        this.orderPoints.set(points);
+        this.orderPoints.set(this.sorted(points));
         this.loading.set(false);
       },
       error: () => {
@@ -663,8 +663,35 @@ export class OrderPointsPage {
     });
   }
 
+  /**
+   * Order points sort: B<n> first (numeric by the number after B), then M<n>.<m> (numeric by the
+   * number after M, then the sub-number), then anything else alphabetically — not pure alphabetical
+   * (so B2 comes before B10, and M2.x before M10.x).
+   */
   private sorted(list: OrderPoint[]): OrderPoint[] {
-    return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    return [...list].sort((a, b) => {
+      const ka = this.orderKey(a.name);
+      const kb = this.orderKey(b.name);
+      return (
+        ka.group - kb.group ||
+        ka.first - kb.first ||
+        ka.second - kb.second ||
+        ka.name.localeCompare(kb.name, undefined, { numeric: true })
+      );
+    });
+  }
+
+  private orderKey(name: string): { group: number; first: number; second: number; name: string } {
+    const n = (name ?? '').trim();
+    const b = /^B\s*(\d+)/i.exec(n);
+    if (b) {
+      return { group: 0, first: Number(b[1]), second: 0, name: n };
+    }
+    const m = /^M\s*(\d+)(?:\.(\d+))?/i.exec(n);
+    if (m) {
+      return { group: 1, first: Number(m[1]), second: m[2] ? Number(m[2]) : 0, name: n };
+    }
+    return { group: 2, first: 0, second: 0, name: n };
   }
 
   private message(err: HttpErrorResponse, action: string): string {
