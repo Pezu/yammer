@@ -298,6 +298,13 @@ public class EscPosThermalService {
                 .replace('î', 'i').replace('Î', 'I')
                 .replace('ș', 's').replace('Ș', 'S').replace('ş', 's').replace('Ş', 'S')
                 .replace('ț', 't').replace('Ț', 'T').replace('ţ', 't').replace('Ţ', 'T')
+                // smart punctuation → ASCII (otherwise the catch-all turns them into '?')
+                .replace('‘', '\'').replace('’', '\'') // ' '  curly single quotes
+                .replace('‚', '\'').replace('′', '\'') // ‚  ′  low quote / prime
+                .replace('“', '"').replace('”', '"')   // " "  curly double quotes
+                .replace('–', '-').replace('—', '-')   // – —  en/em dash
+                .replace('\u00A0', ' ')
+                .replace("…", "...")                          // …  ellipsis
                 .replaceAll("[^\\x20-\\x7E]", "?");
     }
 }
