@@ -4,6 +4,7 @@ import com.yammer.dto.OrderFilterOptions;
 import com.yammer.dto.OrderItemsUpdateRequest;
 import com.yammer.dto.OrderPointBillLine;
 import com.yammer.dto.OrderResponse;
+import com.yammer.dto.FinalReportRow;
 import com.yammer.dto.OrderStatusRequest;
 import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PlaceOrderRequest;
@@ -120,6 +121,13 @@ public class OrderController {
     @PreAuthorize(REPORTS)
     public List<WaiterTableRow> waiterTablesReport(@RequestParam(required = false) UUID eventId) {
         return salesReportService.waiterTables(eventId);
+    }
+
+    /** Final report: per user + order point, card/cash paid and tip (protocol excluded). */
+    @GetMapping("/final-report")
+    @PreAuthorize(REPORTS)
+    public List<FinalReportRow> finalReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.finalReport(eventId);
     }
 
     /** One page of the event's payments (newest first), filtered server-side. */

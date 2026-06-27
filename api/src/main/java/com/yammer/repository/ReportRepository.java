@@ -211,4 +211,35 @@ public interface ReportRepository extends Repository<OrderItemEntity, UUID> {
             group by 1
             """)
     List<BucketValueRow> protocolByBucketForEvent(@Param("eventId") UUID eventId);
+
+    // ─── final report (per user + order point: paid/tip by method) ─────────────
+
+    interface FinalReportRow {
+        String getUserName();
+        String getTableName();
+        BigDecimal getPaidCard();
+        BigDecimal getPaidCash();
+        BigDecimal getTipCard();
+        BigDecimal getTipCash();
+    }
+
+    /**
+     * Per user (payment.created_by, shown as users.name when set) and order point: card/cash paid
+     * and tip. Protocol is excluded so the totals match the dashboard's "paid" cash + card.
+     */
+    @Query(nativeQuery = true, value = """
+            select coalesce(nullif(trim(u.name),''), p.created_by, '—') as "userName",
+              op.name as "tableName",
+              coalesce(sum(case when p.method='CARD' then p.amount else 0 end),0) as "paidCard",
+              coalesce(sum(case when p.method='CASH' then p.amount else 0 end),0) as "paidCash",
+              coalesce(sum(case when p.method='CARD' then p.tip    else 0 end),0) as "tipCard",
+              coalesce(sum(case when p.method='CASH' then p.tip    else 0 end),0) as "tipCash"
+            from payment p
+            join order_point op on op.id = p.order_point_id
+            left join users u on u.username = p.created_by
+            where p.event_id = :eventId and p.method in ('CASH','CARD')
+            group by coalesce(nullif(trim(u.name),''), p.created_by, '—'), op.name
+            order by 1, 2
+            """)
+    List<FinalReportRow> finalReportByEvent(@Param("eventId") UUID eventId);
 }

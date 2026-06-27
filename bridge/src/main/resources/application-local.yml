@@ -10,11 +10,11 @@
 # ============================================================
 
 bridge:
-  # Local backend; point at the dev API's bridge WebSocket endpoint.
-  server-url: ws://localhost:8080/ws/bridge
-  # Any non-blank value silences the "api-key not set" warning. For a real
-  # connection this must match the key the backend accepts for bridge sessions.
-  api-key: local-dev-key
+  # Production backend. NOTE: use the Cloud Run *.run.app URL, not the custom domain —
+  # Cloud Run domain mappings (api.rendezvous-app.ro) don't support WebSocket upgrades.
+  server-url: wss://yammer-api-3xyvse7h5a-ew.a.run.app/ws/bridge
+  # Real bridge key — must match the backend's BRIDGE_API_KEY. SECRET: do not commit.
+  api-key: Ebgeqm0fOC7XG9qXHX87aiCZ2zliMuNGzah8d/kZuqs=
   reconnect-delay-seconds: 10
 
 printer:

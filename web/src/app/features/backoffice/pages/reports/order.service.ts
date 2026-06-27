@@ -139,6 +139,15 @@ export interface WaiterTableRow {
   protocol: number;
 }
 
+export interface FinalReportRow {
+  userName: string;
+  table: string;
+  paidCard: number;
+  paidCash: number;
+  tipCard: number;
+  tipCash: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrderReportService {
   private readonly http = inject(HttpClient);
@@ -242,6 +251,13 @@ export class OrderReportService {
 
   waiterTablesReport(eventId?: string | null): Observable<WaiterTableRow[]> {
     return this.http.get<WaiterTableRow[]>(`${this.baseUrl}/waiter-tables-report`, {
+      params: this.eventParams(eventId),
+    });
+  }
+
+  /** Final report: per user + order point, card/cash paid and tip (protocol excluded). */
+  finalReport(eventId?: string | null): Observable<FinalReportRow[]> {
+    return this.http.get<FinalReportRow[]>(`${this.baseUrl}/final-report`, {
       params: this.eventParams(eventId),
     });
   }

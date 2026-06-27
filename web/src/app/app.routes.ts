@@ -102,6 +102,13 @@ export const routes: Routes = [
                 (m) => m.PaymentsReportPage,
               ),
           },
+          {
+            path: 'final',
+            loadComponent: () =>
+              import('./features/backoffice/pages/reports/final-report-page').then(
+                (m) => m.FinalReportPage,
+              ),
+          },
           { path: '', redirectTo: 'orders', pathMatch: 'full' },
         ],
       },

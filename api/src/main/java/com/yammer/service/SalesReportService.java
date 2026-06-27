@@ -1,5 +1,6 @@
 package com.yammer.service;
 
+import com.yammer.dto.FinalReportRow;
 import com.yammer.dto.PagedResponse;
 import com.yammer.dto.PaymentFilterOptions;
 import com.yammer.dto.PaymentReportRow;
@@ -163,6 +164,22 @@ public class SalesReportService {
                         r.getPaid(),
                         tipByKey.getOrDefault(waiterOpKey(r.getWaiter(), r.getOpId()), BigDecimal.ZERO),
                         r.getProtocolSettled()))
+                .toList();
+    }
+
+    /** Final report: per user + order point, card/cash paid and tip (protocol excluded). */
+    public List<FinalReportRow> finalReport(UUID eventId) {
+        if (!accessible(eventId)) {
+            return List.of();
+        }
+        return reportRepository.finalReportByEvent(eventId).stream()
+                .map(r -> new FinalReportRow(
+                        r.getUserName(),
+                        r.getTableName(),
+                        r.getPaidCard(),
+                        r.getPaidCash(),
+                        r.getTipCard(),
+                        r.getTipCash()))
                 .toList();
     }
 
