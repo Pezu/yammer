@@ -334,11 +334,13 @@
 /* drag-drop bill → paying */
 .dnd {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) so a long product name can't widen its column past 50% */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.6rem;
   margin-bottom: 0.5rem;
 }
 .zone {
+  min-width: 0;
   min-height: 9rem;
   padding: 0.5rem;
   border: 1px dashed var(--border);
@@ -391,9 +393,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.55rem;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   text-align: left;
   color: var(--text);
   background: #fff;
@@ -409,9 +411,15 @@
 
   .cname {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+
+    /* name is rich HTML — don't let inline <font>/size markup blow up the chip */
+    ::ng-deep * {
+      font-size: inherit !important;
+      line-height: inherit;
+      font-weight: inherit;
+    }
   }
   .cqty {
     flex: none;
