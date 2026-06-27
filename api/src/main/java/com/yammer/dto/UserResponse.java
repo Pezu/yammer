@@ -6,12 +6,13 @@ import java.util.UUID;
 
 /** User view without the password. */
 public record UserResponse(
-        UUID id, String username, String phone, String email, List<String> roles, UUID clientId) {
+        UUID id, String username, String name, String phone, String email, List<String> roles, UUID clientId) {
 
     public static UserResponse from(UserEntity entity) {
         return new UserResponse(
                 entity.getId(),
                 entity.getUsername(),
+                entity.getName(),
                 entity.getPhone(),
                 entity.getEmail(),
                 entity.getRoles(),

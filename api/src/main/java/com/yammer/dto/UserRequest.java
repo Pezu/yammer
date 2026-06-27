@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record UserRequest(
         @NotBlank String username,
+        String name,
         // Required on create; blank/null on update means "keep current password".
         String password,
         String phone,

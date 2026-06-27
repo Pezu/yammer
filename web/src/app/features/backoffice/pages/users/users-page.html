@@ -59,6 +59,7 @@
         <thead>
           <tr>
             <th>Username</th>
+            <th>Name</th>
             <th>Password</th>
             <th>Phone</th>
             <th>Email</th>
@@ -70,6 +71,7 @@
           @if (draft()) {
             <tr>
               <td><input type="text" class="input" placeholder="Username" [formControl]="draftForm.controls.username" (keyup.escape)="cancelCreate()" autofocus /></td>
+              <td><input type="text" class="input" placeholder="Name" [formControl]="draftForm.controls.name" (keyup.escape)="cancelCreate()" /></td>
               <td><input type="password" class="input" placeholder="Password" [formControl]="draftForm.controls.password" (keyup.escape)="cancelCreate()" /></td>
               <td><input type="text" class="input" placeholder="Phone" [formControl]="draftForm.controls.phone" (keyup.escape)="cancelCreate()" /></td>
               <td><input type="email" class="input" placeholder="Email" [formControl]="draftForm.controls.email" (keyup.escape)="cancelCreate()" /></td>
@@ -97,6 +99,7 @@
             <tr>
               @if (editingId() === user.id) {
                 <td><input type="text" class="input" [formControl]="editForm.controls.username" (keyup.escape)="cancelEdit()" /></td>
+                <td><input type="text" class="input" [formControl]="editForm.controls.name" (keyup.escape)="cancelEdit()" /></td>
                 <td><input type="password" class="input" placeholder="Leave blank to keep" [formControl]="editForm.controls.password" (keyup.escape)="cancelEdit()" /></td>
                 <td><input type="text" class="input" [formControl]="editForm.controls.phone" (keyup.escape)="cancelEdit()" /></td>
                 <td><input type="email" class="input" [formControl]="editForm.controls.email" (keyup.escape)="cancelEdit()" /></td>
@@ -109,6 +112,7 @@
                 </td>
               } @else {
                 <td>{{ user.username }}</td>
+                <td>{{ user.name || '—' }}</td>
                 <td class="muted">••••••</td>
                 <td>{{ user.phone || '—' }}</td>
                 <td>{{ user.email || '—' }}</td>

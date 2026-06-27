@@ -168,6 +168,7 @@ export class UsersPage {
     this.editingId.set(user.id);
     this.editForm.setValue({
       username: user.username,
+      name: user.name ?? '',
       password: '',
       phone: user.phone ?? '',
       email: user.email ?? '',
@@ -239,6 +240,7 @@ export class UsersPage {
   private newForm(passwordRequired: boolean) {
     return this.fb.nonNullable.group({
       username: ['', [Validators.required]],
+      name: [''],
       password: ['', passwordRequired ? [Validators.required] : []],
       phone: [''],
       email: ['', [Validators.email]],

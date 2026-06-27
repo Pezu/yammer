@@ -28,6 +28,9 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String username;
 
+    /** Display name (full name). */
+    private String name;
+
     /** MD5 hex of the password (matches Postgres md5()). */
     @Column(nullable = false)
     private String password;

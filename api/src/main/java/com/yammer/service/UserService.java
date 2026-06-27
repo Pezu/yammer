@@ -92,6 +92,7 @@ public class UserService {
     }
 
     private void applyProfile(UserEntity entity, UserPrincipal me, List<String> roles, UserRequest request) {
+        entity.setName(Strings.trimToNull(request.name()));
         entity.setPhone(Strings.trimToNull(request.phone()));
         entity.setEmail(Strings.trimToNull(request.email()));
         entity.setRoles(roles);

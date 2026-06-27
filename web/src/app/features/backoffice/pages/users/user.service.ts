@@ -6,6 +6,7 @@ import { environment } from '../../../../../environments/environment';
 export interface User {
   id: string;
   username: string;
+  name: string | null;
   phone: string | null;
   email: string | null;
   roles: string[];
@@ -14,6 +15,7 @@ export interface User {
 
 export interface UserInput {
   username: string;
+  name: string;
   password: string;
   phone: string;
   email: string;
