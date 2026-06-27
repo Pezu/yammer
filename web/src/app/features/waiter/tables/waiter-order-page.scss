@@ -252,6 +252,11 @@
     color: #fff;
   }
 
+  /* products: name pinned to the top, price to the bottom of the square */
+  &:not(.category) {
+    justify-content: space-between;
+  }
+
   /* categories look distinct (neutral) and carry a folder icon */
   &.category {
     color: var(--text);
