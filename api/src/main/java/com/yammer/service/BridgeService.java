@@ -11,7 +11,6 @@ import com.yammer.entity.OrderPointEntity;
 import com.yammer.entity.PaymentEntity;
 import com.yammer.entity.PaymentMethod;
 import com.yammer.entity.VatTypeEntity;
-import com.yammer.event.BridgeReadyEvent;
 import com.yammer.event.PaymentCommittedEvent;
 import com.yammer.repository.IntegrationRepository;
 import com.yammer.repository.MenuItemRepository;
@@ -31,15 +30,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,27 +42,21 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Backend side of the on-prem bridge, built as a durable, at-least-once outbox so the
- * fiscal flow survives the bridge disconnecting/reconnecting (e.g. Cloud Run's request
- * timeout, deploys, network blips).
+ * Backend side of the on-prem bridge. Fiscal receipts are sent <strong>best-effort, once</strong>:
+ * a payment is fiscalized when it commits (or when the user manually re-issues it), only while a
+ * bridge is live. There is intentionally <strong>no automatic retry</strong> — an auto-resend could
+ * overlap a manual re-issue and print the same fiscal receipt twice, so retrying is left entirely to
+ * the user from the UI. The {@code payment} row still tracks status ({@code PENDING} →
+ * {@code SUCCESS}/{@code FAILED} from {@code RECEIPT_RESULT}) so the UI knows what to re-issue, and
+ * the bridge de-dupes by the stable payment-id {@code requestId} as a safety net.
  *
- * <p>The {@code payment} row <em>is</em> the outbox:
- * {@code PENDING} (needs fiscalizing) → {@code SUCCESS}/{@code FAILED} (terminal, set
- * from {@code RECEIPT_RESULT}). A {@code RECEIPT} frame is only ever pushed while a
- * bridge session is live; anything still {@code PENDING} is re-sent when the bridge
- * (re)connects and periodically thereafter. Delivery is idempotent — {@code requestId}
- * is the stable payment id and the bridge de-dupes — so a re-send never double-prints.
- *
- * <p>Proforma ({@code INFO_RECEIPT}) is non-fiscal and best-effort: it is only sent when
- * a bridge is connected and is not queued (the waiter can re-press it).
+ * <p>Proforma ({@code INFO_RECEIPT}) is non-fiscal and best-effort: only sent when a bridge is
+ * connected, not queued (the waiter can re-press it).
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BridgeService {
-
-    /** A PENDING payment sent more than this many seconds ago is presumed lost and re-sent. */
-    private static final long STALE_RESEND_SECONDS = 90;
 
     private final BridgeWsHandler handler;
     private final ObjectMapper mapper;
@@ -88,9 +76,6 @@ public class BridgeService {
     void initTx() {
         this.txTemplate = new TransactionTemplate(transactionManager);
     }
-
-    /** Serializes dispatch runs (scheduler / event / commit) on this single instance. */
-    private final ReentrantLock dispatchLock = new ReentrantLock();
 
     /** A proforma line (non-fiscal). */
     public record InfoLine(String name, int quantity, BigDecimal unitPrice, BigDecimal lineTotal) {
@@ -144,101 +129,78 @@ public class BridgeService {
 
     // ─── fiscal dispatch (durable outbox) ────────────────────────────────────
 
-    /** A committed (non-protocol) payment becomes PENDING; flush immediately if a bridge is live. */
+    /**
+     * Fiscalize a just-committed (or manually-retried) payment — best-effort, send-once, NO retry.
+     * If no bridge is live the receipt is simply not sent; the user re-issues it from the UI. This
+     * deliberately avoids automatic retries so an auto-resend can never overlap a manual one and
+     * print the same fiscal receipt twice. (The bridge still de-dupes by payment id as a safety net.)
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onPaymentCommitted(PaymentCommittedEvent event) {
-        dispatchPending();
+        sendReceipt(event.paymentId());
     }
 
-    /** Safety net: re-attempt PENDING/stale receipts on a fixed cadence. */
-    @Scheduled(fixedDelayString = "${bridge.dispatch-interval-ms:10000}")
-    public void dispatchScheduled() {
-        dispatchPending();
-    }
-
-    /** On bridge (re)connect / HELLO, flush everything that accumulated while it was offline. */
-    @Async
-    @EventListener
-    public void onBridgeReady(BridgeReadyEvent event) {
-        dispatchPending();
-    }
-
-    /**
-     * Sends every dispatchable PENDING payment — but only while a bridge session is live.
-     * The load + frame-build + {@code fiscalSentAt} stamp + persist run in one short transaction;
-     * the WS sends happen AFTER it commits, so no pooled DB connection is held across the
-     * (potentially slow) socket I/O. Stamping before sending preserves at-least-once: a lost ack
-     * is retried after {@link #STALE_RESEND_SECONDS} and the bridge de-dupes the replay.
-     */
-    private void dispatchPending() {
+    /** Build + send one fiscal RECEIPT, once, only while a bridge is live. */
+    private void sendReceipt(UUID paymentId) {
         if (!handler.isConnected()) {
+            log.warn("Bridge offline — fiscal receipt for payment {} not sent (re-issue from the UI when online).",
+                    paymentId);
             return;
         }
-        if (!dispatchLock.tryLock()) {
-            return; // another dispatch is already running
+        String frame;
+        try {
+            // build + stamp in its own short tx so no DB connection is held across the socket send
+            frame = txTemplate.execute(status -> buildAndStampFrame(paymentId));
+        } catch (Exception e) {
+            log.error("Failed to build fiscal RECEIPT for payment {}: {}", paymentId, e.getMessage(), e);
+            return;
+        }
+        if (frame == null) {
+            return;
         }
         try {
-            List<String> frames = txTemplate.execute(status -> buildAndStampDueFrames());
-            if (frames == null) {
-                return;
-            }
-            for (String frame : frames) {
-                try {
-                    handler.send(frame);
-                } catch (Exception e) {
-                    log.error("Failed to send fiscal RECEIPT frame: {}", e.getMessage(), e);
-                }
-            }
-        } finally {
-            dispatchLock.unlock();
+            handler.send(frame);
+            log.info("Sent fiscal RECEIPT for payment {} (best-effort, no auto-retry).", paymentId);
+        } catch (Exception e) {
+            log.error("Failed to send fiscal RECEIPT for payment {}: {}", paymentId, e.getMessage(), e);
         }
     }
 
-    /** Within one transaction: load due payments, build their frames, stamp + persist, return the frames. */
-    private List<String> buildAndStampDueFrames() {
-        LocalDateTime cutoff = LocalDateTime.now().minusSeconds(STALE_RESEND_SECONDS);
-        List<PaymentEntity> due = paymentRepository.findFiscalDispatchable(FiscalStatus.PENDING, cutoff);
-        if (due.isEmpty()) {
-            return List.of();
+    /** Within one tx: load the single payment, build its frame, stamp fiscalSentAt, return the frame. */
+    private String buildAndStampFrame(UUID paymentId) {
+        PaymentEntity payment = paymentRepository.findById(paymentId).orElse(null);
+        if (payment == null) {
+            return null;
         }
-
-        // Batch-load everything the frames need (was ~5 queries + 1 save per payment).
-        Set<UUID> opIds = due.stream()
-                .map(PaymentEntity::getOrderPointId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<UUID, OrderPointEntity> opsById = orderPointRepository.findAllById(opIds).stream()
-                .collect(Collectors.toMap(OrderPointEntity::getId, Function.identity()));
-        Set<UUID> cashRegisterIds = opsById.values().stream()
-                .map(OrderPointEntity::getCashRegisterId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<UUID, String> ipByIntegration = integrationRepository.findAllById(cashRegisterIds).stream()
-                .filter(d -> d.getIp() != null && !d.getIp().isBlank())
-                .collect(Collectors.toMap(IntegrationEntity::getId, IntegrationEntity::getIp));
-        Map<UUID, List<OrderItemEntity>> itemsByPayment = orderItemRepository
-                .findByPaymentIdIn(due.stream().map(PaymentEntity::getId).toList()).stream()
-                .collect(Collectors.groupingBy(OrderItemEntity::getPaymentId));
-        Map<UUID, BigDecimal> vatByMenuItem = resolveVat(
-                itemsByPayment.values().stream().flatMap(List::stream).toList());
-
-        List<String> frames = new ArrayList<>(due.size());
-        LocalDateTime sentAt = LocalDateTime.now();
-        for (PaymentEntity payment : due) {
-            try {
-                String frame = buildReceiptFrame(payment, opsById, ipByIntegration, itemsByPayment, vatByMenuItem);
-                if (frame != null) {
-                    frames.add(frame);
-                    log.info("Prepared fiscal RECEIPT for payment {}", payment.getId());
+        Map<UUID, OrderPointEntity> opsById = Map.of();
+        Map<UUID, String> ipByIntegration = Map.of();
+        OrderPointEntity op = payment.getOrderPointId() == null ? null
+                : orderPointRepository.findById(payment.getOrderPointId()).orElse(null);
+        if (op != null) {
+            opsById = Map.of(op.getId(), op);
+            if (op.getCashRegisterId() != null) {
+                IntegrationEntity reg = integrationRepository.findById(op.getCashRegisterId()).orElse(null);
+                if (reg != null && reg.getIp() != null && !reg.getIp().isBlank()) {
+                    ipByIntegration = Map.of(reg.getId(), reg.getIp());
                 }
-            } catch (Exception e) {
-                log.error("Failed to build RECEIPT for payment {}: {}", payment.getId(), e.getMessage(), e);
             }
-            // back off either way so a payment with no device doesn't spin every tick
-            payment.setFiscalSentAt(sentAt);
         }
-        paymentRepository.saveAll(due);
-        return frames;
+        List<OrderItemEntity> items = orderItemRepository.findByPaymentIdIn(List.of(paymentId));
+        Map<UUID, List<OrderItemEntity>> itemsByPayment = items.isEmpty() ? Map.of() : Map.of(paymentId, items);
+        Map<UUID, BigDecimal> vatByMenuItem = resolveVat(items);
+
+        String frame;
+        try {
+            frame = buildReceiptFrame(payment, opsById, ipByIntegration, itemsByPayment, vatByMenuItem);
+        } catch (Exception e) {
+            log.error("Failed to build RECEIPT for payment {}: {}", paymentId, e.getMessage(), e);
+            return null;
+        }
+        if (frame != null) {
+            payment.setFiscalSentAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+        }
+        return frame;
     }
 
     /** Build the {@code RECEIPT} JSON frame for a payment, or {@code null} if it can't be fiscalized. */

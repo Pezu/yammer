@@ -254,11 +254,10 @@ public class OrderPointAssignmentService {
             return; // already fiscalized — nothing to retry
         }
         payment.setFiscalStatus(FiscalStatus.PENDING);
-        payment.setFiscalSentAt(null); // clear the back-off stamp so it dispatches on the next tick
+        payment.setFiscalSentAt(null);
         paymentRepository.save(payment);
-        log.info("Fiscal retry for payment {} (method={}) — re-queued for dispatch",
-                paymentId, payment.getMethod());
-        // Flush immediately if a bridge is live (fires after this tx commits).
+        log.info("Manual fiscal re-issue for payment {} (method={})", paymentId, payment.getMethod());
+        // Best-effort single send once this tx commits (only if a bridge is live; no auto-retry).
         eventPublisher.publishEvent(new PaymentCommittedEvent(paymentId));
     }
 

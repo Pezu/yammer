@@ -44,9 +44,28 @@ public class BridgeWsHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        // Single active bridge: a new connection supersedes any previous one. Closing the older
+        // (possibly half-open) session means we never broadcast the same fiscal frame to two
+        // sessions — which would print the receipt twice.
+        for (WebSocketSession old : sessions) {
+            if (old != session) {
+                closeQuietly(old);
+            }
+        }
+        sessions.clear();
         sessions.add(session);
-        log.info("Bridge connected ({} live session(s)).", sessions.size());
+        log.info("Bridge connected (superseding any previous session).");
         events.publishEvent(new BridgeReadyEvent());
+    }
+
+    private void closeQuietly(WebSocketSession s) {
+        try {
+            if (s.isOpen()) {
+                s.close(CloseStatus.GOING_AWAY);
+            }
+        } catch (Exception e) {
+            log.debug("Error closing superseded bridge session: {}", e.getMessage());
+        }
     }
 
     @Override
