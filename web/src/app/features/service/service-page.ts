@@ -12,6 +12,12 @@ interface Column {
   color: string;
 }
 
+/** Minimal shape of the Screen Wake Lock sentinel (not in all TS lib versions). */
+interface WakeLockSentinelLike {
+  release: () => Promise<void>;
+  addEventListener?: (type: 'release', listener: () => void) => void;
+}
+
 const WS_RECONNECT_MS = 3000;
 
 @Component({
@@ -32,7 +38,7 @@ export class ServicePage implements OnDestroy {
   readonly dragOver = signal<string | null>(null);
   readonly fullscreen = signal(false);
 
-  private wakeLock: { release: () => Promise<void> } | null = null;
+  private wakeLock: WakeLockSentinelLike | null = null;
   private readonly onFsChange = () => {
     const fs = !!document.fullscreenElement;
     this.fullscreen.set(fs);
@@ -138,10 +144,19 @@ export class ServicePage implements OnDestroy {
   private async acquireWakeLock(): Promise<void> {
     try {
       const nav = navigator as Navigator & {
-        wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> };
+        wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinelLike> };
       };
       if (nav.wakeLock && !this.wakeLock) {
-        this.wakeLock = await nav.wakeLock.request('screen');
+        const sentinel = await nav.wakeLock.request('screen');
+        this.wakeLock = sentinel;
+        // The browser auto-releases the lock on tab-hide / system events. Clear our reference
+        // when that happens so the next acquire (e.g. on visibilitychange) actually re-takes it —
+        // otherwise the stale reference blocks re-acquiring and the screen sleeps.
+        sentinel.addEventListener?.('release', () => {
+          if (this.wakeLock === sentinel) {
+            this.wakeLock = null;
+          }
+        });
       }
     } catch {
       /* wake lock unsupported or denied — ignore */
