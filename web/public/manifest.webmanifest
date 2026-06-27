@@ -1,25 +1,31 @@
 {
-  "name": "Yammer Waiter",
-  "short_name": "Waiter",
-  "description": "Yammer waiter app — tables, orders and payments.",
+  "name": "RENDEZVOUS",
+  "short_name": "RENDEZVOUS",
+  "description": "Rendezvous — socialize & dance in the citadel.",
   "start_url": "/waiter",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#3454d1",
+  "background_color": "#0e1320",
+  "theme_color": "#0e1320",
   "icons": [
     {
-      "src": "assets/images/logo-abbr.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/images/logo-abbr.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
