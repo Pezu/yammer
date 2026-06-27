@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.PingMessage;
+import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -55,6 +57,11 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
 
     private volatile WebSocketSession session;
 
+    /** Heartbeat: a half-open socket (e.g. after an API redeploy) still reports open, so we ping
+     *  and reconnect if no pong comes back within this window. */
+    private static final long HEARTBEAT_TIMEOUT_MS = 30_000;
+    private volatile long lastPongAt;
+
     // ─── connection lifecycle ────────────────────────────────────────────────
 
     /**
@@ -69,7 +76,24 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     public void ensureConnected() {
         WebSocketSession current = this.session;
         if (current != null && current.isOpen()) {
-            return;
+            // The socket reports open — but a server-side drop (redeploy / 1h timeout) can leave it
+            // half-open with no close frame. Probe with a ping; if pongs stop, treat it as dead.
+            if (System.currentTimeMillis() - lastPongAt > HEARTBEAT_TIMEOUT_MS) {
+                log.warn("No pong for >{}ms — connection is stale, reconnecting.", HEARTBEAT_TIMEOUT_MS);
+                closeQuietly(current);
+                this.session = null;
+            } else {
+                try {
+                    synchronized (current) {
+                        current.sendMessage(new PingMessage());
+                    }
+                    return; // still alive
+                } catch (Exception ex) {
+                    log.warn("Heartbeat ping failed ({}) — reconnecting.", ex.getMessage());
+                    closeQuietly(current);
+                    this.session = null;
+                }
+            }
         }
         if (props.apiKey() == null || props.apiKey().isBlank() || "change-me".equals(props.apiKey())) {
             log.warn("bridge.api-key is not set (BRIDGE_API_KEY). The backend will reject the connection.");
@@ -84,6 +108,7 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
             }
 
             this.session = client.execute(this, headers, uri).get(30, TimeUnit.SECONDS);
+            this.lastPongAt = System.currentTimeMillis(); // start the heartbeat clock fresh
             log.info("Connected to backend WebSocket.");
             sendHello();
         } catch (Exception ex) {
@@ -104,6 +129,28 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         this.session = null;
         log.warn("WebSocket connection closed: {}", status);
+    }
+
+    @Override
+    protected void handlePongMessage(WebSocketSession session, PongMessage message) {
+        this.lastPongAt = System.currentTimeMillis();
+    }
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
+        log.warn("WebSocket transport error: {} — dropping session to reconnect.", exception.getMessage());
+        closeQuietly(session);
+        this.session = null;
+    }
+
+    private void closeQuietly(WebSocketSession s) {
+        try {
+            if (s != null && s.isOpen()) {
+                s.close();
+            }
+        } catch (Exception ignored) {
+            // best effort
+        }
     }
 
     // ─── inbound messages ────────────────────────────────────────────────────
