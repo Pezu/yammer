@@ -225,7 +225,7 @@ public class BridgeWebSocketClient extends TextWebSocketHandler {
             synchronized (s) {
                 s.sendMessage(new TextMessage("{\"type\":\"HELLO\"}"));
             }
-            log.info("Sent HELLO to backend (flush pending receipts).");
+            log.info("Sent HELLO to backend (connection handshake).");
         } catch (Exception ex) {
             log.warn("Failed to send HELLO: {}", ex.getMessage());
         }
