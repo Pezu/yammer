@@ -34,10 +34,18 @@ export class WaiterTableDetailPage {
   readonly name = signal<string>(history.state?.name ?? '');
   /** Whether this order point is a protocol (comp/house) table. */
   readonly protocol = signal(false);
+  /** Whether this order point is pay-later (settled by the waiter) vs pay-now. */
+  readonly payLater = signal(true);
   /** Accepted payment methods for this order point (empty = all). */
   readonly acceptedMethods = signal<string[]>([]);
-  /** Non-protocol method buttons to show, defaulting to both Cash + Card when none configured. */
+  /**
+   * Non-protocol method buttons. Non-pay-later (pay-now) points are card only; pay-later points
+   * offer their configured methods, or Cash + Card when none are configured.
+   */
   readonly payButtons = computed(() => {
+    if (!this.payLater()) {
+      return ['CARD'];
+    }
     const m = this.acceptedMethods();
     return m.length ? m : ['CASH', 'CARD'];
   });
@@ -205,6 +213,7 @@ export class WaiterTableDetailPage {
             this.name.set(op.name);
           }
           this.protocol.set(op.protocol);
+          this.payLater.set(op.payLater);
           this.acceptedMethods.set(op.paymentMethods ?? []);
         }
       },
