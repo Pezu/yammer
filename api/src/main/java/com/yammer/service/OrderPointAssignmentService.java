@@ -250,8 +250,11 @@ public class OrderPointAssignmentService {
         if (payment.getMethod() == PaymentMethod.PROTOCOL) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Protocol payments are not fiscalized");
         }
-        if (payment.getFiscalStatus() == FiscalStatus.SUCCESS) {
-            return; // already fiscalized — nothing to retry
+        // Only FAILED receipts may be re-issued. PENDING is in-flight (or awaiting its result) and
+        // SUCCESS is done — re-issuing either risks a duplicate fiscal receipt.
+        if (payment.getFiscalStatus() != FiscalStatus.FAILED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only failed receipts can be re-issued (current status: " + payment.getFiscalStatus() + ")");
         }
         payment.setFiscalStatus(FiscalStatus.PENDING);
         payment.setFiscalSentAt(null);

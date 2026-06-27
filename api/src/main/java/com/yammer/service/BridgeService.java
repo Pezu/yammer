@@ -145,6 +145,7 @@ public class BridgeService {
         if (!handler.isConnected()) {
             log.warn("Bridge offline — fiscal receipt for payment {} not sent (re-issue from the UI when online).",
                     paymentId);
+            markFailed(paymentId); // surface it as FAILED so the user can re-issue (not stuck PENDING)
             return;
         }
         String frame;
@@ -153,16 +154,34 @@ public class BridgeService {
             frame = txTemplate.execute(status -> buildAndStampFrame(paymentId));
         } catch (Exception e) {
             log.error("Failed to build fiscal RECEIPT for payment {}: {}", paymentId, e.getMessage(), e);
+            markFailed(paymentId);
             return;
         }
         if (frame == null) {
-            return;
+            return; // already SUCCESS/PROTOCOL/no-op — leave the status as it is
         }
         try {
             handler.send(frame);
             log.info("Sent fiscal RECEIPT for payment {} (best-effort, no auto-retry).", paymentId);
+            // status stays PENDING until the bridge's RECEIPT_RESULT lands (onResult → SUCCESS/FAILED)
         } catch (Exception e) {
             log.error("Failed to send fiscal RECEIPT for payment {}: {}", paymentId, e.getMessage(), e);
+            markFailed(paymentId);
+        }
+    }
+
+    /** Flip a still-PENDING payment to FAILED (never touches SUCCESS) so the UI can re-issue it. */
+    private void markFailed(UUID paymentId) {
+        try {
+            txTemplate.executeWithoutResult(status -> {
+                PaymentEntity p = paymentRepository.findById(paymentId).orElse(null);
+                if (p != null && p.getFiscalStatus() == FiscalStatus.PENDING) {
+                    p.setFiscalStatus(FiscalStatus.FAILED);
+                    paymentRepository.save(p);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to mark payment {} FAILED: {}", paymentId, e.getMessage(), e);
         }
     }
 
