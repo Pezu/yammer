@@ -48,6 +48,20 @@ public interface PaymentRepository
             """)
     List<OrderPointPaymentAgg> aggregateByOrderPoint(@Param("opIds") Collection<UUID> opIds);
 
+    /** Same as {@link #aggregateByOrderPoint} but only the given user's own payments. */
+    @Query(nativeQuery = true, value = """
+            select order_point_id as "opId",
+              coalesce(sum(case when method='CARD' then amount else 0 end),0) as "paidCard",
+              coalesce(sum(case when method='CASH' then amount else 0 end),0) as "paidCash",
+              coalesce(sum(case when method='CARD' then tip else 0 end),0) as "tipCard",
+              coalesce(sum(case when method='CASH' then tip else 0 end),0) as "tipCash"
+            from payment
+            where order_point_id in :opIds and created_by = :createdBy
+            group by order_point_id
+            """)
+    List<OrderPointPaymentAgg> aggregateByOrderPointForUser(
+            @Param("opIds") Collection<UUID> opIds, @Param("createdBy") String createdBy);
+
     List<PaymentEntity> findByOrderPointIdIn(List<UUID> orderPointIds);
 
     /** Payments at the given points excluding one method (e.g. PROTOCOL), newest first — in SQL. */

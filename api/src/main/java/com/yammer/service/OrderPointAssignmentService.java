@@ -127,17 +127,20 @@ public class OrderPointAssignmentService {
     /** Per-table takings (card/cash paid + tips, and unpaid) for the current user's tables. */
     @Transactional(readOnly = true)
     public List<TableStatsResponse> myStats() {
-        List<OrderPointEntity> ops = assignedOrderPoints(currentUser.require());
+        UserPrincipal me = currentUser.require();
+        List<OrderPointEntity> ops = assignedOrderPoints(me);
         if (ops.isEmpty()) {
             return List.of();
         }
         List<UUID> opIds = ops.stream().map(OrderPointEntity::getId).toList();
 
         // ordered/unpaid/settled per order point and paid/tip per order point — both aggregated in the DB.
+        // Payment totals are scoped to THIS waiter's own collections (createdBy), not everyone's at the table.
         Map<UUID, OrderItemRepository.OrderPointItemAgg> itemAgg = orderItemRepository.aggregateByOrderPoint(opIds)
                 .stream()
                 .collect(Collectors.toMap(OrderItemRepository.OrderPointItemAgg::getOpId, a -> a));
-        Map<UUID, PaymentRepository.OrderPointPaymentAgg> payAgg = paymentRepository.aggregateByOrderPoint(opIds)
+        Map<UUID, PaymentRepository.OrderPointPaymentAgg> payAgg =
+                paymentRepository.aggregateByOrderPointForUser(opIds, me.username())
                 .stream()
                 .collect(Collectors.toMap(PaymentRepository.OrderPointPaymentAgg::getOpId, a -> a));
 
