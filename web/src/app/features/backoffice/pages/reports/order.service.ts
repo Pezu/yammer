@@ -139,6 +139,15 @@ export interface WaiterTableRow {
   protocol: number;
 }
 
+export interface TableItemReportRow {
+  waiter: string;
+  table: string;
+  name: string;
+  price: number;
+  quantity: number;
+  total: number;
+}
+
 export interface FinalReportRow {
   userName: string;
   table: string;
@@ -251,6 +260,13 @@ export class OrderReportService {
 
   waiterTablesReport(eventId?: string | null): Observable<WaiterTableRow[]> {
     return this.http.get<WaiterTableRow[]>(`${this.baseUrl}/waiter-tables-report`, {
+      params: this.eventParams(eventId),
+    });
+  }
+
+  /** Every ordered product line (per waiter × order point × product) for the drill-downs. */
+  tableItemsReport(eventId?: string | null): Observable<TableItemReportRow[]> {
+    return this.http.get<TableItemReportRow[]>(`${this.baseUrl}/table-items-report`, {
       params: this.eventParams(eventId),
     });
   }

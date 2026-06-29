@@ -146,6 +146,38 @@ public interface ReportRepository extends Repository<OrderItemEntity, UUID> {
             """)
     List<WaiterTableRowAgg> waiterTablesByEvent(@Param("eventId") UUID eventId);
 
+    // ─── ordered items (per waiter × order point × product) ──────────────────
+
+    interface TableItemDetailRow {
+        String getWaiter();
+        String getTableName();
+        String getName();
+        BigDecimal getPrice();
+        long getQuantity();
+        BigDecimal getTotal();
+    }
+
+    /**
+     * Every ordered line for the event, grouped by waiter, order point and product (same product at
+     * a different price stays a separate row). Backs the dashboard drill-downs: the Tables modal sums
+     * these across waiters per order point, the Waiters widget reads them per waiter × order point.
+     */
+    @Query(nativeQuery = true, value = """
+            select coalesce(nullif(trim(o.created_by),''),'—') as "waiter",
+              op.name as "tableName",
+              i.name as "name",
+              coalesce(i.price,0) as "price",
+              sum(i.quantity) as "quantity",
+              coalesce(sum(i.price*i.quantity),0) as "total"
+            from order_item i
+            join orders o on o.id = i.order_id
+            join order_point op on op.id = o.order_point_id
+            where o.event_id = :eventId
+            group by coalesce(nullif(trim(o.created_by),''),'—'), op.name, i.name, coalesce(i.price,0)
+            order by op.name, coalesce(nullif(trim(o.created_by),''),'—'), i.name
+            """)
+    List<TableItemDetailRow> tableItemDetailsByEvent(@Param("eventId") UUID eventId);
+
     interface WaiterTableTipRow {
         String getWaiter();
         UUID getOpId();

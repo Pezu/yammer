@@ -4,6 +4,7 @@ import {
   EventOption,
   OrderReportService,
   ProductReportRow,
+  TableItemReportRow,
   TableReportRow,
   WaiterReportRow,
   WaiterTableRow,
@@ -71,7 +72,7 @@ const PAGE_SIZE = 8;
               </thead>
               <tbody>
                 @for (t of pagedTables(); track t.name) {
-                  <tr>
+                  <tr class="clickable" (click)="openTableItems(t.name)">
                     <td><span class="op" [innerHTML]="t.name"></span></td>
                     <td class="num">{{ t.ordered | number: '1.2-2' }}</td>
                     <td class="num">{{ t.orderedPaid | number: '1.2-2' }}</td>
@@ -203,13 +204,44 @@ const PAGE_SIZE = 8;
                           </thead>
                           <tbody>
                             @for (t of tablesFor(w.name); track t.table) {
-                              <tr>
-                                <td>{{ t.table }}</td>
+                              <tr class="clickable" (click)="toggleWaiterTable(w.name, t.table)">
+                                <td>
+                                  <span class="caret sm" [class.open]="isWaiterTableOpen(w.name, t.table)">▸</span>
+                                  {{ t.table }}
+                                </td>
                                 <td class="num">{{ t.ordered | number: '1.2-2' }}</td>
                                 <td class="num">{{ t.paid | number: '1.2-2' }}</td>
                                 <td class="num">{{ t.tip | number: '1.2-2' }}</td>
                                 <td class="num">{{ t.protocol | number: '1.2-2' }}</td>
                               </tr>
+                              @if (isWaiterTableOpen(w.name, t.table)) {
+                                <tr class="sub-row-2">
+                                  <td colspan="5">
+                                    <table class="subgrid items">
+                                      <thead>
+                                        <tr>
+                                          <th>Product</th>
+                                          <th class="num">Qty</th>
+                                          <th class="num">Price</th>
+                                          <th class="num">Total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        @for (it of itemsForWaiterTable(w.name, t.table); track it.name + it.price) {
+                                          <tr>
+                                            <td [innerHTML]="it.name"></td>
+                                            <td class="num">{{ it.quantity | number: '1.0-0' }}</td>
+                                            <td class="num">{{ it.price | number: '1.2-2' }}</td>
+                                            <td class="num">{{ it.total | number: '1.2-2' }}</td>
+                                          </tr>
+                                        } @empty {
+                                          <tr><td colspan="4" class="sub-empty">No items.</td></tr>
+                                        }
+                                      </tbody>
+                                    </table>
+                                  </td>
+                                </tr>
+                              }
                             } @empty {
                               <tr><td colspan="5" class="sub-empty">No tables.</td></tr>
                             }
@@ -237,6 +269,51 @@ const PAGE_SIZE = 8;
         <div class="select-prompt">Select an event to see the dashboard.</div>
       }
     </section>
+
+    @if (tableItemsModal()) {
+      <div class="modal-backdrop" (click)="closeTableItems()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <h5 class="modal-title">Items — <span [innerHTML]="tableItemsModal()"></span></h5>
+            <button type="button" class="modal-close" (click)="closeTableItems()" aria-label="Close">×</button>
+          </div>
+          <div class="modal-body">
+            @if (modalItems().length === 0) {
+              <p class="state">No items ordered.</p>
+            } @else {
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th class="num">Qty</th>
+                    <th class="num">Price</th>
+                    <th class="num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (it of modalItems(); track it.name + it.price) {
+                    <tr>
+                      <td [innerHTML]="it.name"></td>
+                      <td class="num">{{ it.quantity | number: '1.0-0' }}</td>
+                      <td class="num">{{ it.price | number: '1.2-2' }}</td>
+                      <td class="num">{{ it.total | number: '1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr class="total-row">
+                    <td>Total</td>
+                    <td class="num">{{ modalQty() | number: '1.0-0' }}</td>
+                    <td class="num"></td>
+                    <td class="num">{{ modalTotal() | number: '1.2-2' }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            }
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -487,6 +564,75 @@ const PAGE_SIZE = 8;
         text-align: center;
         color: var(--muted);
       }
+      .caret.sm {
+        font-size: 0.6rem;
+      }
+      /* second-level drill-down (items under a waiter's table) */
+      .sub-row-2 > td {
+        padding: 0;
+        background: #fff;
+      }
+      .subgrid.items {
+        background: #fff;
+      }
+      .subgrid.items td:first-child,
+      .subgrid.items th:first-child {
+        padding-left: 1.5rem;
+      }
+      /* items modal (Tables widget drill-down) */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: rgba(18, 27, 46, 0.45);
+      }
+      .modal {
+        width: 100%;
+        max-width: 520px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1rem 2.5rem rgba(18, 27, 46, 0.25);
+        overflow: hidden;
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      .modal-close {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        font-size: 1.3rem;
+        line-height: 1;
+        color: var(--muted);
+        background: none;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .modal-close:hover {
+        background: var(--page-bg);
+        color: var(--text);
+      }
+      .modal-body {
+        overflow-y: auto;
+      }
       /* tighter cells so the wide money table fits */
       .grid.tight th,
       .grid.tight td {
@@ -650,6 +796,31 @@ export class DashboardPage {
   readonly waitersLoading = signal(true);
   readonly waiterTables = signal<WaiterTableRow[]>([]);
   readonly expandedWaiter = signal<string | null>(null);
+
+  // --- ordered-items drill-down (Tables modal + Waiters nested expand) ---
+  readonly tableItems = signal<TableItemReportRow[]>([]);
+  readonly tableItemsModal = signal<string | null>(null); // order point name, null = closed
+  readonly expandedWaiterTable = signal<string | null>(null); // `${waiter}|${table}`, null = none
+  /** Items for the order point shown in the modal, merged across waiters by product + price. */
+  readonly modalItems = computed(() => {
+    const table = this.tableItemsModal();
+    if (!table) return [];
+    const merged = new Map<string, { name: string; price: number; quantity: number; total: number }>();
+    for (const r of this.tableItems()) {
+      if (r.table !== table) continue;
+      const key = `${r.name}|${r.price}`;
+      const ex = merged.get(key);
+      if (ex) {
+        ex.quantity += r.quantity;
+        ex.total += r.total;
+      } else {
+        merged.set(key, { name: r.name, price: r.price, quantity: r.quantity, total: r.total });
+      }
+    }
+    return [...merged.values()];
+  });
+  readonly modalTotal = computed(() => this.modalItems().reduce((s, i) => s + i.total, 0));
+  readonly modalQty = computed(() => this.modalItems().reduce((s, i) => s + i.quantity, 0));
   readonly waiterTotals = computed(() =>
     this.waiters().reduce(
       (acc, w) => ({
@@ -667,6 +838,23 @@ export class DashboardPage {
   }
   tablesFor(name: string): WaiterTableRow[] {
     return this.waiterTables().filter((r) => r.waiter === name);
+  }
+
+  openTableItems(name: string): void {
+    this.tableItemsModal.set(name);
+  }
+  closeTableItems(): void {
+    this.tableItemsModal.set(null);
+  }
+  itemsForWaiterTable(waiter: string, table: string): TableItemReportRow[] {
+    return this.tableItems().filter((r) => r.waiter === waiter && r.table === table);
+  }
+  toggleWaiterTable(waiter: string, table: string): void {
+    const key = `${waiter}|${table}`;
+    this.expandedWaiterTable.update((c) => (c === key ? null : key));
+  }
+  isWaiterTableOpen(waiter: string, table: string): boolean {
+    return this.expandedWaiterTable() === `${waiter}|${table}`;
   }
 
   constructor() {
@@ -721,6 +909,12 @@ export class DashboardPage {
         /* drill-down unavailable; top-level still works */
       },
     });
+    this.service.tableItemsReport(ev).subscribe({
+      next: (rows) => this.tableItems.set(rows),
+      error: () => {
+        /* item drill-down unavailable; top-level still works */
+      },
+    });
   }
 
   toggleEventCombo(): void {
@@ -737,6 +931,8 @@ export class DashboardPage {
     this.productPage.set(1);
     this.tablePage.set(1);
     this.expandedWaiter.set(null);
+    this.expandedWaiterTable.set(null);
+    this.tableItemsModal.set(null);
     this.load();
   }
 

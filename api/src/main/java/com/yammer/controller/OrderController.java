@@ -11,6 +11,7 @@ import com.yammer.dto.PlaceOrderRequest;
 import com.yammer.dto.ProductReportRow;
 import com.yammer.dto.SalesIntervalRow;
 import com.yammer.dto.SalesSummaryResponse;
+import com.yammer.dto.TableItemReportRow;
 import com.yammer.dto.TableReportRow;
 import com.yammer.dto.WaiterReportRow;
 import com.yammer.dto.PaymentFilterOptions;
@@ -121,6 +122,14 @@ public class OrderController {
     @PreAuthorize(REPORTS)
     public List<WaiterTableRow> waiterTablesReport(@RequestParam(required = false) UUID eventId) {
         return salesReportService.waiterTables(eventId);
+    }
+
+    /** Every ordered product line (per waiter × order point × product) — backs the dashboard
+     *  Tables modal and the Waiters drill-down. */
+    @GetMapping("/table-items-report")
+    @PreAuthorize(REPORTS)
+    public List<TableItemReportRow> tableItemsReport(@RequestParam(required = false) UUID eventId) {
+        return salesReportService.tableItems(eventId);
     }
 
     /** Final report: per user + order point, card/cash paid and tip (protocol excluded). */

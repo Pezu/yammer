@@ -6,6 +6,7 @@ import com.yammer.dto.PaymentFilterOptions;
 import com.yammer.dto.PaymentReportRow;
 import com.yammer.dto.SalesIntervalRow;
 import com.yammer.dto.SalesSummaryResponse;
+import com.yammer.dto.TableItemReportRow;
 import com.yammer.dto.TableReportRow;
 import com.yammer.dto.WaiterReportRow;
 import com.yammer.dto.WaiterTableRow;
@@ -168,6 +169,23 @@ public class SalesReportService {
     }
 
     /** Final report: per user + order point, card/cash paid and tip (protocol excluded). */
+    /** Every ordered product line for the event (per waiter × order point × product) — backs the
+     *  Tables modal and the Waiters drill-down. */
+    public List<TableItemReportRow> tableItems(UUID eventId) {
+        if (!accessible(eventId)) {
+            return List.of();
+        }
+        return reportRepository.tableItemDetailsByEvent(eventId).stream()
+                .map(r -> new TableItemReportRow(
+                        r.getWaiter(),
+                        r.getTableName(),
+                        r.getName(),
+                        r.getPrice(),
+                        r.getQuantity(),
+                        r.getTotal()))
+                .toList();
+    }
+
     public List<FinalReportRow> finalReport(UUID eventId) {
         if (!accessible(eventId)) {
             return List.of();
