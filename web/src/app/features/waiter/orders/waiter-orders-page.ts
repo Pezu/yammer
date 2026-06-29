@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ActiveOrder, WaiterOrderPointService } from '../tables/waiter-order-point.service';
+import { roTime } from '../../../shared/tz';
 
 type Tab = 'ORDERED' | 'READY';
 
@@ -269,7 +270,7 @@ export class WaiterOrdersPage {
   }
 
   time(iso: string): string {
-    return iso.length >= 16 ? iso.substring(11, 16) : iso;
+    return roTime(iso);
   }
 
 

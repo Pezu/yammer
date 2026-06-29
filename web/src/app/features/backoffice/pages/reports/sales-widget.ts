@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { OrderReportService, SalesIntervalRow } from './order.service';
+import { roTime } from '../../../../shared/tz';
 
 interface Bar {
   d: string;
@@ -447,7 +448,7 @@ export class SalesWidget {
   }
 
   private timeLabel(interval: string): string {
-    return interval.length >= 16 ? interval.substring(11, 16) : interval;
+    return roTime(interval);
   }
 
   private fmt(v: number): string {

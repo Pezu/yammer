@@ -1,14 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { ComboOption, FilterCombo } from './filter-combo';
 import { EventOption, OrderReportService, PaymentReportRow } from './order.service';
+import { RoDatePipe } from '../../../../shared/tz';
 
 const PAGE_SIZE = 50;
 
 /** Reports → Payments: the event's payments (server-side paged + filtered) with their type. */
 @Component({
   selector: 'app-payments-report-page',
-  imports: [DatePipe, DecimalPipe, FilterCombo],
+  imports: [DecimalPipe, FilterCombo, RoDatePipe],
   template: `
     <header class="page-header">
       <h1>Payments</h1>
@@ -66,7 +67,7 @@ const PAGE_SIZE = 50;
               <tbody>
                 @for (p of rows(); track p.id) {
                   <tr>
-                    <td>{{ p.createdAt | date: 'dd.MM HH:mm' }}</td>
+                    <td>{{ p.createdAt | roDate: 'datetime' }}</td>
                     <td>{{ p.method }}</td>
                     <td>{{ p.orderPoint }}</td>
                     <td>{{ p.createdBy }}</td>
